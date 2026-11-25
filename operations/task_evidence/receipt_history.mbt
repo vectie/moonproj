@@ -95,11 +95,11 @@ pub fn receipt_history(task_id : String, rows : Array[Json]) -> Json {
   }
   let offers = offer_draft_history(task_id, rows)
   if !offers.is_empty() && history is Object(fields) {
-    fields["offer_history"] = offers.to_json()
+    fields["offer_history"] = Json::array(offers)
   }
   let replies = offer_reply_history(task_id, rows)
   if !replies.is_empty() && history is Object(fields) {
-    fields["offer_reply_history"] = replies.to_json()
+    fields["offer_reply_history"] = Json::array(replies)
   }
   history
 }

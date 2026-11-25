@@ -1,0 +1,226 @@
+{
+  "mission": {
+    "title": "OPC 创新研究一人公司（OPC Research Lab）",
+    "north_star": "完成人工智能时代一人公司（OPC）组织杠杆理论（TOL）与成熟度评估体系（OPC-MM）博士研究，并以 MoonSuite 自身作为实证运营系统验证 80/20 创始人高杠杆模式。",
+    "active_stage_id": "stage-3-opening-defense",
+    "focus_ratio": "80/20"
+  },
+  "stages": [
+    {
+      "id": "stage-1-proposal",
+      "order": 1,
+      "title": "研究计划与开题立项",
+      "status": "achieved",
+      "weight_pct": 15,
+      "outcome": "已完成开题报告与学术表达修订，确立组织杠杆理论（TOL）主线并获立项通过。",
+      "milestone_task_id": "OPC-DOCTORAL-PROPOSAL"
+    },
+    {
+      "id": "stage-2-advisory-board",
+      "order": 2,
+      "title": "组建指导委员会（Advisory Board）",
+      "status": "achieved",
+      "weight_pct": 10,
+      "outcome": "已组建跨学科 DBA 指导与评审委员会，确认研究边界与答辩标准。",
+      "milestone_task_id": ""
+    },
+    {
+      "id": "stage-3-opening-defense",
+      "order": 3,
+      "title": "开题答辩（当前核心焦点）",
+      "status": "active",
+      "weight_pct": 35,
+      "outcome": "完成 25 页开题答辩演示稿、逐页讲稿一致性核验与委员会尖锐问答预演，顺利通过开题答辩。",
+      "milestone_task_id": "OPC-DOCTORAL-PRESENTATION"
+    },
+    {
+      "id": "stage-4-dissertation",
+      "order": 4,
+      "title": "博士学位论文定稿与最终答辩",
+      "status": "upcoming",
+      "weight_pct": 40,
+      "outcome": "完成 26 周系统遥测、76 案例稳健性检验、负例分析与中英文学位论文最终定稿。",
+      "milestone_task_id": "OPC-DOCTORAL-DISSERTATION"
+    }
+  ],
+  "roles": [
+    {
+      "id": "role-founder",
+      "name": "创始人 / 首席研究员（Founder）",
+      "tier": 0,
+      "reports_to": "",
+      "kind": "human",
+      "mission": "把 80% 的时间聚焦在 20% 关键决策：核心理论判断、开题答辩陈述与委员会沟通、阶段里程碑最终验收、以及 Agent 规则演化审批。",
+      "powers": [
+        "mission:set",
+        "stage:accept",
+        "authority:grant",
+        "external:defend",
+        "skill:promote"
+      ],
+      "limits": [
+        "最终学术与经营问责主体，保留事项不可委托给 Agent"
+      ],
+      "skill_ref": "",
+      "model": "human",
+      "version": "v1",
+      "status": "active"
+    },
+    {
+      "id": "role-director",
+      "name": "研究总监（Research Director）",
+      "tier": 1,
+      "reports_to": "role-founder",
+      "kind": "agent",
+      "mission": "将当前聚焦阶段（开题答辩）拆解为可执行专家任务，调度隔离工作区并行核查与编辑，整合交付物，仅把 20% 高影响判断升级给创始人。",
+      "powers": [
+        "work:decompose",
+        "worker:spawn",
+        "draft:integrate",
+        "decision:escalate"
+      ],
+      "limits": [
+        "不可自行验收里程碑交付",
+        "不可修改 raw/originals/ 原件",
+        "不可擅自对外提交或发布"
+      ],
+      "skill_ref": "skills/research-director/SKILL.md",
+      "model": "inherited",
+      "version": "v1",
+      "status": "active"
+    },
+    {
+      "id": "role-corpus-verifier",
+      "name": "文献与证据核查专员（Corpus Verifier）",
+      "tier": 2,
+      "reports_to": "role-director",
+      "kind": "agent",
+      "mission": "核对论文、开题报告、25 页 PPT 与 6 篇核心参考论文/词频表之间的数据口径、样本量、公式与引用一致性，标出所有冲突与缺口。",
+      "powers": [
+        "corpus:read",
+        "evidence:audit",
+        "claim:verify"
+      ],
+      "limits": [
+        "只读核查与出具问题清单，不得编造数据或私自改写原稿"
+      ],
+      "skill_ref": "skills/corpus-verifier/SKILL.md",
+      "model": "inherited",
+      "version": "v1",
+      "status": "active"
+    },
+    {
+      "id": "role-defense-editor",
+      "name": "答辩演示与讲稿编辑（Defense Editor）",
+      "tier": 2,
+      "reports_to": "role-director",
+      "kind": "agent",
+      "mission": "优化 25 页开题答辩 PPT 结构、逐页讲稿节奏、图表表达与中英文学术术语一致性，输出可直接审阅的工作副本修订。",
+      "powers": [
+        "draft:edit",
+        "slides:revise",
+        "script:refine"
+      ],
+      "limits": [
+        "仅在工作副本与交付目录编辑，不得自行通过终审"
+      ],
+      "skill_ref": "skills/defense-editor/SKILL.md",
+      "model": "inherited",
+      "version": "v1",
+      "status": "active"
+    },
+    {
+      "id": "role-advisory-critic",
+      "name": "模拟评审委员（Advisory-Board Critic）",
+      "tier": 2,
+      "reports_to": "role-director",
+      "kind": "agent",
+      "mission": "站在 SJTU-SMU DBA 评审委员会视角，独立质询 TOL 理论推导、内生性、幸存者偏差与实证设计，出具高压力问答清单与反驳建议。",
+      "powers": [
+        "draft:critique",
+        "defense:challenge",
+        "review:block"
+      ],
+      "limits": [
+        "保持独立审查职责，不参与起草同一稿件；仅产出评审意见，不替代创始人决策"
+      ],
+      "skill_ref": "skills/advisory-critic/SKILL.md",
+      "model": "inherited",
+      "version": "v1",
+      "status": "active"
+    }
+  ],
+  "resources": [
+    {
+      "id": "res-research-book",
+      "name": "OPC 博士研究 MoonBook（工作知识库）",
+      "kind": "moonbook",
+      "uri": "/Users/jiaanguo/Library/Application Support/app.vectie.moondesk.lepusa.live/workspace/books/opc-doctoral-research",
+      "desk_url": "http://127.0.0.1:4201/?workspace=book-opc-doctoral-research&activity=wiki&path=wiki%2Findex.md",
+      "access": "read_write",
+      "owner_role": "role-founder",
+      "notes": "已注册于 MoonDesk 活跃库，含 SHA-256 校验的原件副本、分阶段工作副本与 4 份 Agent 角色 SKILL.md。"
+    },
+    {
+      "id": "res-defense-deck",
+      "name": "开题答辩 25 页演示与逐页讲稿",
+      "kind": "corpus",
+      "uri": "/Users/jiaanguo/Library/Application Support/app.vectie.moondesk.lepusa.live/workspace/books/opc-doctoral-research/wiki/02-presentation/index.md",
+      "desk_url": "http://127.0.0.1:4201/?workspace=book-opc-doctoral-research&activity=wiki&path=wiki%2F02-presentation%2Findex.md",
+      "access": "read_write",
+      "owner_role": "role-defense-editor",
+      "notes": "当前开题答辩阶段核心工作面（01_cover ~ 25_closing + speaker-notes.md）。"
+    },
+    {
+      "id": "res-thesis-originals",
+      "name": "原始研究档案（~/Downloads/Research 只读源）",
+      "kind": "corpus",
+      "uri": "/Users/jiaanguo/Downloads/Research",
+      "desk_url": "",
+      "access": "read_only",
+      "owner_role": "role-corpus-verifier",
+      "notes": "原始中英文论文稿、开题报告修订版、6 篇核心对照文献及词频统计表；严格只读，绝不直接改写。"
+    },
+    {
+      "id": "res-ppt-scripts",
+      "name": "PPT 构建与讲稿生成脚本工具链",
+      "kind": "tool",
+      "uri": "/Users/jiaanguo/Library/Application Support/app.vectie.moondesk.lepusa.live/workspace/books/opc-doctoral-research/raw/originals/build_opc_ppt.py",
+      "desk_url": "",
+      "access": "execute",
+      "owner_role": "role-defense-editor",
+      "notes": "build_opc_ppt.py / add_opc_speaker_notes.py / create_opc_script_docx.js。"
+    },
+    {
+      "id": "res-moonclaw-runtime",
+      "name": "MoonClaw 协同智能体运行时",
+      "kind": "runtime",
+      "uri": "moonclaw://local-daemon",
+      "desk_url": "",
+      "access": "execute",
+      "owner_role": "role-director",
+      "notes": "负责隔离工作区并行执行（specialist-1/specialist-2/reviewer）与有界 wait_workers 协同回收。"
+    }
+  ],
+  "evolution_log": [
+    {
+      "id": "evo-1-separation",
+      "date": "2026-11-25",
+      "target": "company",
+      "target_id": "role-advisory-critic",
+      "change": "将独立模拟评审委员（Advisory-Board Critic）与答辩编辑（Defense Editor）职责分离，强制独立质询后再升级创始人验收。",
+      "evidence": "组织杠杆理论（TOL）木桶效应：缺少独立检验与学习资产会导致多 Agent 密度陷阱与返工。"
+    },
+    {
+      "id": "evo-2-book-isolation",
+      "date": "2026-11-25",
+      "target": "company",
+      "target_id": "res-research-book",
+      "change": "将协调工作区锚定在 MoonDesk 已注册的 opc-doctoral-research Book 根目录，隔离专员沙盒移至同级 .moonproj-workers 目录并修复 wait_workers 终态推进。",
+      "evidence": "消除 MoonDesk unknown_workspace 与协调者 102 次空轮询阻塞，打通真实审阅与编辑闭环。"
+    }
+  ],
+  "critical_task_ids": [
+    "OPC-DOCTORAL-PRESENTATION"
+  ]
+}

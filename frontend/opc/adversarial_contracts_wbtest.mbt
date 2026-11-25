@@ -298,7 +298,7 @@ test "hostile policy and product text is escaped by rendered UI" {
     update=(_ : Msg, model) => model,
     view=(emit, model) => policy_radar_view(msg => emit(msg), model),
   )
-  let policy_html = @rabbita.render_to_string(policy_page)
+  let policy_html = opc_render_cell(policy_page)
   assert_false(policy_html.contains(hostile))
   assert_true(policy_html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
   let product_page = @rabbita.simple_cell(
@@ -312,7 +312,7 @@ test "hostile policy and product text is escaped by rendered UI" {
     update=(_ : Msg, model) => model,
     view=(emit, model) => moon_suite_view(msg => emit(msg), model),
   )
-  let product_html = @rabbita.render_to_string(product_page)
+  let product_html = opc_render_cell(product_page)
   assert_false(product_html.contains(hostile))
   assert_true(product_html.contains("&lt;script&gt;alert(1)&lt;/script&gt;"))
 }

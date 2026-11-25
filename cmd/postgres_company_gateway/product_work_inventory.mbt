@@ -50,7 +50,7 @@ async fn read_product_work_inventory(
         .get(0)
       if prd is None ||
         prd.unwrap().metadata.get("sha256") !=
-        Some(inventory.prd_sha256.to_json()) {
+        Some(Json::string(inventory.prd_sha256)) {
         return ("invalid", [])
       }
     }

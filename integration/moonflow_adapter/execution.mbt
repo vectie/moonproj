@@ -167,7 +167,11 @@ async fn build_artifact(
         flow.created_at,
       )
       @project_plan.validate_artifact(artifact)
-      let text = immutable_json_ref(root, reference, artifact.to_json())
+      let text = immutable_json_ref(
+        root,
+        reference,
+        ToJson::to_json(artifact),
+      )
       ignore(validate_artifact_evidence(root, flow, request, @json.parse(text)))
       text
     }

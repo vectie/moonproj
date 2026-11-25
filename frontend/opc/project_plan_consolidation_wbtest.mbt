@@ -67,7 +67,7 @@ test "consolidation UI previews applies persists reloads exports and prepares th
     plan_store(
       model.plan.actor,
       model.plan.selected,
-      before.to_json().stringify(),
+      ToJson::to_json(before).stringify(),
     ),
   )
   let input = consolidation_test_input(model)
@@ -77,7 +77,7 @@ test "consolidation UI previews applies persists reloads exports and prepares th
   assert_eq(preview.plan.revision, model.plan.revision)
   assert_eq(
     @json.parse(plan_restore(model.plan.actor, model.plan.selected)),
-    before.to_json(),
+    ToJson::to_json(before),
   )
   assert_eq(plan_test_requests(), "[]")
   let html = products_test_html(preview)
@@ -93,7 +93,7 @@ test "consolidation UI previews applies persists reloads exports and prepares th
   ignore(
     plan_test_file(
       "consolidation-before.json",
-      before.to_json().stringify(indent=2),
+      ToJson::to_json(before).stringify(indent=2),
     ),
   )
   let (_, repeated_preview) = plan_update(
@@ -126,12 +126,12 @@ test "consolidation UI previews applies persists reloads exports and prepares th
   assert_eq(applied.plan.task_finder.focus, "")
   assert_eq(
     @json.parse(plan_restore(model.plan.actor, model.plan.selected)),
-    edited.to_json(),
+    ToJson::to_json(edited),
   )
   ignore(
     plan_test_file(
       "consolidation-after.json",
-      edited.to_json().stringify(indent=2),
+      ToJson::to_json(edited).stringify(indent=2),
     ),
   )
   let (_, repeat) = plan_update(_ => none, Consolidation(Apply), applied)
@@ -173,7 +173,7 @@ test "consolidation UI previews applies persists reloads exports and prepares th
     fail("one explicit prepare")
   }
   let body = products_text(request, "body")
-  assert_eq(@json.parse(body), edited.to_json())
+  assert_eq(@json.parse(body), ToJson::to_json(edited))
   ignore(plan_test_file("consolidation-prepare-request.json", body))
 }
 

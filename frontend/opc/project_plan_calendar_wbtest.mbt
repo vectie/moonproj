@@ -32,7 +32,7 @@ test "calendar export uses the current edited draft without changing saved plan 
   ignore(
     plan_test_file(
       "calendar-input.json",
-      edited.plan.draft.unwrap().to_json().stringify(),
+      ToJson::to_json(edited.plan.draft.unwrap()).stringify(),
     ),
   )
   ignore(plan_test_file("plan-milestones.ics", products_text(download, "text")))

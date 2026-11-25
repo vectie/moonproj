@@ -141,7 +141,7 @@ test "source and technical receipt details render in existing task card with key
     emit,
     model,
   ) => dispatch_durable_task_card(msg => emit(msg), model))
-  let rendered = @rabbita.render_to_string(page)
+  let rendered = opc_render_cell(page)
   assert_true(rendered.contains("Cannot compare offers"))
   assert_true(rendered.contains("https://example.test/interview-7"))
   assert_true(rendered.contains("accept-event-7"))

@@ -1,24 +1,28 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "vectie/moonproj/integration/company_flow"
 
+import {
+  "moonbitlang/core/json",
+}
+
 // Values
-pub fn binding(Json, Json, String, String) -> Json raise
+pub fn binding(@json.Json, @json.Json, String, String) -> @json.Json raise
 
-pub fn field(Json, String) -> Json
+pub fn field(@json.Json, String) -> @json.Json
 
-pub fn require_current(Json, Json) -> Unit raise
+pub fn require_current(@json.Json, @json.Json) -> Unit raise
 
-pub fn revision(Json) -> Int raise
+pub fn revision(@json.Json) -> Int32 raise
 
-pub fn snapshot(Json, Int) -> Json raise
+pub fn snapshot(@json.Json, Int32) -> @json.Json raise
 
-pub fn text(Json, String) -> String
+pub fn text(@json.Json, String) -> String
 
-pub fn validate_approval(Json, Json) -> Unit raise
+pub fn validate_approval(@json.Json, @json.Json) -> Unit raise
 
-pub fn validate_binding(Json) -> Unit raise
+pub fn validate_binding(@json.Json) -> Unit raise
 
-pub fn validate_snapshot(Json) -> Unit raise
+pub fn validate_snapshot(@json.Json) -> Unit raise
 
 // Errors
 

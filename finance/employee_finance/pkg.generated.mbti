@@ -12,6 +12,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror AdvanceError {
   EmptyIdentifier
   InvalidAmount
@@ -21,16 +22,18 @@ pub(all) suberror AdvanceError {
   Projection(@store.ProjectionError)
   AccountingEvent(@accounting.AccountingEventError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum AdvanceState {
   Open
   PartiallyRepaid
   Repaid
   WrittenOff
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct EmployeeAdvance {
   advance_id : String
   principal_id : String
@@ -38,7 +41,7 @@ pub(all) struct EmployeeAdvance {
   amount : @finance.Money
   repaid_minor : Int64
   state : AdvanceState
-} derive(Eq, @debug.Debug)
+}
 pub fn EmployeeAdvance::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise AdvanceError
 pub fn EmployeeAdvance::new(advance_id~ : String, principal_id~ : String, employee_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AdvanceError
 pub fn EmployeeAdvance::offset(Self, amount_minor~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AdvanceError

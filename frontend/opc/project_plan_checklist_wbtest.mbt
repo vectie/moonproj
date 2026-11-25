@@ -34,7 +34,7 @@ test "checklist UI previews appends persists reloads and exports source-backed p
     plan_store(
       model.plan.actor,
       model.plan.selected,
-      before.to_json().stringify(),
+      ToJson::to_json(before).stringify(),
     ),
   )
   let input = checklist_test_input(model)
@@ -45,7 +45,7 @@ test "checklist UI previews appends persists reloads and exports source-backed p
   assert_eq(preview.plan.revision, model.plan.revision)
   assert_eq(
     @json.parse(plan_restore(model.plan.actor, model.plan.selected)),
-    before.to_json(),
+    ToJson::to_json(before),
   )
   let html = products_test_html(preview)
   for
@@ -124,7 +124,7 @@ test "checklist UI previews appends persists reloads and exports source-backed p
   )
   assert_eq(@plan_workbench.items(request, "tasks").length(), 5)
   ignore(
-    plan_test_file("checklist-after.json", after.to_json().stringify(indent=2)),
+    plan_test_file("checklist-after.json", ToJson::to_json(after).stringify(indent=2)),
   )
   ignore(plan_test_file("checklist-tasks.csv", csv))
   ignore(

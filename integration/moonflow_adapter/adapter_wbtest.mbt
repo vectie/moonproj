@@ -113,7 +113,7 @@ async fn adapter_fixture(
   write_test_text(
     root,
     plan_ref,
-    fixture_request(evidence_digest).to_json().stringify(indent=2) + "\n",
+    ToJson::to_json(fixture_request(evidence_digest)).stringify(indent=2) + "\n",
   )
   let input_artifacts = [plan_ref, evidence_ref]
   let flow : FlowRequest = {

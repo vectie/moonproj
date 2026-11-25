@@ -115,7 +115,7 @@ test "actual UI prepare transport emits scoped typed draft and repeat is blocked
     "/api/company/projects/company-actual/prepared-plans",
   )
   let body = products_text(items[0], "body")
-  assert_eq(@json.parse(body), plan_test_draft().to_json())
+  assert_eq(@json.parse(body), ToJson::to_json(plan_test_draft()))
   ignore(plan_test_file("ui-request.json", body))
   let (repeat, unchanged) = plan_update(_ => none, Prepare, pending)
   assert_eq(products_test_effect_count(repeat), 0)

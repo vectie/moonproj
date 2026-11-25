@@ -44,7 +44,7 @@ test "compiled phase selection preview download and existing append replacement 
   defer plan_test_cleanup()
   let model = extract_test_model()
   let d = model.plan.draft.unwrap()
-  let original = d.to_json().stringify()
+  let original = ToJson::to_json(d).stringify()
   assert_true(plan_store(model.plan.actor, model.plan.selected, original))
   let preview = extract_test_preview(model)
   assert_eq(preview.plan.draft, model.plan.draft)
@@ -62,7 +62,7 @@ test "compiled phase selection preview download and existing append replacement 
     ] {
     assert_true(html.contains(text))
   }
-  ignore(plan_test_file("phase-input.json", d.to_json().stringify(indent=2)))
+  ignore(plan_test_file("phase-input.json", ToJson::to_json(d).stringify(indent=2)))
   ignore(plan_test_file("phase-preview.html", html))
   let (download, unchanged) = plan_update(_ => none, Extract(Download), preview)
   drafts_test_execute(download)
@@ -102,7 +102,7 @@ test "compiled phase selection preview download and existing append replacement 
   ignore(
     plan_test_file(
       "phase-appended.json",
-      combined.to_json().stringify(indent=2),
+      ToJson::to_json(combined).stringify(indent=2),
     ),
   )
   let (_, named) = plan_update(
@@ -117,10 +117,10 @@ test "compiled phase selection preview download and existing append replacement 
   ignore(
     plan_test_file(
       "phase-replaced.json",
-      replaced.plan.draft.unwrap().to_json().stringify(indent=2),
+      ToJson::to_json(replaced.plan.draft.unwrap()).stringify(indent=2),
     ),
   )
-  assert_eq(d.to_json().stringify(), original)
+  assert_eq(ToJson::to_json(d).stringify(), original)
   assert_eq(plan_test_requests(), "[]")
 }
 

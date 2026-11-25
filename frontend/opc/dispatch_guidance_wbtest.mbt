@@ -20,7 +20,7 @@ test "formal task offers optional reviewed Book guidance before first Start" {
       revision: 3.0,
     },
   }
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_durable_task_card(_ => none, model)),
   )
   assert_true(html.contains("可选：复用 Book 已审核经验"))
@@ -352,7 +352,7 @@ test "reserved execution displays captured references instead of tab-local guida
     dispatch_start_body(reserved),
     starting.dispatch_guidance.start_body.unwrap(),
   )
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_native_result(reserved)),
   )
   assert_true(html.contains("lesson-selected"))
@@ -392,7 +392,7 @@ test "navigation actor task and revision changes clear unsubmitted tab guidance"
 #warnings("-alert_unstable")
 test "guidance review scope and text render escaped before explicit Start" {
   let selected = guidance_test_selected()
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_guidance_view(_ => none, selected)),
   )
   assert_true(html.contains("named-reviewer"))

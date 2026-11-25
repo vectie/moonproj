@@ -11,6 +11,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror CbsError {
   EmptyIdentifier
   EmptySubject
@@ -31,16 +32,17 @@ pub(all) suberror CbsError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct CbsBudgetLedger {
   version_id : String
   project_scope : String
   principal_id : String
   currency : String
   reservations : Array[CbsBudgetReservation]
-} derive(Eq, @debug.Debug)
+}
 pub fn CbsBudgetLedger::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CbsError
 pub fn CbsBudgetLedger::consume(Self, reservation_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
 pub fn CbsBudgetLedger::consumed_minor(Self) -> Int64
@@ -49,6 +51,7 @@ pub fn CbsBudgetLedger::release(Self, reservation_id~ : String, actor_id~ : Stri
 pub fn CbsBudgetLedger::reserve(Self, CbsVersion, CostSubjectLink, reservation_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (Self, CbsBudgetReservation) raise CbsError
 pub fn CbsBudgetLedger::reserved_minor(Self) -> Int64
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CbsBudgetReservation {
   reservation_id : String
   source_id : String
@@ -58,20 +61,22 @@ pub(all) struct CbsBudgetReservation {
   principal_id : String
   amount : @finance.Money
   state : CbsBudgetReservationState
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CbsBudgetReservationState {
   Reserved
   Consumed
   Released
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CbsVersion {
   version_id : String
   project_scope : String
   state : CbsVersionState
   subjects : Array[CostSubject]
-} derive(Eq, @debug.Debug)
+}
 pub fn CbsVersion::activate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
 pub fn CbsVersion::add_subject(Self, subject~ : CostSubject, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
 pub fn CbsVersion::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CbsError
@@ -80,20 +85,23 @@ pub fn CbsVersion::link_cost(Self, link_id~ : String, source_id~ : String, subje
 pub fn CbsVersion::new(version_id~ : String, project_scope~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CbsError
 pub fn CbsVersion::target_total_minor(Self) -> Int64
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CbsVersionState {
   Draft
   Active
   Frozen
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CostSubject {
   subject_id : String
   code : String
   name : String
   parent_code : String
   target_minor : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CostSubjectLink {
   link_id : String
   source_id : String
@@ -102,7 +110,7 @@ pub(all) struct CostSubjectLink {
   subject_code : String
   principal_id : String
   amount : @finance.Money
-} derive(Eq, @debug.Debug)
+}
 pub fn CostSubjectLink::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CbsError
 
 // Type aliases

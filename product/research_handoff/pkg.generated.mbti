@@ -12,9 +12,10 @@ pub fn decode(String) -> Result[Brief, String]
 // Errors
 
 // Types and methods
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Archive {
-  revision : Int
-  next_option : Int
+  revision : Int32
+  next_option : Int32
   evidence : Evidence
   question : String
   audience : String
@@ -24,19 +25,21 @@ pub(all) struct Archive {
   chosen_option_id : String
   reasoning : String
   next_action : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Brief {
   contract_id : String
   boundary : String
   evidence_status : String
   company_decision_recorded : Bool
   worksheet : Worksheet
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 pub fn Brief::chosen(Self) -> OptionEntry?
 pub fn Brief::markdown(Self) -> String
 pub fn Brief::preparation_blocker(Self) -> String
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Claim {
   claim_id : String
   statement : String
@@ -44,15 +47,17 @@ pub(all) struct Claim {
   evidence_location : String
   confidence : String
   counterevidence : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Evidence {
   run_id : String
   question : String
   papers : Array[Paper]
   summaries : Array[Summary]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct OptionEntry {
   id : String
   name : String
@@ -66,8 +71,9 @@ pub(all) struct OptionEntry {
   retained_source : Paper?
   retained_claim : Claim?
   evidence_review_note : String?
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Paper {
   paper_id : String
   versioned_id : String
@@ -79,8 +85,9 @@ pub(all) struct Paper {
   published_at : String?
   updated_at : String?
   retrieved_at : Int64?
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Summary {
   paper_id : String
   one_sentence : String
@@ -90,12 +97,13 @@ pub(all) struct Summary {
   limitations : Array[String]
   claims : Array[Claim]
   open_questions : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Worksheet {
   contract_id : String
-  revision : Int
-  next_option : Int
+  revision : Int32
+  next_option : Int32
   evidence : Evidence
   question : String
   audience : String
@@ -106,7 +114,7 @@ pub(all) struct Worksheet {
   reasoning : String
   next_action : String
   history : Array[Archive]?
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
 // Type aliases
 

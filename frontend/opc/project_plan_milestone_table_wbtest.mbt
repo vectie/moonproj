@@ -43,7 +43,7 @@ test "milestone table UI roundtrip renders persists exports and prepares current
     plan_store(
       "owner-test",
       "company-actual",
-      original.plan.draft.unwrap().to_json().stringify(),
+      ToJson::to_json(original.plan.draft.unwrap()).stringify(),
     ),
   )
   let stored = plan_restore("owner-test", "company-actual")
@@ -106,7 +106,7 @@ test "milestone table UI roundtrip renders persists exports and prepares current
   ignore(
     plan_test_file(
       "milestone-edits-before.json",
-      original.plan.draft.unwrap().to_json().stringify(indent=2),
+      ToJson::to_json(original.plan.draft.unwrap()).stringify(indent=2),
     ),
   )
   ignore(
@@ -119,7 +119,7 @@ test "milestone table UI roundtrip renders persists exports and prepares current
   ignore(
     plan_test_file(
       "milestone-edits-after.json",
-      d.to_json().stringify(indent=2),
+      ToJson::to_json(d).stringify(indent=2),
     ),
   )
   ignore(plan_test_file("milestone-edits-output.csv", csv))
@@ -133,7 +133,7 @@ test "milestone table UI roundtrip renders persists exports and prepares current
   guard @json.parse(plan_test_requests()) is Array([request]) else {
     fail("one explicit prepare")
   }
-  assert_eq(@json.parse(products_text(request, "body")), d.to_json())
+  assert_eq(@json.parse(products_text(request, "body")), ToJson::to_json(d))
   ignore(
     plan_test_file(
       "milestone-edits-prepare-request.json",

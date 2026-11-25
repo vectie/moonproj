@@ -9,10 +9,11 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror SqliteProjectionApplyError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 type ProjectionItem

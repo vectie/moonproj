@@ -251,8 +251,8 @@ fn book_outcome_export_projection(
     // The task snapshot contains the named internal acceptance. This is
     // decision evidence, never a customer response or a Book review.
     "decision_evidence_id": Json::string(task_id),
-    "observed_at": observed_at.to_json(),
-    "recorded_at": recorded_at.to_json(),
+    "observed_at": ToJson::to_json(observed_at),
+    "recorded_at": ToJson::to_json(recorded_at),
     "information_gap": native_field(draft, "information_gap"),
     "recognition_gap": native_field(draft, "recognition_gap"),
     "decisiveness_gap": native_field(draft, "decisiveness_gap"),

@@ -121,7 +121,7 @@ test "product in-gate renders on Moon Suite but not on exit quality" {
     update=(_ : Msg, model) => model,
     view=(emit, model) => moon_suite_view(msg => emit(msg), model),
   )
-  let moon_html = @rabbita.render_to_string(moon_page)
+  let moon_html = opc_render_cell(moon_page)
   assert_true(moon_html.contains("产品 In-Gate · 采用标记"))
   assert_true(moon_html.contains("PostgreSQL 已持久化"))
   assert_true(moon_html.contains("不是 G0，不改变出厂 G1-G9"))
@@ -133,7 +133,7 @@ test "product in-gate renders on Moon Suite but not on exit quality" {
     update=(_ : Msg, model) => model,
     view=(emit, model) => quality_view(msg => emit(msg), model),
   )
-  let quality_html = @rabbita.render_to_string(quality_page)
+  let quality_html = opc_render_cell(quality_page)
   assert_true(!quality_html.contains("产品 In-Gate · 采用标记"))
   assert_true(quality_html.contains("统一九 Gate 证据账本"))
 }
@@ -173,7 +173,7 @@ test "blank workspace shell is truthful and exposes navigation state" {
     emit,
     model,
   ) => view(msg => emit(msg), model))
-  let html = @rabbita.render_to_string(page)
+  let html = opc_render_cell(page)
   assert_true(html.contains("MoonProj"))
   assert_true(html.contains("产品"))
   assert_true(html.contains("任务编排"))
@@ -321,7 +321,7 @@ test "formal task flow renders one next action denial and receipt boundary" {
     emit,
     model,
   ) => dispatch_goal_flow(msg => emit(msg), model))
-  let html = @rabbita.render_to_string(page)
+  let html = opc_render_cell(page)
   assert_true(html.contains("交付一个可验收的正式任务"))
   assert_true(html.contains("创建正式任务"))
   assert_true(html.contains("后端收据是唯一状态真相"))

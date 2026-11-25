@@ -312,7 +312,7 @@ fn plan_template_view(
           ),
           @html.details <| [
             @html.summary("查看完整模板内容"),
-            @html.pre(preview.to_json().stringify(indent=2)),
+            @html.pre(ToJson::to_json(preview).stringify(indent=2)),
           ],
           p("模板范围与上下文 / Template scope and context"),
           @html.pre(preview.notes),
@@ -376,7 +376,7 @@ fn plan_template_view(
                   @html.summary(
                     "查看追加后的完整草稿 / Complete combined draft",
                   ),
-                  @html.pre(after.to_json().stringify(indent=2)),
+                  @html.pre(ToJson::to_json(after).stringify(indent=2)),
                 ],
                 p(
                   "追加只写入此浏览器草稿。请检查新增阶段是否符合项目范围与总预算，再单独准备原生计划；此处不保存原生版本、不派发正式任务。",

@@ -10,13 +10,14 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror PromotionError {
   InvalidArguments
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Erp(@erp.ErpImportError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

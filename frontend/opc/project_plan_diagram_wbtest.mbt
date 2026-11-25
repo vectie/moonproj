@@ -40,7 +40,7 @@ test "dependency map previews and downloads the current draft with focus and no 
   ignore(
     plan_test_file(
       "dependency-map-input.json",
-      focused.plan.draft.unwrap().to_json().stringify(),
+      ToJson::to_json(focused.plan.draft.unwrap()).stringify(),
     ),
   )
   let (repeat, unchanged) = plan_update(
@@ -155,7 +155,7 @@ test "parallel dependency map provides reusable practical diagram output" {
     fail("diagram expected")
   }
   ignore(plan_test_file("parallel-plan.svg", products_text(download, "text")))
-  ignore(plan_test_file("parallel-input.json", full.to_json().stringify()))
+  ignore(plan_test_file("parallel-input.json", ToJson::to_json(full).stringify()))
   assert_true(
     products_text(download, "text").contains("task-design -&gt; task-review"),
   )

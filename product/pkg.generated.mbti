@@ -9,6 +9,7 @@ import {
 pub fn authorize_autonomous_expansion(WorkflowAdoptionEvidence, AutonomousExpansionReview) -> AutonomousExpansionGateReceipt raise ProductAdoptionError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ProductAdoptionError {
   Invalid(String)
   ProductInGatePassRequired
@@ -19,21 +20,24 @@ pub(all) suberror ProductAdoptionError {
   IndependentReviewRequired
   ExpansionReviewRejected
   Catalog(ProductCatalogError)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ProductCatalogError {
   EmptyIdentifier
   DuplicateCapability(String)
   IncompatibleBase(expected~ : String, actual~ : String)
   ExtensionAlreadyActive(String)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum AutonomousExpansion {
   AutonomousStaffing
   AgentMarketplace
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct AutonomousExpansionGateReceipt {
   receipt_id : String
   feature : AutonomousExpansion
@@ -43,8 +47,9 @@ pub(all) struct AutonomousExpansionGateReceipt {
   review_id : String
   enabled : Bool
   company_authority_granted : Bool
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct AutonomousExpansionReview {
   review_id : String
   principal_id : String
@@ -56,15 +61,17 @@ pub(all) struct AutonomousExpansionReview {
   risk_evidence : Array[String]
   approved : Bool
   reviewed_at_epoch : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Capability {
   id : String
   label : String
   circuit : OperatingCircuit
   system : CompanySystem
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CompanySystem {
   Principal
   Market
@@ -72,8 +79,9 @@ pub(all) enum CompanySystem {
   Control
   Learning
   Continuity
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExtensionPack {
   extension_id : String
   name : String
@@ -82,41 +90,46 @@ pub(all) struct ExtensionPack {
   mount_path : String
   capabilities : Array[Capability]
   route_prefixes : Array[String]
-} derive(Eq, @debug.Debug)
+}
 pub fn ExtensionPack::new(extension_id~ : String, name~ : String, base_profile_id~ : String, source_system~ : String, mount_path~ : String, capabilities~ : Array[Capability], route_prefixes~ : Array[String]) -> Self raise ProductCatalogError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum OperatingCircuit {
   Economic
   Operating
   Governance
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProductInGateDecision {
   Unknown
   Experiment
   Pass
   Park
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProductProfile {
   profile_id : String
   name : String
   capabilities : Array[Capability]
   active_extensions : Array[String]
-} derive(Eq, @debug.Debug)
+}
 pub fn ProductProfile::activate(Self, ExtensionPack) -> Self raise ProductCatalogError
 pub fn ProductProfile::activate_transactional(Self, TransactionalPack, WorkflowAdoptionEvidence, payment_receipt~ : String, activated_by~ : String, activated_at_epoch~ : Int64) -> (Self, TransactionalPackActivationReceipt) raise ProductAdoptionError
 pub fn ProductProfile::has_extension(Self, String) -> Bool
 pub fn ProductProfile::includes(Self, String) -> Bool
 pub fn ProductProfile::new(profile_id~ : String, name~ : String, capabilities~ : Array[Capability]) -> Self raise ProductCatalogError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TransactionalPack {
   pack : ExtensionPack
   price_currency : String
   price_minor : Int64
   transaction_provider : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TransactionalPackActivationReceipt {
   receipt_id : String
   principal_id : String
@@ -127,8 +140,9 @@ pub(all) struct TransactionalPackActivationReceipt {
   payment_receipt : String
   activated_by : String
   activated_at_epoch : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct WorkflowAdoptionEvidence {
   principal_id : String
   product_id : String
@@ -137,10 +151,10 @@ pub(all) struct WorkflowAdoptionEvidence {
   product_in_gate_receipt : String
   accepted_customer_evidence : Array[String]
   owner_id : String
-  adoption_count : Int
-  successful_completions : Int
+  adoption_count : Int32
+  successful_completions : Int32
   reviewed_at_epoch : Int64
-} derive(Eq, @debug.Debug)
+}
 pub fn WorkflowAdoptionEvidence::qualifies(Self) -> Bool
 
 // Type aliases

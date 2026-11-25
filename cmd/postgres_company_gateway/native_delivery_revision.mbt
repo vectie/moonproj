@@ -52,7 +52,7 @@ fn native_delivery_revision_snapshot(
     "packet": { "command_id": command_id, "client_turn_id": id },
     "payload": {
       "moonproj_continuation": lineage,
-      "planner_allowed_tools": native_delivery_tools().to_json(),
+      "planner_allowed_tools": ToJson::to_json(native_delivery_tools()),
     },
   }
   let body = command.stringify()

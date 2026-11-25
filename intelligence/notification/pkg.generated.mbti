@@ -10,6 +10,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror NotificationError {
   EmptyIdentifier
   InvalidChannelContent
@@ -19,9 +20,10 @@ pub(all) suberror NotificationError {
   NotAuthorized(@foundation.AuthorityError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Notification {
   notification_id : String
   principal_id : String
@@ -37,7 +39,7 @@ pub(all) struct Notification {
   failure_reason : String
   state : NotificationState
   events : Array[NotificationEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn Notification::attempt(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise NotificationError
 pub fn Notification::bind_evidence(Self, source_snapshot_id~ : String, mapping_version~ : String, evidence_id~ : String) -> NotificationEvidence raise NotificationError
 pub fn Notification::confirm_delivered(Self, provider_message_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise NotificationError
@@ -46,28 +48,32 @@ pub fn Notification::new(notification_id~ : String, principal_id~ : String, reci
 pub fn Notification::queue(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise NotificationError
 pub fn Notification::suppress(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise NotificationError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum NotificationChannel {
   InApp
   Email
   Webhook
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct NotificationEvent {
   from : NotificationState
   to : NotificationState
   actor_id : String
   capability : String
   note : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct NotificationEvidence {
   notification : Notification
   source_snapshot_id : String
   mapping_version : String
   evidence_id : String
-} derive(Eq, @debug.Debug)
+}
 pub fn NotificationEvidence::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise NotificationError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum NotificationState {
   Draft
   Queued
@@ -75,7 +81,7 @@ pub(all) enum NotificationState {
   Delivered
   Failed
   Suppressed
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

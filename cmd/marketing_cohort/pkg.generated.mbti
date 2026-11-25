@@ -11,12 +11,13 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror MarketingCohortError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Marketing(@marketing.MarketingError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

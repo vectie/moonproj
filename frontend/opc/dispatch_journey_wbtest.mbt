@@ -175,7 +175,7 @@ fn journey_test_html(model : Model, whole? : Bool = false) -> String {
       dispatch_journey_view(model)
     }
   })
-  @rabbita.render_to_string(page)
+  opc_render_cell(page)
 }
 
 ///|

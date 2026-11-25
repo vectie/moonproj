@@ -61,7 +61,7 @@ fn human_revision_proj_envelope(
     _ => Json::null()
   }
   if json is Object(fields) {
-    fields["human_revisions"] = model.dispatch_continuation.human_revisions.to_json()
+    fields["human_revisions"] = ToJson::to_json(model.dispatch_continuation.human_revisions)
     fields["human_revision_candidate"] = candidate
     fields["human_revision_content"] = content
   }
@@ -353,7 +353,7 @@ test "exact human revision content is escaped transient text and empty snapshots
   ).unwrap()
   assert_eq(decoded.human_revision_content, text)
   let previewed = { ..model, dispatch_continuation: decoded, }
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_human_revision_view(_ => none, previewed)),
   )
   assert_true(html.contains("&lt;script&gt;"))
@@ -397,7 +397,7 @@ test "exact human revision content is escaped transient text and empty snapshots
     empty_model,
   )
   assert_eq(saving_empty.dispatch_continuation.phase, "saving")
-  let empty_html = @rabbita.render_to_string(
+  let empty_html = opc_render_cell(
     @rabbita.static_cell(dispatch_human_revision_view(_ => none, empty_model)),
   )
   assert_true(empty_html.contains("空文本（0 字节）"))
@@ -637,7 +637,7 @@ test "human revision preview and report labels expose honest baseline and immuta
       ],
     },
   }
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_continuation_view(_ => none, model)),
   )
   for
@@ -647,7 +647,7 @@ test "human revision preview and report labels expose honest baseline and immuta
     ] {
     assert_true(html.contains(text), msg=text)
   }
-  let accepted = @rabbita.render_to_string(
+  let accepted = opc_render_cell(
     @rabbita.static_cell(
       dispatch_human_revision_view(_ => none, {
         ..model,

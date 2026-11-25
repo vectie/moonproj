@@ -196,14 +196,15 @@ pub fn export_template(d : Draft) -> String raise InputError {
     risks: d.risks,
   }
   template_validate(t)
-  let portable = template_remap(
-      t,
-      template_map(t.owners.map(v => v.id), "owner-"),
-      template_map(t.tasks.map(v => v.id), "task-"),
-      template_map(t.milestones.map(v => v.id), "milestone-"),
-      template_map(t.risks.map(v => v.id), "risk-"),
+  let portable = ToJson::to_json(
+      template_remap(
+        t,
+        template_map(t.owners.map(v => v.id), "owner-"),
+        template_map(t.tasks.map(v => v.id), "task-"),
+        template_map(t.milestones.map(v => v.id), "milestone-"),
+        template_map(t.risks.map(v => v.id), "risk-"),
+      ),
     )
-    .to_json()
     .stringify(indent=2)
   if portable.length() > 1000000 {
     raise Invalid("Template exceeds 1,000,000 text code units")

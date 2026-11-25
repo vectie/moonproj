@@ -69,13 +69,16 @@ test "human revision explicit selection remains a sibling and preserves native e
     true,
     [],
   )
-  assert_eq(json_field(public, "human_revisions"), Some([revision].to_json()))
+  assert_eq(json_field(public, "human_revisions"), Some(Json::array([revision])))
   assert_false(public.stringify().contains("PRIVATE"))
   let response = plan_task_continuation_operation_response(
     next, false, "human-select-1", request, true, 5,
   )
   assert_eq(json_field(response, "operation_source"), Some(source))
-  assert_eq(json_field(response, "human_revisions"), Some([revision].to_json()))
+  assert_eq(
+    json_field(response, "human_revisions"),
+    Some(Json::array([revision])),
+  )
 }
 
 ///|
@@ -97,7 +100,7 @@ test "human revision return does not select without explicit action and idempote
   let changed = continuation_test_changed(
     human_revision_service_fixture(),
     "created_at",
-    "changed".to_json(),
+    Json::string("changed"),
   )
   try
     plan_task_continuation_apply(
@@ -141,7 +144,7 @@ test "human revision report pins immutable manifest while later selection and ac
   let saved = continuation_test_changed(
     metadata,
     "command_type",
-    "report".to_json(),
+    Json::string("report"),
   )
   let changed_selection = plan_task_continuation_apply(
     selected,
@@ -193,7 +196,7 @@ test "human revision report pins immutable manifest while later selection and ac
   } noraise {
     _ => raise fail("accept bound old report to new selection")
   }
-  let done = continuation_test_changed(selected, "state", "done".to_json())
+  let done = continuation_test_changed(selected, "state", Json::string("done"))
   assert_eq(
     plan_task_continuation_apply(
       done,
@@ -215,36 +218,37 @@ test "human revision service rejects cross task native forgery invalid bounds an
   let task = continuation_test_task()
   let revision = human_revision_service_fixture()
   for
-    (key, value) in [
-      ("task_id", "wrong".to_json()),
-      ("original_run_id", "wrong".to_json()),
-      ("session_id", "wrong".to_json()),
-      ("original_command_id", "wrong".to_json()),
-      ("workspace", "/elsewhere".to_json()),
-      ("revision_id", "../escape".to_json()),
-      ("author_type", "model".to_json()),
-      ("capture_scope", "workspace_replacement".to_json()),
-      ("state", "completed".to_json()),
-      ("receipt", { "status": "runtime-completed" }),
-      ("model", "fake".to_json()),
-      ("command_id", "C1".to_json()),
-      (
-        "content",
-        {
-          "path": ".moonsuite/products/moonproj/human-revisions/H1/content.txt",
-          "sha256": "b".repeat(64),
-          "size_bytes": 262145,
-        },
-      ),
-      (
-        "content",
-        {
-          "path": ".moonsuite/products/moonproj/human-revisions/H1/content.txt",
-          "sha256": "b".repeat(64),
-          "size_bytes": "18",
-        },
-      ),
-    ] {
+    (key, value) in (
+      [
+        ("task_id", Json::string("wrong")),
+        ("original_run_id", Json::string("wrong")),
+        ("session_id", Json::string("wrong")),
+        ("original_command_id", Json::string("wrong")),
+        ("workspace", Json::string("/elsewhere")),
+        ("revision_id", Json::string("../escape")),
+        ("author_type", Json::string("model")),
+        ("capture_scope", Json::string("workspace_replacement")),
+        ("state", Json::string("completed")),
+        ("receipt", { "status": "runtime-completed" }),
+        ("model", Json::string("fake")),
+        ("command_id", Json::string("C1")),
+        (
+          "content",
+          {
+            "path": ".moonsuite/products/moonproj/human-revisions/H1/content.txt",
+            "sha256": "b".repeat(64),
+            "size_bytes": 262145,
+          },
+        ),
+        (
+          "content",
+          {
+            "path": ".moonsuite/products/moonproj/human-revisions/H1/content.txt",
+            "sha256": "b".repeat(64),
+            "size_bytes": "18",
+          },
+        ),
+      ] : Array[(String, Json)]) {
     try
       plan_task_human_revision_validate(
         task,
@@ -281,7 +285,7 @@ test "human revision report while native work is running never completes cancels
   let running = continuation_test_changed(
     json_field(task, "execution").unwrap(),
     "state",
-    "running".to_json(),
+    Json::string("running"),
   )
   let task = continuation_test_changed(task, "execution", running)
   let selected = plan_task_continuation_apply(
@@ -299,7 +303,7 @@ test "human revision report while native work is running never completes cancels
   let observation = continuation_test_changed(
     running,
     "state",
-    "completed".to_json(),
+    Json::string("completed"),
   )
   let completed = plan_task_execution_merge(running, observation)
   let later = continuation_test_changed(selected, "execution", completed)

@@ -8,10 +8,11 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror PostgresReadModelError {
   InvalidInput(String)
   QueryFailed(String)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

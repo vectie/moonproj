@@ -9,9 +9,9 @@ import {
 }
 
 // Values
-pub fn decode_artifact(Json) -> ProjectPlanArtifact raise ProjectPlanCapabilityError
+pub fn decode_artifact(@json.Json) -> ProjectPlanArtifact raise ProjectPlanCapabilityError
 
-pub fn decode_request(Json) -> ProjectPlanRequest raise ProjectPlanCapabilityError
+pub fn decode_request(@json.Json) -> ProjectPlanRequest raise ProjectPlanCapabilityError
 
 pub fn input_schema_ref() -> String
 
@@ -30,14 +30,16 @@ pub fn validate_artifact(ProjectPlanArtifact) -> Unit raise ProjectPlanCapabilit
 pub fn validate_request(ProjectPlanRequest) -> Int64 raise ProjectPlanCapabilityError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ProjectPlanCapabilityError {
   Invalid(String)
   Project(@project.ProjectError)
   Plan(@project.PlanError)
   Money(@finance.MoneyError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct AcceptanceGate {
   gate_id : String
   name : String
@@ -46,30 +48,34 @@ pub(all) struct AcceptanceGate {
   scope_id : String
   criteria : Array[String]
   required_evidence : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct BudgetEnvelope {
   currency : String
   limit_minor : Int64
   contingency_minor : Int64
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct BudgetProjection {
   currency : String
   limit_minor : Int64
   contingency_minor : Int64
   planned_total_minor : Int64
   unallocated_minor : Int64
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PlanAuthorityEffects {
   spend_authorized : Bool
   accounting_posted : Bool
   payment_released : Bool
   contract_signed : Bool
   work_executed : Bool
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PlanMilestone {
   milestone_id : String
   name : String
@@ -77,14 +83,16 @@ pub(all) struct PlanMilestone {
   target_date : String
   task_ids : Array[String]
   acceptance_gate_ids : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PlanOwner {
   owner_id : String
   display_name : String
   role : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PlanRisk {
   risk_id : String
   summary : String
@@ -93,8 +101,9 @@ pub(all) struct PlanRisk {
   mitigation : String
   related_task_ids : Array[String]
   source_evidence_refs : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PlanTaskInput {
   task_id : String
   name : String
@@ -104,16 +113,18 @@ pub(all) struct PlanTaskInput {
   dependencies : Array[String]
   acceptance_gate_ids : Array[String]
   source_evidence_refs : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PlanWorkflowStatus {
   status : String
   current_gate : String
   review_required : Bool
   accepted : Bool
   next_actions : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PreparedProject {
   project_id : String
   principal_id : String
@@ -121,8 +132,9 @@ pub(all) struct PreparedProject {
   name : String
   stage : String
   state : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct PreparedTask {
   task_id : String
   name : String
@@ -135,15 +147,17 @@ pub(all) struct PreparedTask {
   source_evidence_refs : Array[String]
   progress_bps : Int64
   state : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct ProjectIdentity {
   project_id : String
   principal_id : String
   code : String
   name : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct ProjectPlanArtifact {
   contract_id : String
   operation_ref : String
@@ -164,8 +178,9 @@ pub(all) struct ProjectPlanArtifact {
   authority_effects : PlanAuthorityEffects
   claim_ceiling : String
   recorded_at : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct ProjectPlanRequest {
   contract_id : String
   operation_ref : String
@@ -180,14 +195,15 @@ pub(all) struct ProjectPlanRequest {
   risks : Array[PlanRisk]
   acceptance_gates : Array[AcceptanceGate]
   source_evidence : Array[SourceEvidence]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct SourceEvidence {
   artifact_ref : String
   digest : String
   observed_at : String
   kind : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
 // Type aliases
 

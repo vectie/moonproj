@@ -34,7 +34,7 @@ fn plan_handoff_readable_store(saved : DispatchDraftStore) -> Bool {
     }
     seen[item.id] = true
     if item.research_brief is Some(brief) &&
-      @research_handoff.decode(brief.to_json().stringify()) is Err(_) {
+      @research_handoff.decode(ToJson::to_json(brief).stringify()) is Err(_) {
       return false
     }
   }

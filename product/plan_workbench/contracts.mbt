@@ -134,10 +134,9 @@ pub fn request(
         "name": m.name,
         "owner_id": m.owner,
         "target_date": m.date,
-        "task_ids": draft.tasks
-        .filter(t => t.milestone == m.id)
-        .map(t => t.id)
-        .to_json(),
+        "task_ids": ToJson::to_json(
+          draft.tasks.filter(t => t.milestone == m.id).map(t => t.id),
+        ),
         "acceptance_gate_ids": [m.id + "-gate"],
       } : Json)
   })
@@ -148,11 +147,10 @@ pub fn request(
       "name": t.name,
       "owner_id": t.owner,
       "milestone_id": t.milestone,
-      "planned_cost_minor": minor(
-        t.cost,
-        "Task " + (i + 1).to_string() + " cost",
-      ).to_json(),
-      "dependencies": t.dependencies.to_json(),
+      "planned_cost_minor": ToJson::to_json(
+        minor(t.cost, "Task " + (i + 1).to_string() + " cost"),
+      ),
+      "dependencies": ToJson::to_json(t.dependencies),
       "acceptance_gate_ids": [t.milestone + "-gate"],
       "source_evidence_refs": [source_ref],
     })
@@ -164,46 +162,48 @@ pub fn request(
     "project": project,
     "prepared_by": actor,
     "prepared_at": draft.prepared_at,
-    "owners": draft.owners
-    .map(o => {
-      ({ "owner_id": o.id, "display_name": o.name, "role": o.role } : Json)
-    })
-    .to_json(),
+    "owners": Json::array(
+      draft.owners.map(o => {
+        ({ "owner_id": o.id, "display_name": o.name, "role": o.role } : Json)
+      }),
+    ),
     "budget_envelope": {
       "currency": draft.currency,
-      "limit_minor": minor(draft.limit, "Budget limit").to_json(),
-      "contingency_minor": minor(draft.contingency, "Contingency").to_json(),
+      "limit_minor": ToJson::to_json(minor(draft.limit, "Budget limit")),
+      "contingency_minor": ToJson::to_json(
+        minor(draft.contingency, "Contingency"),
+      ),
     },
-    "tasks": tasks.to_json(),
-    "milestones": milestones.to_json(),
-    "risks": draft.risks
-    .map(r => {
-      (
-        {
-          "risk_id": r.id,
-          "summary": r.summary,
-          "severity": r.severity,
-          "owner_id": r.owner,
-          "mitigation": r.mitigation,
-          "related_task_ids": r.tasks.to_json(),
-          "source_evidence_refs": [source_ref],
-        } : Json)
-    })
-    .to_json(),
-    "acceptance_gates": draft.milestones
-    .map(m => {
-      (
-        {
-          "gate_id": m.id + "-gate",
-          "name": m.name + " review",
-          "owner_id": m.owner,
-          "scope_type": "milestone",
-          "scope_id": m.id,
-          "criteria": lines(m.criteria).to_json(),
-          "required_evidence": lines(m.evidence).to_json(),
-        } : Json)
-    })
-    .to_json(),
+    "tasks": Json::array(tasks),
+    "milestones": Json::array(milestones),
+    "risks": Json::array(
+      draft.risks.map(r => {
+        (
+          {
+            "risk_id": r.id,
+            "summary": r.summary,
+            "severity": r.severity,
+            "owner_id": r.owner,
+            "mitigation": r.mitigation,
+            "related_task_ids": ToJson::to_json(r.tasks),
+            "source_evidence_refs": [source_ref],
+          } : Json)
+      }),
+    ),
+    "acceptance_gates": Json::array(
+      draft.milestones.map(m => {
+        (
+          {
+            "gate_id": m.id + "-gate",
+            "name": m.name + " review",
+            "owner_id": m.owner,
+            "scope_type": "milestone",
+            "scope_id": m.id,
+            "criteria": ToJson::to_json(lines(m.criteria)),
+            "required_evidence": ToJson::to_json(lines(m.evidence)),
+          } : Json)
+      }),
+    ),
     "source_evidence": [
       {
         "artifact_ref": source_ref,

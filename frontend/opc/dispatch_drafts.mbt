@@ -555,7 +555,7 @@ fn dispatch_draft_update(
         Some(saved) if saved.version == 1 => {
           for draft in saved.drafts {
             if draft.research_brief is Some(brief) &&
-              @research_handoff.decode(brief.to_json().stringify()) is Err(_) {
+              @research_handoff.decode(ToJson::to_json(brief).stringify()) is Err(_) {
               invalid_research = true
               continue
             }

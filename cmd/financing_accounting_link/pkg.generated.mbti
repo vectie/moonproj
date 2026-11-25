@@ -11,12 +11,13 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror FinancingAccountingLinkError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Financing(@financing.FinancingError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

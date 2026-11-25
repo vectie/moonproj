@@ -98,7 +98,7 @@ fn human_revision_validate(
     native_text(content, "path") !=
     human_revision_directory(id) + "/content.txt" ||
     !native_hex(native_text(content, "sha256"), 64) ||
-    native_field(content, "size_bytes") != bytes.length().to_json() ||
+    native_field(content, "size_bytes") != ToJson::to_json(bytes.length()) ||
     bytes.length() > 256 * 1024 ||
     native_context_hash(bytes) != native_text(content, "sha256") ||
     @encoding/utf8.encode(@encoding/utf8.decode(bytes)) != bytes {

@@ -21,7 +21,7 @@ test "task table update UI previews applies persists exports and prepares edited
     plan_store(
       "owner-test",
       "company-actual",
-      original.plan.draft.unwrap().to_json().stringify(),
+      ToJson::to_json(original.plan.draft.unwrap()).stringify(),
     ),
   )
   let stored = plan_restore("owner-test", "company-actual")
@@ -70,13 +70,13 @@ test "task table update UI previews applies persists exports and prepares edited
   ignore(
     plan_test_file(
       "task-edits-before.json",
-      original.plan.draft.unwrap().to_json().stringify(indent=2),
+      ToJson::to_json(original.plan.draft.unwrap()).stringify(indent=2),
     ),
   )
   ignore(plan_test_file("task-edits-input.csv", original.plan.task_table))
   ignore(plan_test_file("task-edits-preview.html", html))
   ignore(
-    plan_test_file("task-edits-after.json", draft.to_json().stringify(indent=2)),
+    plan_test_file("task-edits-after.json", ToJson::to_json(draft).stringify(indent=2)),
   )
   ignore(plan_test_file("task-edits-output.csv", csv))
   let (prepare, saving) = plan_update(_ => none, Prepare, edited)
@@ -85,7 +85,7 @@ test "task table update UI previews applies persists exports and prepares edited
   guard @json.parse(plan_test_requests()) is Array([request]) else {
     fail("one explicit prepare request")
   }
-  assert_eq(@json.parse(products_text(request, "body")), draft.to_json())
+  assert_eq(@json.parse(products_text(request, "body")), ToJson::to_json(draft))
 }
 
 ///|

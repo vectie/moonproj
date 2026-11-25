@@ -9,6 +9,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror OrganizationError {
   EmptyIdentifier
   SelfParent
@@ -16,29 +17,33 @@ pub(all) suberror OrganizationError {
   DuplicateUnit
   InvalidState
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) enum OrganizationKind {
   Group
   Company
   Department
   BusinessUnit
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct OrganizationRegistry {
   units : Array[OrganizationUnit]
-} derive(Eq, @debug.Debug)
+}
 pub fn OrganizationRegistry::append(Self, OrganizationUnit) -> Self raise OrganizationError
 pub fn OrganizationRegistry::empty() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) enum OrganizationState {
   Draft
   Active
   Suspended
   Closed
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct OrganizationUnit {
   unit_id : String
   principal_id : String
@@ -48,7 +53,7 @@ pub(all) struct OrganizationUnit {
   name : String
   kind : OrganizationKind
   state : OrganizationState
-} derive(Eq, @debug.Debug)
+}
 pub fn OrganizationUnit::activate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise OrganizationError
 pub fn OrganizationUnit::new(unit_id~ : String, principal_id~ : String, authority_scope~ : String, parent_id~ : String?, code~ : String, name~ : String, kind~ : OrganizationKind, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise OrganizationError
 pub fn OrganizationUnit::suspend(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise OrganizationError

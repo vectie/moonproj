@@ -80,7 +80,7 @@ fn continuation_test_fixture(
       "client_turn_id": "U2",
     }),
     "text",
-    "Later unrelated chat".to_json(),
+    Json::string("Later unrelated chat"),
   )
   let receipt = fn(id : String, state : String, answer : String) -> Json {
     {
@@ -239,7 +239,9 @@ test "completed failed and cancelled original commands retain bytes and yield se
       "result/c1.md",
     )
     assert_false(
-      native_array(candidate, "evidence_ids").contains("C2-artifact".to_json()),
+      native_array(candidate, "evidence_ids").contains(
+        Json::string("C2-artifact"),
+      ),
     )
     assert_eq(task.stringify(), before)
   }
@@ -261,15 +263,19 @@ test "snapshot reload preserves exact instruction and detects changed bytes or n
       continuation_test_field(
         loaded,
         "instruction",
-        "different human input".to_json(),
+        Json::string("different human input"),
       ),
-      continuation_test_field(loaded, "request_body", "{}".to_json()),
+      continuation_test_field(loaded, "request_body", Json::string("{}")),
       continuation_test_field(
         loaded,
         "input_text",
-        "modified requirements".to_json(),
+        Json::string("modified requirements"),
       ),
-      continuation_test_field(loaded, "prior_result_command_id", "C2".to_json()),
+      continuation_test_field(
+        loaded,
+        "prior_result_command_id",
+        Json::string("C2"),
+      ),
       continuation_test_field(loaded, "original_context", {
         "path": "today/catalog/context.md",
       }),
@@ -316,7 +322,7 @@ test "unrelated C2 controls and executable-state imports are rejected" {
     try
       native_continuation_lineage(
         original,
-        continuation_test_field(c1, key, "copied".to_json()),
+        continuation_test_field(c1, key, Json::string("copied")),
       )
     catch {
       NativeContinuationError::Rejected(status, _) => assert_eq(status, 409)
@@ -351,12 +357,16 @@ test "unrelated C2 controls and executable-state imports are rejected" {
   delivered[1] = continuation_test_field(
     delivered[1],
     "action",
-    "steer".to_json(),
+    Json::string("steer"),
   )
   try
     native_continuation_claim(
       original,
-      continuation_test_field(claims, "delivered_commands", delivered.to_json()),
+      continuation_test_field(
+        claims,
+        "delivered_commands",
+        Json::array(delivered),
+      ),
       "C1",
     )
   catch {
@@ -372,8 +382,8 @@ test "candidate lineage rejects wrong run workspace session receipt and selected
   let original = native_field(task, "execution")
   for
     changed in [
-      continuation_test_field(claims, "session_id", "other".to_json()),
-      continuation_test_field(claims, "book_root", "/another/book".to_json()),
+      continuation_test_field(claims, "session_id", Json::string("other")),
+      continuation_test_field(claims, "book_root", Json::string("/another/book")),
     ] {
     try native_continuation_claim(original, changed, "C1") catch {
       NativeContinuationError::Rejected(status, _) => assert_eq(status, 409)
@@ -390,7 +400,7 @@ test "candidate lineage rejects wrong run workspace session receipt and selected
       "moonproj_continuation": continuation_test_field(
         lineage,
         key,
-        "../different".to_json(),
+        Json::string("../different"),
       ),
     })
     try native_continuation_lineage(original, changed) catch {
@@ -406,7 +416,7 @@ test "candidate lineage rejects wrong run workspace session receipt and selected
       continuation_test_field(
         lineage,
         "prior_result_command_id",
-        "C2".to_json(),
+        Json::string("C2"),
       ),
     )
   catch {
@@ -488,7 +498,7 @@ test "import discards browser evidence and preserves exact selected result sourc
     try
       native_continuation_import_body(
         original,
-        continuation_test_field(requested, key, "other".to_json()),
+        continuation_test_field(requested, key, Json::string("other")),
         candidate,
       )
     catch {
@@ -598,7 +608,7 @@ test "follow up destination mode is explicit and accepted work stays inspection 
     ),
     "follow_up",
   )
-  let accepted = continuation_test_field(task, "status", "done".to_json())
+  let accepted = continuation_test_field(task, "status", Json::string("done"))
   assert_eq(
     native_text(
       desk_handoff_projection(

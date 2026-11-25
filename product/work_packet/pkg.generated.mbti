@@ -9,11 +9,13 @@ import {
 pub fn decode(String) -> Packet raise PacketError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror PacketError {
   Invalid(String)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Packet {
   title : String
   acceptance : String
@@ -21,7 +23,7 @@ pub(all) struct Packet {
   observed_problem : String
   begin_date : String
   end_date : String
-} derive(Eq, @debug.Debug)
+}
 pub fn Packet::encode(Self) -> String raise PacketError
 
 // Type aliases

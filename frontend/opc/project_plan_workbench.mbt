@@ -221,7 +221,7 @@ fn plan_save_edit(
   let stored = plan_store(
     state.actor,
     state.selected,
-    draft.to_json().stringify(),
+    ToJson::to_json(draft).stringify(),
   )
   {
     ..state,
@@ -843,7 +843,7 @@ fn plan_update(
           )
         _ => (d.key, "POST", plan_url(s.selected), "saving")
       }
-      let sent = if method == "POST" { d.to_json().stringify() } else { "" }
+      let sent = if method == "POST" { ToJson::to_json(d).stringify() } else { "" }
       let cmd = @cmd.custom_cmd(scheduler => {
         plan_fetch(url, method, sent, (status, body) => {
           scheduler.add(

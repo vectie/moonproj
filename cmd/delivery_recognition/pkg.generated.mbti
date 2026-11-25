@@ -11,6 +11,7 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror RecognitionPromotionError {
   InvalidInput
   Quarantined(String)
@@ -18,7 +19,7 @@ pub(all) suberror RecognitionPromotionError {
   Io(@fs.IOError)
   Delivery(@delivery.DeliveryError)
   Money(@finance.MoneyError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

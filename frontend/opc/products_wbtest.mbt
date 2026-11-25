@@ -1,34 +1,6 @@
 ///|
-struct ProductsTestScheduler {
-  mut effects : Int32
-  mut messages : Int32
-}
-
-///|
-impl @cmd.Scheduler for ProductsTestScheduler with fn run_effect(self, _, _) {
-  self.effects += 1
-}
-
-///|
-impl @cmd.Scheduler for ProductsTestScheduler with fn queue_message(self, _, _) {
-  self.messages += 1
-}
-
-///|
-impl @cmd.Scheduler for ProductsTestScheduler with fn drain_message(_) {
-  ()
-}
-
-///|
-impl @cmd.Scheduler for ProductsTestScheduler with fn hooks(_) {
-  { url_request: None, url_changed: None, }
-}
-
-///|
 fn products_test_effect_count(command : Cmd) -> Int32 {
-  let scheduler = { effects: 0, messages: 0, }
-  @cmd.Scheduler::add(scheduler, command)
-  scheduler.effects + scheduler.messages
+  opc_count_cmd(command)
 }
 
 ///|
@@ -74,7 +46,7 @@ fn products_test_html(model : Model) -> String {
     emit,
     model,
   ) => view(msg => emit(msg), model))
-  @rabbita.render_to_string(page)
+  opc_render_cell(page)
 }
 
 ///|

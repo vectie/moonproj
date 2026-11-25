@@ -155,9 +155,9 @@ fn plan_task_reply_apply(
   }
   // Private reply content lives in immutable command history only. Lists and
   // existing proposal exports see no reply body or new business-state claim.
-  fields["event_id"] = event_id.to_json()
-  fields["updated_by"] = actor.to_json()
-  fields["source_kind"] = "command".to_json()
+  fields["event_id"] = Json::string(event_id)
+  fields["updated_by"] = Json::string(actor)
+  fields["source_kind"] = Json::string("command")
   Json::object(fields)
 }
 

@@ -182,10 +182,10 @@ fn plan_risk_table_view(
               strong("Before / 修改前"),
               match change.before {
                 None => p("New risk / 新增风险")
-                Some(before) => @html.pre(before.to_json().stringify(indent=2))
+                Some(before) => @html.pre(ToJson::to_json(before).stringify(indent=2))
               },
               strong("After / 修改后"),
-              @html.pre(change.after.to_json().stringify(indent=2)),
+              @html.pre(ToJson::to_json(change.after).stringify(indent=2)),
             ]
           }),
           plan_button(

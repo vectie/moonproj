@@ -81,17 +81,25 @@ test "company bootstrap rejects malformed names IDs and overlong generated ident
         { "companyName": "My OPC", "existingBuGuid": "not/a/unit" },
       ] : Array[Json]) {
     assert_true(
-      (try? company_profile_create_request(body, "desktop-user", "first"))
+      (try Ok(company_profile_create_request(body, "desktop-user", "first")) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
   for n in [0, 100, 128, 129] {
     assert_true(
-      (try? company_profile_create_request(
-        { "companyName": "My OPC" },
-        "desktop-user",
-        Array::make(n, "k").join(""),
-      ))
+      (try
+        Ok(
+          company_profile_create_request(
+            { "companyName": "My OPC" },
+            "desktop-user",
+            Array::make(n, "k").join(""),
+          ),
+        )
+      catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
@@ -101,10 +109,16 @@ test "company bootstrap rejects malformed names IDs and overlong generated ident
     Array::make(maximum, "k").join(""),
   )
   assert_true(
-    (try? company_command_validate_ids(
-      "company_profile:create:",
-      Array::make(maximum + 1, "k").join(""),
-    ))
+    (try
+      Ok(
+        company_command_validate_ids(
+          "company_profile:create:",
+          Array::make(maximum + 1, "k").join(""),
+        ),
+      )
+    catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }
@@ -563,11 +577,17 @@ test "project command transaction protects identity and canonical receipt withou
   assert_false(sql.contains("company_profile"))
   assert_false(sql.contains("sys_user"))
   assert_true(
-    (try? project_source_create_request(
-      { "projCode": "one", "projName": "One", "buGuid": "ORG-first" },
-      Array::make(121, "k").join(""),
-      "desktop-user",
-    ))
+    (try
+      Ok(
+        project_source_create_request(
+          { "projCode": "one", "projName": "One", "buGuid": "ORG-first" },
+          Array::make(121, "k").join(""),
+          "desktop-user",
+        ),
+      )
+    catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }

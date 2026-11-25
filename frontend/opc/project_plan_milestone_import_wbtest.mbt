@@ -33,7 +33,7 @@ test "new milestone UI import previews adds then task CSV exports reopens and ex
     plan_store(
       original.plan.actor,
       original.plan.selected,
-      before.to_json().stringify(),
+      ToJson::to_json(before).stringify(),
     ),
   )
   let stored = plan_restore(original.plan.actor, original.plan.selected)
@@ -99,11 +99,11 @@ test "new milestone UI import previews adds then task CSV exports reopens and ex
   guard @json.parse(plan_test_requests()) is Array([request]) else {
     fail("one explicit native request")
   }
-  assert_eq(@json.parse(products_text(request, "body")), draft.to_json())
+  assert_eq(@json.parse(products_text(request, "body")), ToJson::to_json(draft))
   ignore(
     plan_test_file(
       "milestone-import-before.json",
-      before.to_json().stringify(indent=2),
+      ToJson::to_json(before).stringify(indent=2),
     ),
   )
   ignore(
@@ -117,7 +117,7 @@ test "new milestone UI import previews adds then task CSV exports reopens and ex
   ignore(
     plan_test_file(
       "milestone-import-after.json",
-      draft.to_json().stringify(indent=2),
+      ToJson::to_json(draft).stringify(indent=2),
     ),
   )
   ignore(

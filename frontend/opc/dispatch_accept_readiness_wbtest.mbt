@@ -35,7 +35,7 @@ fn acceptance_readiness_html(model : Model, goal~ : Bool) -> String {
       dispatch_task_action(msg => emit(msg), model)
     }
   })
-  @rabbita.render_to_string(cell)
+  opc_render_cell(cell)
 }
 
 ///|

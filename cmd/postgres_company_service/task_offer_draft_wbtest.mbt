@@ -205,7 +205,7 @@ test "exact detail supplies real creator before first offer while task lists rem
   let item : Json = { "taskGuid": "T" }
   assert_eq(plan_task_offer_public(item, payload, false), item)
   let detail = plan_task_offer_public(item, payload, true)
-  assert_eq(json_field(detail, "created_by"), Some("actor".to_json()))
+  assert_eq(json_field(detail, "created_by"), Some(Json::string("actor")))
   assert_true(json_field(detail, "offer_draft") is None)
 }
 

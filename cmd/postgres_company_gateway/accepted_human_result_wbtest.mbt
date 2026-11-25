@@ -138,7 +138,10 @@ async test "accepted human result exports immutable exact Unicode empty and max 
     )
     let content = native_field(result, "content")
     assert_eq(@base64.decode(native_text(content, "data")), bytes)
-    assert_eq(native_field(content, "size_bytes"), bytes.length().to_json())
+    assert_eq(
+      native_field(content, "size_bytes"),
+      ToJson::to_json(bytes.length()),
+    )
     assert_eq(
       native_text(content, "sha256"),
       "sha256:" + native_context_hash(bytes),
@@ -193,13 +196,19 @@ async test "accepted human result rejects wrong source report receipts manifest 
       ("revision", Json::number(2147483648)),
     ] {
     assert_true(
-      (try? accepted_human_result_projection(
-        accepted_result_test_field(
-          data,
-          "task",
-          accepted_result_test_field(task, key, value),
-        ),
-      ))
+      (try
+        Ok(
+          accepted_human_result_projection(
+            accepted_result_test_field(
+              data,
+              "task",
+              accepted_result_test_field(task, key, value),
+            ),
+          ),
+        )
+      catch {
+        e => Err(e)
+      })
       is Err(_),
       msg=key,
     )
@@ -213,24 +222,36 @@ async test "accepted human result rejects wrong source report receipts manifest 
       ("task_id", Json::string("another")),
     ] {
     assert_true(
-      (try? accepted_human_result_projection(
-        accepted_result_test_field(
-          data,
-          "reports",
-          Json::array([accepted_result_test_field(report, key, value)]),
-        ),
-      ))
+      (try
+        Ok(
+          accepted_human_result_projection(
+            accepted_result_test_field(
+              data,
+              "reports",
+              Json::array([accepted_result_test_field(report, key, value)]),
+            ),
+          ),
+        )
+      catch {
+        e => Err(e)
+      })
       is Err(_),
       msg=key,
     )
   }
   assert_true(
-    (try? accepted_human_result_projection(
-      accepted_result_test_field(data, "commitment", {
-        "task_id": "T",
-        "receipts": [],
-      }),
-    ))
+    (try
+      Ok(
+        accepted_human_result_projection(
+          accepted_result_test_field(data, "commitment", {
+            "task_id": "T",
+            "receipts": [],
+          }),
+        ),
+      )
+    catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let directory = root + "/" + human_revision_directory("H1")
@@ -240,19 +261,31 @@ async test "accepted human result rejects wrong source report receipts manifest 
     accepted_result_test_field(revision, "created_at", Json::string("changed")).stringify(),
     create_mode=TruncateExisting,
   )
-  assert_true((try? accepted_human_result_projection(data)) is Err(_))
+  assert_true(
+    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
+    is Err(_),
+  )
   accepted_result_test_store(data, bytes)
   @fs.write_file(
     directory + "/content.txt",
     "tampered",
     create_mode=TruncateExisting,
   )
-  assert_true((try? accepted_human_result_projection(data)) is Err(_))
+  assert_true(
+    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
+    is Err(_),
+  )
   @fs.remove(directory + "/content.txt")
-  assert_true((try? accepted_human_result_projection(data)) is Err(_))
+  assert_true(
+    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
+    is Err(_),
+  )
   @fs.write_file(root + "/outside.txt", bytes, create_mode=CreateNew)
   @fs.symlink(target=root + "/outside.txt", directory + "/content.txt")
-  assert_true((try? accepted_human_result_projection(data)) is Err(_))
+  assert_true(
+    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
+    is Err(_),
+  )
 }
 
 ///|
@@ -267,7 +300,10 @@ async test "accepted human result portability rejects NUL invalid UTF8 and over 
     ] {
     let data = accepted_result_test_data(root, bytes)
     accepted_result_test_store(data, bytes)
-    assert_true((try? accepted_human_result_projection(data)) is Err(_))
+    assert_true(
+      (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
+      is Err(_),
+    )
   }
 }
 
@@ -289,18 +325,18 @@ async test "accepted human result preserves accepted unattached attribution and 
   let revised_task = accepted_result_test_field(
     task,
     "human_revisions",
-    [revision].to_json(),
+    Json::array([revision]),
   )
   let revised = accepted_result_test_field(
     accepted_result_test_field(data, "task", revised_task),
     "reports",
-    [
+    Json::array([
       accepted_result_test_field(
         native_array(data, "reports")[0],
         "delivery_source_snapshot",
         revision,
       ),
-    ].to_json(),
+    ]),
   )
   accepted_result_test_store(revised, b"Accepted")
   let result = accepted_human_result_projection(revised)
@@ -313,17 +349,23 @@ async test "accepted human result preserves accepted unattached attribution and 
     "C1:event/result",
   )
   assert_true(
-    (try? accepted_human_result_projection(
-      accepted_result_test_field(
-        revised,
-        "task",
-        accepted_result_test_field(
-          revised_task,
-          "continuations",
-          [{ "command_id": "C1", "artifact_refs": [] }].to_json(),
+    (try
+      Ok(
+        accepted_human_result_projection(
+          accepted_result_test_field(
+            revised,
+            "task",
+            accepted_result_test_field(
+              revised_task,
+              "continuations",
+              Json::array([{ "command_id": "C1", "artifact_refs": [] }]),
+            ),
+          ),
         ),
-      ),
-    ))
+      )
+    catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }

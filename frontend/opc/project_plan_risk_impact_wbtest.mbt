@@ -71,7 +71,7 @@ test "risk explorer is reachable and downloads the exact source-backed live draf
   ignore(
     plan_test_file(
       "risk-impact-input.json",
-      prepared.plan.draft.unwrap().to_json().stringify(),
+      ToJson::to_json(prepared.plan.draft.unwrap()).stringify(),
     ),
   )
   assert_eq(plan_restore("owner-test", "company-actual"), stored)

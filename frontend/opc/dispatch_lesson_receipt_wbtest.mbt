@@ -349,41 +349,8 @@ extern "js" fn lesson_receipt_browser_closed(browser : LessonHandoffBrowser) =
   #| b => {b.child.closed=true;}
 
 ///|
-enum LessonReceiptTestScheduler {
-  Scheduler
-}
-
-///|
-impl @cmd.Scheduler for LessonReceiptTestScheduler with fn run_effect(
-  self,
-  _,
-  run,
-) {
-  run(self)
-}
-
-///|
-impl @cmd.Scheduler for LessonReceiptTestScheduler with fn queue_message(
-  _,
-  _,
-  send,
-) {
-  send()
-}
-
-///|
-impl @cmd.Scheduler for LessonReceiptTestScheduler with fn drain_message(_) {
-  ()
-}
-
-///|
-impl @cmd.Scheduler for LessonReceiptTestScheduler with fn hooks(_) {
-  { url_request: None, url_changed: None, }
-}
-
-///|
 fn lesson_receipt_test_run(cmd : Cmd) -> Unit {
-  @cmd.Scheduler::add(LessonReceiptTestScheduler::Scheduler, cmd)
+  opc_run_cmd(cmd)
 }
 
 ///|
@@ -433,7 +400,7 @@ test "saved receipt UI escapes title labels observations and leaves explicit imp
   )
   let value = lesson_receipt_test_set(returned, "receipt", receipt)
   let state = { ..empty_dispatch_lesson_handoff(), receipt: Some(value), }
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_lesson_receipt_view(_ => none, state)),
   )
   assert_true(html.contains("导入 / 已缓存观察"))
@@ -441,7 +408,7 @@ test "saved receipt UI escapes title labels observations and leaves explicit imp
   assert_true(html.contains("named-reviewer"))
   assert_true(html.contains("Reopen in this Book"))
   assert_false(html.contains("<script>"))
-  let fresh = @rabbita.render_to_string(
+  let fresh = opc_render_cell(
     @rabbita.static_cell(
       dispatch_lesson_receipt_view(_ => none, { ..state, receipt_direct: true, }),
     ),

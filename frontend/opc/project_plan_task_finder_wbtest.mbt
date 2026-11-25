@@ -34,7 +34,7 @@ test "task finder searches filters and focuses the real editor without any draft
   let original = finder_test_model()
   let d = original.plan.draft.unwrap()
   assert_true(
-    plan_store("owner-test", "company-actual", d.to_json().stringify()),
+    plan_store("owner-test", "company-actual", ToJson::to_json(d).stringify()),
   )
   let stored = plan_restore("owner-test", "company-actual")
   let (_, queried) = plan_update(
@@ -150,11 +150,11 @@ test "task finder focus survives edits that cease matching and prepares the whol
   guard @json.parse(plan_test_requests()) is Array([request]) else {
     fail("one explicit full draft request")
   }
-  assert_eq(@json.parse(products_text(request, "body")), d.to_json())
+  assert_eq(@json.parse(products_text(request, "body")), ToJson::to_json(d))
   ignore(
     plan_test_file(
       "task-finder-edited-draft.json",
-      d.to_json().stringify(indent=2),
+      ToJson::to_json(d).stringify(indent=2),
     ),
   )
   ignore(
@@ -391,7 +391,7 @@ test "task finder resets on template replacement saved-version open and draft re
     "project_id": draft.project_id,
     "key": draft.key,
     "persisted": true,
-    "draft": draft.to_json(),
+    "draft": ToJson::to_json(draft),
     "artifact": artifact,
     "artifact_json": artifact.stringify(),
     "readable": "Synthetic response fixture only",

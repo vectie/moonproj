@@ -26,9 +26,9 @@ fn plan_compare_test_saved(d : @plan_workbench.Draft) -> Json {
       "contingency_minor": "10000",
       "unallocated_minor": "39975",
     },
-    "tasks": d.tasks
-    .map(t => ({ "task_id": t.id, "planned_cost_minor": "20025" } : Json))
-    .to_json(),
+    "tasks": Json::array(
+      d.tasks.map(t => ({ "task_id": t.id, "planned_cost_minor": "20025" } : Json)),
+    ),
   }
   {
     "contract": "moonproj.project-plan-workbench.v1",
@@ -36,7 +36,7 @@ fn plan_compare_test_saved(d : @plan_workbench.Draft) -> Json {
     "project_id": d.project_id,
     "key": d.key,
     "persisted": true,
-    "draft": d.to_json(),
+    "draft": ToJson::to_json(d),
     "artifact": artifact,
     "artifact_json": artifact.stringify(),
     "readable": "Synthetic test only",
@@ -105,8 +105,8 @@ fn plan_compare_test_editor_unchanged(
   after : Model,
 ) -> Unit raise {
   assert_eq(
-    before.plan.draft.map(d => d.to_json().stringify()),
-    after.plan.draft.map(d => d.to_json().stringify()),
+    before.plan.draft.map(d => ToJson::to_json(d).stringify()),
+    after.plan.draft.map(d => ToJson::to_json(d).stringify()),
   )
   assert_eq(before.plan.prepared, after.plan.prepared)
   assert_eq(before.plan.phase, after.plan.phase)
@@ -519,7 +519,7 @@ test "actual native saved pair enters compiled UI read-only comparison and downl
     ],
   }
   ignore(
-    plan_test_file("ui-compare-after-request.json", after.to_json().stringify()),
+    plan_test_file("ui-compare-after-request.json", ToJson::to_json(after).stringify()),
   )
   if body.is_empty() || after_body.is_empty() {
     return

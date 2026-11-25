@@ -26,9 +26,9 @@ preferred_target = "native"
 description = "Evidence-driven operating system for a basic one-person company"
 
 import {
-  "moonbitlang/x@0.4.50",
-  "moonbit-community/rabbita@0.12.4",
+  "moonbitlang/x@0.5.9",
+  "moonbit-community/rabbita@0.17.0",
   "vectie/lepusa@0.1.4",
-  "vectie/moonlib@0.1.19",
-  "moonbitlang/async@0.16.6",
+  "vectie/moonlib@0.1.23",
+  "moonbitlang/async@0.22.10",
 }

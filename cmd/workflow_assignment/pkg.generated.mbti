@@ -10,12 +10,13 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror AssignmentError {
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Workflow(@workflow.WorkflowError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

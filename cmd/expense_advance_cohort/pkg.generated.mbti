@@ -12,13 +12,14 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror ExpenseAdvanceCohortError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Advance(@employee_finance.AdvanceError)
   Expense(@expense.ExpenseError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

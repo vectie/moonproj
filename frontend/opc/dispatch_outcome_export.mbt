@@ -140,7 +140,7 @@ fn dispatch_outcome_submission_matches(
       "provenance_ref": identity + "-handoff.json#/" + key + "_snapshot",
     }
   })
-  if dispatch_json_field(submission, "evidence_refs") != expected_refs.to_json() {
+  if dispatch_json_field(submission, "evidence_refs") != Json::array(expected_refs) {
     return false
   }
   let capability = dispatch_json_field(draft, "capability")

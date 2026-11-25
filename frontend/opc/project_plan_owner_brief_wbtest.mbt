@@ -80,7 +80,7 @@ test "owner brief selection render edits and download preserve local plan" {
   ignore(
     plan_test_file(
       "owner-brief-input.json",
-      edited.plan.draft.unwrap().to_json().stringify(indent=2),
+      ToJson::to_json(edited.plan.draft.unwrap()).stringify(indent=2),
     ),
   )
   ignore(plan_test_file("owner-brief.html", html))

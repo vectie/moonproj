@@ -5,7 +5,7 @@ fn delivery_test_html(model : Model) -> String {
     emit,
     model,
   ) => delivery_work_view(msg => emit(msg), model))
-  @rabbita.render_to_string(cell)
+  opc_render_cell(cell)
 }
 
 ///|

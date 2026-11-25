@@ -90,7 +90,7 @@ fn render_policy_model(model : Model) -> String {
     emit,
     model,
   ) => policy_radar_view(msg => emit(msg), model))
-  @rabbita.render_to_string(page)
+  opc_render_cell(page)
 }
 
 ///|

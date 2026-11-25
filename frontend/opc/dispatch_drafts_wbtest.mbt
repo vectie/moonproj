@@ -71,36 +71,8 @@ fn drafts_test_snapshot_body(task_id : String) -> String {
 ///|
 // These effects execute only against the isolated, non-networking JS stub below.
 // Other tests inspect reducer results without executing transport commands.
-struct DraftsTestScheduler {
-  mut effects : Int
-}
-
-///|
-impl @cmd.Scheduler for DraftsTestScheduler with fn run_effect(self, _, effect) {
-  self.effects += 1
-  effect(self)
-}
-
-///|
-impl @cmd.Scheduler for DraftsTestScheduler with fn queue_message(_, _, send) {
-  send()
-}
-
-///|
-impl @cmd.Scheduler for DraftsTestScheduler with fn drain_message(_) {
-  ()
-}
-
-///|
-impl @cmd.Scheduler for DraftsTestScheduler with fn hooks(_) {
-  { url_request: None, url_changed: None, }
-}
-
-///|
 fn drafts_test_execute(command : Cmd) -> Unit {
-  let scheduler : DraftsTestScheduler = { effects: 0, }
-  @cmd.Scheduler::add(scheduler, command)
-  ignore(scheduler.effects)
+  opc_run_cmd(command)
 }
 
 ///|

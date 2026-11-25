@@ -101,13 +101,11 @@ fn dispatch_selection_same_target(left : Json, right : Json) -> Bool {
 ///|
 fn dispatch_selection_key(model : Model) -> String {
   "moonproj.result-selection.v1:" +
-  [
+  ToJson::to_json([
     model.dispatch_task_actor_id,
     model.dispatch_task_id,
     model.dispatch_run.map(run => run.run_id).unwrap_or(""),
-  ]
-  .to_json()
-  .stringify()
+  ]).stringify()
 }
 
 ///|

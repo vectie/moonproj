@@ -11,12 +11,13 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror AssetPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Asset(@assets.AssetError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

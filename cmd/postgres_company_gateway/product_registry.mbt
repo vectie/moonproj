@@ -195,7 +195,7 @@ async fn product_catalog_projection(
   {
     "schema": "moonsuite.product-portfolio.v2",
     "scope": "active_product_definitions",
-    "work_inventory_state": inventory_state.to_json(),
+    "work_inventory_state": Json::string(inventory_state),
     "products": Json::array(products),
   }
 }

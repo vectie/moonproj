@@ -8,7 +8,7 @@ test "delivery permissions are explicit and captured workspace scope is stable" 
   }
   assert_eq(
     plan_task_execution_workspace(task),
-    "/selected/.moonproj-deliveries/T/coordinator",
+    "/selected",
   )
   assert_eq(
     plan_task_execution_workspace({ "execution_workspace": "/legacy" }),

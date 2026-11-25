@@ -47,7 +47,7 @@ test "owner transfer preview apply reload and exported template retain assignmen
     plan_store(
       model.plan.actor,
       model.plan.selected,
-      source.to_json().stringify(),
+      ToJson::to_json(source).stringify(),
     ),
   )
   let before = plan_restore(model.plan.actor, model.plan.selected)
@@ -63,7 +63,7 @@ test "owner transfer preview apply reload and exported template retain assignmen
   assert_true(html.contains("owner-test → next"))
   ignore(plan_test_file("transfer-preview.html", html))
   ignore(
-    plan_test_file("transfer-input.json", source.to_json().stringify(indent=2)),
+    plan_test_file("transfer-input.json", ToJson::to_json(source).stringify(indent=2)),
   )
   let (cmd, applied) = plan_update(_ => none, Transfer(Apply), preview)
   assert_eq(products_test_effect_count(cmd), 0)
@@ -82,10 +82,10 @@ test "owner transfer preview apply reload and exported template retain assignmen
   assert_eq(applied.plan.transfer, plan_transfer_initial())
   assert_eq(
     @json.parse(plan_restore(model.plan.actor, model.plan.selected)),
-    edited.to_json(),
+    ToJson::to_json(edited),
   )
   ignore(
-    plan_test_file("transfer-output.json", edited.to_json().stringify(indent=2)),
+    plan_test_file("transfer-output.json", ToJson::to_json(edited).stringify(indent=2)),
   )
   let (_, repeated) = plan_update(_ => none, Transfer(Apply), applied)
   assert_eq(repeated.plan, applied.plan)

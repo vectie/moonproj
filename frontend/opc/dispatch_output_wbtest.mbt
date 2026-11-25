@@ -121,17 +121,17 @@ test "output pending response cannot navigate after another task or page selecti
 #warnings("-alert_unstable")
 test "output buttons render for original and precise continuation" {
   let model = output_proj_model()
-  let original = @rabbita.render_to_string(
+  let original = opc_render_cell(
     @rabbita.static_cell(dispatch_native_result(model)),
   )
-  let continuation = @rabbita.render_to_string(
+  let continuation = opc_render_cell(
     @rabbita.static_cell(dispatch_continuation_view(_ => none, model)),
   )
   assert_true(original.contains("在 MoonDesk 编辑"))
   assert_true(continuation.contains("在 MoonDesk 编辑"))
   assert_true(original.contains("当前文件"))
   let accepted = { ..model, dispatch_task_stage: "accepted", }
-  let accepted_html = @rabbita.render_to_string(
+  let accepted_html = opc_render_cell(
     @rabbita.static_cell(dispatch_native_result(accepted)),
   )
   assert_true(accepted_html.contains("在 MoonDesk 打开"))

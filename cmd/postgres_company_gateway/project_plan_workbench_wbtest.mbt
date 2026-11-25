@@ -101,7 +101,7 @@ async test "actual UI wire request authenticated gateway native prepare durable 
           )
         })
       })
-      let headers : Map[String, String] = {
+      let headers : @http.Headers = {
         "Cookie": "moonproj_session=fixture-session",
         "Content-Type": "application/json",
       }

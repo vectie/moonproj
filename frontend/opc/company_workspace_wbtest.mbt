@@ -106,7 +106,7 @@ test "workspace deep links restore exactly one job, without moving into legacy D
   assert_eq(model.workspace.job, "work-2")
   assert_eq(model.dispatch_task_id, "work-2")
   assert_true(dispatch_work_page(model))
-  assert_eq(workspace_current_job({ ..model, workspace: { job: "missing", pane: "progress", }, }), None)
+  assert_eq(workspace_current_job({ ..model, workspace: { ..model.workspace, job: "missing", pane: "progress", }, }), None)
 }
 
 ///|

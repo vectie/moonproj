@@ -162,7 +162,7 @@ test "research stale file reads cancel newer choice navigation and actor switch 
 ///|
 test "research historical evidence stays visibly unverified with one explicit editable draft action" {
   let loaded = research_test_loaded(drafts_test_valid(), "historical")
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(research_import_view(_ => none, loaded)),
   )
   assert_true(html.contains("Historical or unavailable current context"))
@@ -271,7 +271,7 @@ test "research same run revision changed source rejects without destroying prior
     Loaded(
       choosing.research_import.generation,
       choosing.dispatch_task_actor_id,
-      changed.to_json().stringify(),
+      ToJson::to_json(changed).stringify(),
       "",
     ),
   )

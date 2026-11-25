@@ -67,16 +67,16 @@ test "budget breakdown renders current costs edits reload and repeated download 
   ignore(
     plan_test_file(
       "budget-input.json",
-      edited.plan.draft.unwrap().to_json().stringify(indent=2),
+      ToJson::to_json(edited.plan.draft.unwrap()).stringify(indent=2),
     ),
   )
   ignore(plan_test_file("budget-breakdown.txt", expected))
   ignore(
     plan_test_file(
       "budget-breakdown.json",
-      @plan_workbench.budget_breakdown(edited.plan.draft.unwrap())
-      .to_json()
-      .stringify(indent=2),
+      ToJson::to_json(
+        @plan_workbench.budget_breakdown(edited.plan.draft.unwrap()),
+      ).stringify(indent=2),
     ),
   )
   ignore(plan_test_file("budget-preview.html", products_test_html(edited)))

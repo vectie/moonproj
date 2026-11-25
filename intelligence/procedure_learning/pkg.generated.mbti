@@ -8,6 +8,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ProcedureLearningError {
   Invalid(String)
   InvalidState(ProcedureCandidateState)
@@ -17,27 +18,29 @@ pub(all) suberror ProcedureLearningError {
   ValidationRequired
   AuthorityExpansionForbidden
   DuplicateProcedure
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct AdoptedProcedure {
   procedure_id : String
   principal_id : String
   workflow_kind : String
-  version : Int
+  version : Int32
   applicability : String
   steps : Array[ProcedureStep]
   source_candidate_id : String
   approval_evidence : Array[String]
-  activated_count : Int
+  activated_count : Int32
   authority_expansion_allowed : Bool
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProcedureCandidate {
   candidate_id : String
   principal_id : String
   workflow_kind : String
-  version : Int
+  version : Int32
   proposed_by : String
   source_attempt_ids : Array[String]
   source_evidence : Array[String]
@@ -48,8 +51,8 @@ pub(all) struct ProcedureCandidate {
   validation_receipts : Array[String]
   authority_expansion_requested : Bool
   auto_activation_allowed : Bool
-  revision : Int
-} derive(Eq, @debug.Debug)
+  revision : Int32
+}
 pub fn ProcedureCandidate::approve(Self) -> Self raise ProcedureLearningError
 pub fn ProcedureCandidate::observe(candidate_id~ : String, principal_id~ : String, workflow_kind~ : String, proposed_by~ : String, source_attempt_ids~ : Array[String], source_evidence~ : Array[String], applicability~ : String, steps~ : Array[ProcedureStep]) -> Self raise ProcedureLearningError
 pub fn ProcedureCandidate::propose(Self) -> Self raise ProcedureLearningError
@@ -57,6 +60,7 @@ pub fn ProcedureCandidate::record_validation(Self, receipt~ : String) -> Self ra
 pub fn ProcedureCandidate::review(Self, ProcedureReview) -> Self raise ProcedureLearningError
 pub fn ProcedureCandidate::start_review(Self) -> Self raise ProcedureLearningError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProcedureCandidateState {
   Observed
   Proposed
@@ -64,15 +68,17 @@ pub(all) enum ProcedureCandidateState {
   Approved
   Rejected
   Retired
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProcedureLibrary {
-  revision : Int
+  revision : Int32
   procedures : Array[AdoptedProcedure]
-} derive(Eq, @debug.Debug)
+}
 pub fn ProcedureLibrary::adopt(Self, ProcedureCandidate, procedure_id~ : String) -> Self raise ProcedureLearningError
 pub fn ProcedureLibrary::new() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProcedureReview {
   review_id : String
   reviewer_id : String
@@ -80,21 +86,23 @@ pub(all) struct ProcedureReview {
   rationale : String
   evidence : Array[String]
   reviewed_at_epoch : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProcedureReviewDecision {
   Accept
   RequestChanges
   Reject
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProcedureStep {
   step_id : String
   capability : String
   instruction : String
   acceptance_criteria : Array[String]
   evidence_required : Array[String]
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

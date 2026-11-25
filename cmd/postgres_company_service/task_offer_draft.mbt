@@ -148,9 +148,9 @@ fn plan_task_offer_apply(
   fields["offer_draft"] = json_field(changes, "offer_draft").unwrap_or(
     Json::null(),
   )
-  fields["event_id"] = event_id.to_json()
-  fields["updated_by"] = actor.to_json()
-  fields["source_kind"] = "command".to_json()
+  fields["event_id"] = Json::string(event_id)
+  fields["updated_by"] = Json::string(actor)
+  fields["source_kind"] = Json::string("command")
   Json::object(fields)
 }
 
@@ -364,7 +364,7 @@ fn plan_task_offer_public(
   // Company lists do not gain this identity or the full proposal body.
   if include_offer {
     fields["created_by"] = match json_field(payload, "created_by") {
-      Some(String(actor)) => actor.to_json()
+      Some(String(actor)) => Json::string(actor)
       _ => Json::null()
     }
   }

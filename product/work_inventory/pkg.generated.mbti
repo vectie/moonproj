@@ -7,28 +7,31 @@ import {
 }
 
 // Values
-pub fn parse(Json, String) -> Inventory raise InventoryError
+pub fn parse(@json.Json, String) -> Inventory raise InventoryError
 
-pub fn parse_portfolio(Json, Array[String]) -> Array[Inventory] raise InventoryError
+pub fn parse_portfolio(@json.Json, Array[String]) -> Array[Inventory] raise InventoryError
 
 // Errors
+#derive(@debug.Debug)
 pub suberror InventoryError {
   Invalid(String)
-} derive(@debug.Debug)
+}
 pub fn InventoryError::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct EffortItem {
   task : String
-  estimate_low_days : Int
-  estimate_high_days : Int
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+  estimate_low_days : Int32
+  estimate_high_days : Int32
+}
 pub fn EffortItem::equal(Self, Self) -> Bool
-pub fn EffortItem::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn EffortItem::from_json(@json.Json, @json.DecodeContext) -> Self raise @json.JsonDecodeError
 pub fn EffortItem::not_equal(Self, Self) -> Bool
-pub fn EffortItem::to_json(Self) -> Json
+pub fn EffortItem::to_json(Self) -> @json.Json
 pub fn EffortItem::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Inventory {
   schema : String
   product_id : String
@@ -45,30 +48,32 @@ pub(all) struct Inventory {
   non_goals : Array[String]
   requirements : Array[Requirement]
   groups : Array[WorkGroup]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
-pub fn Inventory::count(Self, String) -> Int
+}
+pub fn Inventory::count(Self, String) -> Int32
 pub fn Inventory::equal(Self, Self) -> Bool
-pub fn Inventory::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Inventory::from_json(@json.Json, @json.DecodeContext) -> Self raise @json.JsonDecodeError
 pub fn Inventory::not_equal(Self, Self) -> Bool
-pub fn Inventory::projection(Self) -> Json
-pub fn Inventory::to_json(Self) -> Json
+pub fn Inventory::projection(Self) -> @json.Json
+pub fn Inventory::to_json(Self) -> @json.Json
 pub fn Inventory::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Milestone {
   title : String
-  estimate_low_days : Int?
-  estimate_high_days : Int?
+  estimate_low_days : Int32?
+  estimate_high_days : Int32?
   unit : String
   confidence : String
   scope : String
   linked_group_id : String?
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 pub fn Milestone::equal(Self, Self) -> Bool
-pub fn Milestone::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Milestone::from_json(@json.Json, @json.DecodeContext) -> Self raise @json.JsonDecodeError
 pub fn Milestone::not_equal(Self, Self) -> Bool
-pub fn Milestone::to_json(Self) -> Json
+pub fn Milestone::to_json(Self) -> @json.Json
 pub fn Milestone::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Requirement {
   id : String
   title : String
@@ -82,13 +87,14 @@ pub(all) struct Requirement {
   status : String
   reason : String
   evidence : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 pub fn Requirement::equal(Self, Self) -> Bool
-pub fn Requirement::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn Requirement::from_json(@json.Json, @json.DecodeContext) -> Self raise @json.JsonDecodeError
 pub fn Requirement::not_equal(Self, Self) -> Bool
-pub fn Requirement::to_json(Self) -> Json
+pub fn Requirement::to_json(Self) -> @json.Json
 pub fn Requirement::to_repr(Self) -> @debug.Repr
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct WorkGroup {
   id : String
   title : String
@@ -97,18 +103,18 @@ pub(all) struct WorkGroup {
   next_action : String
   acceptance : Array[String]
   dependencies : Array[String]
-  estimate_low_days : Int?
-  estimate_high_days : Int?
+  estimate_low_days : Int32?
+  estimate_high_days : Int32?
   estimate_scope : String
   effort_breakdown : Array[EffortItem]?
   confidence : String
   assumptions : Array[String]
   evidence : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 pub fn WorkGroup::equal(Self, Self) -> Bool
-pub fn WorkGroup::from_json(Json, @json.JsonPath) -> Self raise @json.JsonDecodeError
+pub fn WorkGroup::from_json(@json.Json, @json.DecodeContext) -> Self raise @json.JsonDecodeError
 pub fn WorkGroup::not_equal(Self, Self) -> Bool
-pub fn WorkGroup::to_json(Self) -> Json
+pub fn WorkGroup::to_json(Self) -> @json.Json
 pub fn WorkGroup::to_repr(Self) -> @debug.Repr
 
 // Type aliases

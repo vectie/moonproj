@@ -154,13 +154,13 @@ test "portable brief real UI export preview and import preserve exact text and o
   ignore(
     plan_test_file(
       "portable-task-brief-original.json",
-      old.to_json().stringify(),
+      ToJson::to_json(old).stringify(),
     ),
   )
   ignore(
     plan_test_file(
       "portable-task-brief-imported.json",
-      fresh.to_json().stringify(),
+      ToJson::to_json(fresh).stringify(),
     ),
   )
   ignore(

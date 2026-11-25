@@ -12,10 +12,11 @@ import {
 pub fn notification_for_policy_alert(@policy.PolicyAlert, principal_id~ : String, recipient_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> @notification.Notification raise PolicyAlertBridgeError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror PolicyAlertBridgeError {
   AlertNotReviewed
   Notification(@notification.NotificationError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
 

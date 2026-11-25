@@ -32,7 +32,7 @@ test "owner roster UI previews persists restores and exports exact roster" {
     plan_store(
       "owner-test",
       "company-actual",
-      original.plan.draft.unwrap().to_json().stringify(),
+      ToJson::to_json(original.plan.draft.unwrap()).stringify(),
     ),
   )
   let stored = plan_restore("owner-test", "company-actual")
@@ -83,7 +83,7 @@ test "owner roster UI previews persists restores and exports exact roster" {
   ignore(
     plan_test_file(
       "owner-roster-before.json",
-      original.plan.draft.unwrap().to_json().stringify(indent=2),
+      ToJson::to_json(original.plan.draft.unwrap()).stringify(indent=2),
     ),
   )
   ignore(
@@ -91,7 +91,7 @@ test "owner roster UI previews persists restores and exports exact roster" {
   )
   ignore(plan_test_file("owner-roster-preview.html", html))
   ignore(
-    plan_test_file("owner-roster-after.json", d.to_json().stringify(indent=2)),
+    plan_test_file("owner-roster-after.json", ToJson::to_json(d).stringify(indent=2)),
   )
   ignore(plan_test_file("owner-roster-output.csv", csv))
   let (_, switched) = plan_update(_ => none, Choose("company-second"), edited)
@@ -104,7 +104,7 @@ test "owner roster UI previews persists restores and exports exact roster" {
   guard @json.parse(plan_test_requests()) is Array([request]) else {
     fail("one explicit prepare")
   }
-  assert_eq(@json.parse(products_text(request, "body")), d.to_json())
+  assert_eq(@json.parse(products_text(request, "body")), ToJson::to_json(d))
   ignore(
     plan_test_file(
       "owner-roster-prepare-request.json",

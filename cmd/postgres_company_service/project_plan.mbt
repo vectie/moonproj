@@ -177,7 +177,7 @@ fn project_plan_task_item(
     "delivery_limits": Json::string(json_text(payload, "delivery_limits", "")),
     "execution": plan_task_execution_public(payload),
     "continuations": plan_task_continuations_public(payload),
-    "human_revisions": plan_task_human_revisions(payload).to_json(),
+    "human_revisions": Json::array(plan_task_human_revisions(payload)),
     "selected_delivery_source": plan_task_delivery_source(payload),
     "accepted_report_id": json_field(payload, "accepted_report_id").unwrap_or(
       Json::null(),

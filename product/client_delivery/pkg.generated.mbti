@@ -21,18 +21,20 @@ pub fn readme(Note) -> String
 pub fn validate_note(Note) -> String
 
 // Errors
+#derive(@debug.Debug)
 pub suberror InvalidPacket {
   Invalid(String)
-} derive(@debug.Debug)
+}
 pub fn InvalidPacket::to_repr(Self) -> @debug.Repr
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Note {
   title : String
   summary : String
   review_request : String
   filename : String
-} derive(Eq, @debug.Debug)
+}
 pub fn Note::equal(Self, Self) -> Bool
 pub fn Note::not_equal(Self, Self) -> Bool
 pub fn Note::to_repr(Self) -> @debug.Repr

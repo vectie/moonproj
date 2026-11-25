@@ -12,6 +12,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror FinancingError {
   EmptyIdentifier
   InvalidAmount
@@ -25,16 +26,18 @@ pub(all) suberror FinancingError {
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct FacilityEvent {
   from : FacilityState
   to : FacilityState
   actor_id : String
   capability : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum FacilityState {
   Draft
   Approved
@@ -43,8 +46,9 @@ pub(all) enum FacilityState {
   Closed
   Defaulted
   Cancelled
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct FinancingFacility {
   facility_id : String
   principal_id : String
@@ -56,7 +60,7 @@ pub(all) struct FinancingFacility {
   annual_rate_bps : Int64
   state : FacilityState
   events : Array[FacilityEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn FinancingFacility::accrue_interest(Self, Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (@finance.Money, Self) raise FinancingError
 pub fn FinancingFacility::activate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise FinancingError
 pub fn FinancingFacility::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise FinancingError

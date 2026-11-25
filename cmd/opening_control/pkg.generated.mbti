@@ -10,12 +10,13 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror ControlPromotionError {
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Control(@control.ControlError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

@@ -43,7 +43,7 @@ async fn company_gateway(action : String, args : ArrayView[String]) -> Json {
     session.iter().any(c => c == '\r' || c == '\n' || c == ';') {
     fail("existing gateway session is missing or invalid")
   }
-  let headers : Map[String, String] = {
+  let headers : @http.Headers = {
     "Cookie": "moonproj_session=" + session,
     "Content-Type": "application/json",
   }

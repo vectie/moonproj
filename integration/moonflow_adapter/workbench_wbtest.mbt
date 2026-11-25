@@ -68,14 +68,14 @@ async test "workbench native prepare immutable replay reopen and actor project i
     root,
     "owner-test",
     workbench_test_project(),
-    draft.to_json(),
+    ToJson::to_json(draft),
   )
   assert_eq(
     prepare_workbench(
       root,
       "owner-test",
       workbench_test_project(),
-      draft.to_json(),
+      ToJson::to_json(draft),
     ),
     prepared,
   )
@@ -115,7 +115,7 @@ async test "workbench native prepare immutable replay reopen and actor project i
         root,
         "owner-test",
         workbench_test_project(),
-        history.to_json(),
+        ToJson::to_json(history),
       ),
     )
   }
@@ -131,7 +131,7 @@ async test "workbench native prepare immutable replay reopen and actor project i
       root,
       "owner-test",
       workbench_test_project(),
-      changed.to_json(),
+      ToJson::to_json(changed),
     )
   catch {
     _ => ()
@@ -180,7 +180,7 @@ async test "workbench invalid rows references dependencies duplicates dates crit
         root,
         "owner-test",
         workbench_test_project(),
-        variant.to_json(),
+        ToJson::to_json(variant),
       )
     catch {
       _ => ()
@@ -199,7 +199,7 @@ async test "workbench detects changed source and artifact and missing workspace"
     root,
     "owner-test",
     workbench_test_project(),
-    d.to_json(),
+    ToJson::to_json(d),
   )
   let base = root +
     "/" +
@@ -226,7 +226,7 @@ async test "workbench detects changed source and artifact and missing workspace"
       root + "/missing",
       "owner-test",
       workbench_test_project(),
-      d.to_json(),
+      ToJson::to_json(d),
     )
   catch {
     _ => ()

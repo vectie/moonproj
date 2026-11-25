@@ -9,10 +9,11 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror PostgresReadModelServerError {
   InvalidInput(String)
   Database(@postgres.PostgresError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

@@ -208,9 +208,9 @@ async fn flow_gateway_report_result(
     Object(fields) => fields.copy()
     _ => Map::new()
   }
-  fields["state"] = "reported".to_json()
-  fields["next_action"] = "inspect_report".to_json()
-  fields["acknowledgement"] = "verified_company_service_readback".to_json()
+  fields["state"] = Json::string("reported")
+  fields["next_action"] = Json::string("inspect_report")
+  fields["acknowledgement"] = Json::string("verified_company_service_readback")
   native_json_result(200, Json::object(fields))
 }
 

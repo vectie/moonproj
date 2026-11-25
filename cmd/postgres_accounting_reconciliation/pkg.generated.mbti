@@ -10,11 +10,12 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror PostgresAccountingReconciliationError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 type DomainItem

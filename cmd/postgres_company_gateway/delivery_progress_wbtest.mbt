@@ -53,7 +53,7 @@ test "progress is explanatory and exact task command scoped without completion a
   assert_true(native_delivery_progress_projection(task, "other", note) is Null)
   assert_true(
     native_delivery_progress_projection(
-      continuation_test_field(task, "taskGuid", "other".to_json()),
+      continuation_test_field(task, "taskGuid", Json::string("other")),
       "C",
       note,
     )

@@ -15,10 +15,11 @@ pub async fn run_sql(Connection, String) -> String raise PostgresError
 pub fn sql_literal(String) -> String
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror PostgresError {
   Process(String)
   Failed(String)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 pub(all) struct Connection {

@@ -9,11 +9,12 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror WarningPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Warning(@vectie/moonproj/intelligence/warning.WarningError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

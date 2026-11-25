@@ -46,7 +46,7 @@ test "risk register UI previews adds updates persists exports and sends only exp
     plan_store(
       "owner-test",
       "company-actual",
-      original.plan.draft.unwrap().to_json().stringify(),
+      ToJson::to_json(original.plan.draft.unwrap()).stringify(),
     ),
   )
   let stored = plan_restore("owner-test", "company-actual")
@@ -116,7 +116,7 @@ test "risk register UI previews adds updates persists exports and sends only exp
   ignore(
     plan_test_file(
       "risk-register-before.json",
-      before.to_json().stringify(indent=2),
+      ToJson::to_json(before).stringify(indent=2),
     ),
   )
   ignore(
@@ -124,7 +124,7 @@ test "risk register UI previews adds updates persists exports and sends only exp
   )
   ignore(plan_test_file("risk-register-preview.html", html))
   ignore(
-    plan_test_file("risk-register-after.json", d.to_json().stringify(indent=2)),
+    plan_test_file("risk-register-after.json", ToJson::to_json(d).stringify(indent=2)),
   )
   ignore(plan_test_file("risk-register-output.csv", csv))
   let (_, switched) = plan_update(_ => none, Choose("company-second"), edited)
@@ -137,7 +137,7 @@ test "risk register UI previews adds updates persists exports and sends only exp
   guard @json.parse(plan_test_requests()) is Array([request]) else {
     fail("one explicit prepare")
   }
-  assert_eq(@json.parse(products_text(request, "body")), d.to_json())
+  assert_eq(@json.parse(products_text(request, "body")), ToJson::to_json(d))
   ignore(
     plan_test_file(
       "risk-register-prepare-request.json",
@@ -331,7 +331,7 @@ test "risk register staging resets after template replacement and saved version 
     "project_id": draft.project_id,
     "key": draft.key,
     "persisted": true,
-    "draft": draft.to_json(),
+    "draft": ToJson::to_json(draft),
     "artifact": artifact,
     "artifact_json": artifact.stringify(),
     "readable": "Synthetic response fixture only",

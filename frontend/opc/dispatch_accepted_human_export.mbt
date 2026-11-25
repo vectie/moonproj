@@ -64,7 +64,7 @@ fn dispatch_accepted_human_binding(model : Model) -> Json {
     "selected_report": model.dispatch_task_report_id,
     "report_summary": model.dispatch_task_report_summary,
     "report_source": state.report_source,
-    "report_records": state.report_records.to_json(),
+    "report_records": Json::array(state.report_records),
     "accepted_report": state.accepted_report_id,
     "accepted_source": state.accepted_delivery_source,
     "selected_source": state.selected,

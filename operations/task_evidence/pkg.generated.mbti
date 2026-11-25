@@ -3,47 +3,51 @@ package "vectie/moonproj/operations/task_evidence"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
-pub fn guidance_prompt(Json) -> String
+pub fn guidance_prompt(@json.Json) -> String
 
-pub fn guidance_summary(Json, sha256? : String) -> Json
+pub fn guidance_summary(@json.Json, sha256? : String) -> @json.Json
 
-pub fn normalize_offer_draft(Json) -> Json raise OfferDraftError
+pub fn normalize_offer_draft(@json.Json) -> @json.Json raise OfferDraftError
 
-pub fn normalize_offer_reply(Json) -> Json raise OfferReplyError
+pub fn normalize_offer_reply(@json.Json) -> @json.Json raise OfferReplyError
 
-pub fn offer_draft_history(String, Array[Json]) -> Array[Json]
+pub fn offer_draft_history(String, Array[@json.Json]) -> Array[@json.Json]
 
-pub fn offer_draft_markdown(Json, task_id~ : String, project_id~ : String, revision~ : Int) -> String raise OfferDraftError
+pub fn offer_draft_markdown(@json.Json, task_id~ : String, project_id~ : String, revision~ : Int32) -> String raise OfferDraftError
 
-pub fn offer_draft_summary(Json) -> Json raise OfferDraftError
+pub fn offer_draft_summary(@json.Json) -> @json.Json raise OfferDraftError
 
-pub fn offer_draft_unresolved(Json) -> Array[String] raise OfferDraftError
+pub fn offer_draft_unresolved(@json.Json) -> Array[String] raise OfferDraftError
 
-pub fn offer_reply_history(String, Array[Json]) -> Array[Json]
+pub fn offer_reply_history(String, Array[@json.Json]) -> Array[@json.Json]
 
-pub fn receipt_history(String, Array[Json]) -> Json
+pub fn receipt_history(String, Array[@json.Json]) -> @json.Json
 
-pub fn source_prompt(Json) -> String
+pub fn source_prompt(@json.Json) -> String
 
-pub fn validate_guidance_selection(Json, Json) -> Unit raise SourceContextError
+pub fn validate_guidance_selection(@json.Json, @json.Json) -> Unit raise SourceContextError
 
-pub fn with_source_context(Json, Json) -> Json raise SourceContextError
+pub fn with_source_context(@json.Json, @json.Json) -> @json.Json raise SourceContextError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub suberror OfferDraftError {
   InvalidOfferDraft(String)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub suberror OfferReplyError {
   InvalidOfferReply(String)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub suberror SourceContextError {
   InvalidSourceContext(String)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
 

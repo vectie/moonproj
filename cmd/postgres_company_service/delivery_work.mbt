@@ -25,14 +25,8 @@ fn plan_task_delivery_changes(
 }
 
 ///|
+/// Coordinated tasks capture the registered parent MoonBook root so MoonDesk
+/// can resolve the workspace directly while worker sandboxes stay disjoint.
 fn plan_task_execution_workspace(task : Json) -> String {
-  let root = json_text(task, "execution_workspace", "")
-  if json_text(task, "delivery_mode", "") == "coordinated" {
-    root +
-    "/.moonproj-deliveries/" +
-    json_text(task, "task_id", "") +
-    "/coordinator"
-  } else {
-    root
-  }
+  json_text(task, "execution_workspace", "")
 }

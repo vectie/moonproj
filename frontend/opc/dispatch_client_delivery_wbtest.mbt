@@ -340,7 +340,7 @@ test "client packet view is human-only editable and hides technical content by d
     model,
     accepted_human_test_payload().stringify(),
   )
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_client_delivery_view(_ => none, ready)),
   )
   for
@@ -370,7 +370,7 @@ test "client packet view is human-only editable and hides technical content by d
         accepted_delivery_source: source,
       },
     }
-    let html = @rabbita.render_to_string(
+    let html = opc_render_cell(
       @rabbita.static_cell(
         dispatch_client_delivery_view(_ => none, unsupported),
       ),

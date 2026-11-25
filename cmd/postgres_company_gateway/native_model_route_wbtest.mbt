@@ -84,7 +84,11 @@ test "native automatic selection requires ready exact configured default" {
       "", "moongate/absent", "default", "codex/configured", "moongate/",
     ] {
     assert_native_model_unavailable(
-      native_route_override(route, "default_model", default_model.to_json()),
+      native_route_override(
+        route,
+        "default_model",
+        Json::string(default_model),
+      ),
       "",
     )
   }

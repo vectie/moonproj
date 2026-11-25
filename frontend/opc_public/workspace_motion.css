@@ -1,0 +1,168 @@
+/* Purposeful focus-guiding motion for MoonProj Workspace.
+   GPU-composited properties (transform, opacity) only; strictly respects
+   prefers-reduced-motion and the workspace's manual pause toggle. */
+
+/* 1. Sliding active workspace tab indicator */
+.workspace-tabs-indicator {
+  transition:
+    transform 210ms var(--workspace-ease),
+    width 210ms var(--workspace-ease),
+    opacity 150ms ease;
+  will-change: transform, width;
+}
+
+/* 2. Choreographed view & disclosure entrances */
+.company-flow[data-workspace-surface] > * {
+  animation: opc-surface-enter 240ms var(--workspace-ease) both;
+}
+.company-flow[data-workspace-surface] > :nth-child(2) { animation-delay: 35ms; }
+.company-flow[data-workspace-surface] > :nth-child(3) { animation-delay: 70ms; }
+.company-flow[data-workspace-surface] > :nth-child(4) { animation-delay: 100ms; }
+
+.charter-inline-form,
+.mission-stage-detail {
+  animation: opc-panel-reveal 200ms var(--workspace-ease) both;
+}
+
+.desktop-sheet-scrim {
+  animation: opc-scrim-fade 180ms ease both;
+}
+.desktop-sheet {
+  animation: opc-sheet-rise 220ms var(--workspace-ease) both;
+}
+@keyframes opc-scrim-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes opc-sheet-rise {
+  from { opacity: 0; transform: translateY(14px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.mission-stage-step,
+.founder-focus-card,
+.org-role-card,
+.resource-card,
+.flow-job {
+  transition:
+    transform var(--workspace-feedback) var(--workspace-ease),
+    border-color var(--workspace-feedback) ease,
+    box-shadow var(--workspace-feedback) ease,
+    background-color var(--workspace-feedback) ease;
+}
+
+.mission-stage-step:hover,
+.founder-focus-card:hover,
+.org-role-card:hover,
+.resource-card:hover,
+.flow-job:hover {
+  transform: translateY(-2px);
+}
+.founder-focus-card:hover,
+.org-role-card:hover,
+.resource-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 8px 22px rgba(23, 32, 51, .07);
+}
+.flow-job:hover .job-open-mark {
+  color: var(--accent-dark);
+  transform: translate(2px, -2px);
+}
+.job-open-mark {
+  transition: transform var(--workspace-feedback) var(--workspace-ease), color var(--workspace-feedback) ease;
+}
+
+/* 3. Active milestone beacon & proportional weight rail */
+.mission-stage-mark[data-stage-status="active"]::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1.5px solid var(--accent);
+  opacity: 0;
+  animation: opc-stage-beacon 2.6s cubic-bezier(.4, 0, .2, 1) infinite;
+}
+
+.mission-weight-segment {
+  transition: flex-grow 420ms var(--workspace-ease), filter 180ms ease;
+}
+.mission-weight-segment[data-stage-status="active"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, .52) 50%, transparent 100%);
+  transform: translateX(-100%);
+  animation: opc-rail-sheen 3.2s ease-in-out infinite;
+}
+
+/* 4. 80/20 Founder Focus attention cue */
+.founder-focus[data-has-critical="true"] .founder-focus-beacon {
+  animation: opc-focus-pulse 2.4s ease-in-out infinite;
+}
+.founder-reason-badge[data-stage="waiting_approval"],
+.founder-reason-badge[data-stage="failed"] {
+  animation: opc-urgency-breathe 2.6s ease-in-out infinite;
+}
+
+/* 5. Dock tactile lift & loading / running rings */
+.dock-job-icon {
+  transition:
+    transform var(--workspace-feedback) var(--workspace-ease),
+    background-color var(--workspace-feedback) ease,
+    border-color var(--workspace-feedback) ease;
+}
+.dock-job:hover .dock-job-icon {
+  transform: translateY(-3px);
+  color: var(--accent-dark);
+}
+.charter-loading-dot,
+.company-workspace [data-live-motion="true"] .job-status-mark {
+  animation: opc-spin 1.4s linear infinite;
+}
+
+/* Keyframes */
+@keyframes opc-surface-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes opc-panel-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes opc-stage-beacon {
+  0% { transform: scale(.75); opacity: .65; }
+  70% { transform: scale(1.65); opacity: 0; }
+  100% { transform: scale(1.65); opacity: 0; }
+}
+@keyframes opc-rail-sheen {
+  0%, 35% { transform: translateX(-100%); }
+  75%, 100% { transform: translateX(130%); }
+}
+@keyframes opc-focus-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.28); opacity: .65; }
+}
+@keyframes opc-urgency-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .78; }
+}
+@keyframes opc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Complete motion safety for manual pause & OS reduced-motion preference */
+.company-workspace[data-motion="paused"] *,
+.company-workspace[data-motion="paused"] *::before,
+.company-workspace[data-motion="paused"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .company-workspace *,
+  .company-workspace *::before,
+  .company-workspace *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}

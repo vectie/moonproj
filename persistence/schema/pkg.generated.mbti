@@ -11,6 +11,7 @@ pub fn apply_migration(SchemaState, MigrationStep) -> SchemaState raise Migratio
 pub fn validate_chain(SchemaState, Array[MigrationStep]) -> SchemaState raise MigrationError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror MigrationError {
   InvalidVersion
   EmptyMigrationId
@@ -18,21 +19,23 @@ pub(all) suberror MigrationError {
   EmptyDescription
   NonSequential
   AlreadyApplied
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct MigrationStep {
-  version : Int
+  version : Int32
   migration_id : String
   checksum : String
   description : String
-} derive(Eq, @debug.Debug)
-pub fn MigrationStep::new(version~ : Int, migration_id~ : String, checksum~ : String, description~ : String) -> Self raise MigrationError
+}
+pub fn MigrationStep::new(version~ : Int32, migration_id~ : String, checksum~ : String, description~ : String) -> Self raise MigrationError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct SchemaState {
-  version : Int
+  version : Int32
   checksum : String
-} derive(Eq, @debug.Debug)
+}
 pub fn SchemaState::initial() -> Self
 
 // Type aliases

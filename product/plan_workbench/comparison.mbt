@@ -211,7 +211,8 @@ pub fn compare_saved(before : Json, after : Json) -> PlanComparison raise {
   }
   for o in a.owners {
     match b.owners.iter().find_first(p => p.id == o.id) {
-      None => comparison_row(changes, "Owner", o.id, Some(o.to_json()), None)
+      None =>
+        comparison_row(changes, "Owner", o.id, Some(ToJson::to_json(o)), None)
       Some(p) => {
         comparison_add(changes, "Owner", o.id, "Name", o.name, p.name)
         comparison_add(changes, "Owner", o.id, "Role", o.role, p.role)
@@ -219,7 +220,7 @@ pub fn compare_saved(before : Json, after : Json) -> PlanComparison raise {
     }
   }
   for o in b.owners.filter(p => !a.owners.any(o => o.id == p.id)) {
-    comparison_row(changes, "Owner", o.id, None, Some(o.to_json()))
+    comparison_row(changes, "Owner", o.id, None, Some(ToJson::to_json(o)))
   }
   comparison_add(
     changes,
@@ -231,7 +232,8 @@ pub fn compare_saved(before : Json, after : Json) -> PlanComparison raise {
   )
   for t in a.tasks {
     match b.tasks.iter().find_first(u => u.id == t.id) {
-      None => comparison_row(changes, "Task", t.id, Some(t.to_json()), None)
+      None =>
+        comparison_row(changes, "Task", t.id, Some(ToJson::to_json(t)), None)
       Some(u) => {
         comparison_add(changes, "Task", t.id, "Name", t.name, u.name)
         comparison_add(changes, "Task", t.id, "Owner ID", t.owner, u.owner)
@@ -266,12 +268,18 @@ pub fn compare_saved(before : Json, after : Json) -> PlanComparison raise {
     }
   }
   for t in b.tasks.filter(u => !a.tasks.any(t => t.id == u.id)) {
-    comparison_row(changes, "Task", t.id, None, Some(t.to_json()))
+    comparison_row(changes, "Task", t.id, None, Some(ToJson::to_json(t)))
   }
   for m in a.milestones {
     match b.milestones.iter().find_first(n => n.id == m.id) {
       None =>
-        comparison_row(changes, "Milestone", m.id, Some(m.to_json()), None)
+        comparison_row(
+          changes,
+          "Milestone",
+          m.id,
+          Some(ToJson::to_json(m)),
+          None,
+        )
       Some(n) => {
         comparison_add(changes, "Milestone", m.id, "Name", m.name, n.name)
         comparison_add(changes, "Milestone", m.id, "Owner ID", m.owner, n.owner)
@@ -303,11 +311,12 @@ pub fn compare_saved(before : Json, after : Json) -> PlanComparison raise {
     }
   }
   for m in b.milestones.filter(n => !a.milestones.any(m => m.id == n.id)) {
-    comparison_row(changes, "Milestone", m.id, None, Some(m.to_json()))
+    comparison_row(changes, "Milestone", m.id, None, Some(ToJson::to_json(m)))
   }
   for r in a.risks {
     match b.risks.iter().find_first(q => q.id == r.id) {
-      None => comparison_row(changes, "Risk", r.id, Some(r.to_json()), None)
+      None =>
+        comparison_row(changes, "Risk", r.id, Some(ToJson::to_json(r)), None)
       Some(q) => {
         comparison_add(changes, "Risk", r.id, "Summary", r.summary, q.summary)
         comparison_add(
@@ -339,7 +348,7 @@ pub fn compare_saved(before : Json, after : Json) -> PlanComparison raise {
     }
   }
   for r in b.risks.filter(q => !a.risks.any(r => r.id == q.id)) {
-    comparison_row(changes, "Risk", r.id, None, Some(r.to_json()))
+    comparison_row(changes, "Risk", r.id, None, Some(ToJson::to_json(r)))
   }
   {
     before_header: comparison_header(before),

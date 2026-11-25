@@ -70,17 +70,17 @@ test "human revision rejects mismatched identity provenance digest size syntheti
   let (original, revision, bytes) = human_revision_test_fixture()
   for
     (key, value) in [
-      ("task_id", "other".to_json()),
-      ("original_run_id", "other".to_json()),
-      ("session_id", "other".to_json()),
-      ("original_command_id", "other".to_json()),
-      ("workspace", "/elsewhere".to_json()),
-      ("revision_id", "H2".to_json()),
-      ("author_type", "agent".to_json()),
-      ("capture_scope", "workspace_replacement".to_json()),
-      ("receipt", {}),
-      ("model", "fake".to_json()),
-      ("command_id", "synthetic".to_json()),
+      ("task_id", Json::string("other")),
+      ("original_run_id", Json::string("other")),
+      ("session_id", Json::string("other")),
+      ("original_command_id", Json::string("other")),
+      ("workspace", Json::string("/elsewhere")),
+      ("revision_id", Json::string("H2")),
+      ("author_type", Json::string("agent")),
+      ("capture_scope", Json::string("workspace_replacement")),
+      ("receipt", Json::object(Map([]))),
+      ("model", Json::string("fake")),
+      ("command_id", Json::string("synthetic")),
       (
         "content",
         {
@@ -125,7 +125,7 @@ test "human revision rejects mismatched identity provenance digest size syntheti
     ] {
     try
       human_revision_validate_output(
-        continuation_test_field(revision, "output", output.to_json()),
+        continuation_test_field(revision, "output", ToJson::to_json(output)),
         original,
       )
     catch {
@@ -199,11 +199,11 @@ test "human revision navigation ID cannot substitute native selection or task au
   }
   for
     (key, value) in [
-      ("human_revision_id", "H2".to_json()),
-      ("original_run_id", "R2".to_json()),
-      ("select_for_delivery", false.to_json()),
-      ("command_id", "C1".to_json()),
-      ("continuation_id", "K1".to_json()),
+      ("human_revision_id", Json::string("H2")),
+      ("original_run_id", Json::string("R2")),
+      ("select_for_delivery", Json::boolean(false)),
+      ("command_id", Json::string("C1")),
+      ("continuation_id", Json::string("K1")),
       ("selected_delivery_source", { "type": "original" }),
     ] {
     try
@@ -269,7 +269,7 @@ async test "human revision from unattached native continuation reads exact sourc
   let attached = continuation_test_field(
     task,
     "continuations",
-    [source].to_json(),
+    Json::array([source]),
   )
   assert_eq(
     human_revision_candidate_source(attached, revised, _ => {
@@ -280,12 +280,12 @@ async test "human revision from unattached native continuation reads exact sourc
   let changed = continuation_test_field(
     revised,
     "created_at",
-    "changed".to_json(),
+    Json::string("changed"),
   )
   let saved = continuation_test_field(
     attached,
     "human_revisions",
-    [revised].to_json(),
+    Json::array([revised]),
   )
   try human_revision_candidate_source(saved, changed, _ => source) catch {
     error => assert_eq(native_continuation_error(error).0, 409)

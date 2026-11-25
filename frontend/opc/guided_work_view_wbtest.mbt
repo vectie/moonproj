@@ -36,13 +36,13 @@ extern "js" fn guided_preview_enabled() -> Bool =
 ///|
 #warnings("-alert_unstable")
 fn guided_page(model : Model) -> String {
-  @rabbita.render_to_string(@rabbita.static_cell(view(_ => none, model)))
+  opc_render_cell(@rabbita.static_cell(view(_ => none, model)))
 }
 
 ///|
 #warnings("-alert_unstable")
 fn guided_task(model : Model) -> String {
-  @rabbita.render_to_string(
+  opc_render_cell(
     @rabbita.static_cell(dispatch_view(_ => none, model)),
   )
 }
@@ -375,7 +375,7 @@ test "guided synthetic previews use exact view components without runtime effect
     if guided_preview_enabled() {
       println(
         "MOONPROJ_UI_PREVIEW " +
-        Json::object({ "name": name.to_json(), "html": html.to_json() }).stringify(),
+        Json::object({ "name": ToJson::to_json(name), "html": ToJson::to_json(html) }).stringify(),
       )
     }
   }

@@ -37,34 +37,34 @@ async test "saved report schema and binding corruption reject both recovery path
   ]
   for
     (key, value) in [
-      ("contract_id", "unsupported".to_json()),
+      ("contract_id", Json::string("unsupported")),
       (
         "binding",
         checkpoint_change(
           company_field(envelope, "binding"),
           "task_id",
-          "other".to_json(),
+          Json::string("other"),
         ),
       ),
-      ("request_ref", "other-request.json".to_json()),
-      ("result_ref", "other-result.json".to_json()),
-      ("result_digest", "sha256:changed".to_json()),
-      ("output_digest", "sha256:changed".to_json()),
-      ("method", "PUT".to_json()),
-      ("path", "/api/company/plan/tasks/other/report".to_json()),
-      ("idempotency_key", "other-report".to_json()),
+      ("request_ref", Json::string("other-request.json")),
+      ("result_ref", Json::string("other-result.json")),
+      ("result_digest", Json::string("sha256:changed")),
+      ("output_digest", Json::string("sha256:changed")),
+      ("method", Json::string("PUT")),
+      ("path", Json::string("/api/company/plan/tasks/other/report")),
+      ("idempotency_key", Json::string("other-report")),
       ("evidence", Json::array([])),
-      ("task_acceptance", "accepted".to_json()),
+      ("task_acceptance", Json::string("accepted")),
     ] {
     mutations.push(checkpoint_change(envelope, key, value))
   }
   for
     (key, value) in [
-      ("task_id", "other".to_json()),
-      ("project_id", "other".to_json()),
-      ("report_id", "other".to_json()),
-      ("report_date", "not-a-date".to_json()),
-      ("summary", "".to_json()),
+      ("task_id", Json::string("other")),
+      ("project_id", Json::string("other")),
+      ("report_id", Json::string("other")),
+      ("report_date", Json::string("not-a-date")),
+      ("summary", Json::string("")),
       ("progress_pct", Json::number(0.5)),
       ("progress_pct", Json::number(4294967296.0)),
       ("evidence_ids", Json::array([])),
@@ -219,7 +219,7 @@ async test "incomplete command shape and wrong revision never persist report rec
       Json::number(0),
       Json::number(2),
       Json::number(1.5),
-      "1".to_json(),
+      Json::string("1"),
     ] {
     mutations.push(
       checkpoint_change(

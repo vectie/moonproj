@@ -307,7 +307,7 @@ test "accepted human export rejects contract identity metadata shape and malform
           ..model,
           dispatch_task_commitment: {
             "task_id": "task-1",
-            "receipts": receipts.to_json(),
+            "receipts": ToJson::to_json(receipts),
           },
         },
         payload.stringify(),
@@ -580,7 +580,7 @@ test "accepted human export bounded timeout restores retry and fences late trans
   assert_true(
     states[0].dispatch_accepted_human_export.notice.contains("超时"),
   )
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(
       dispatch_accepted_human_export_view(_ => none, states[0]),
     ),
@@ -605,7 +605,7 @@ test "accepted human export bounded timeout restores retry and fences late trans
 #warnings("-alert_unstable")
 test "accepted human export view is visible read only human-only and filenames stay bounded" {
   let model = accepted_human_test_model()
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_report_selection_view(_ => none, model)),
   )
   for
@@ -632,7 +632,7 @@ test "accepted human export view is visible read only human-only and filenames s
         accepted_delivery_source: source,
       },
     }
-    let html = @rabbita.render_to_string(
+    let html = opc_render_cell(
       @rabbita.static_cell(
         dispatch_accepted_human_export_view(_ => none, hidden),
       ),

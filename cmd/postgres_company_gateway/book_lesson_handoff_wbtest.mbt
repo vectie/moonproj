@@ -89,7 +89,10 @@ test "lesson handoff refuses unaccepted missing ambiguous and changed report bin
       raise fail("fixture")
     }
     task[field] = Json::null()
-    assert_true((try? book_lesson_handoff_projection(data)) is Err(_))
+    assert_true(
+      (try Ok(book_lesson_handoff_projection(data)) catch { e => Err(e) })
+      is Err(_),
+    )
   }
   for field in ["actor_id", "audit_id", "event_id", "audit_state", "revision"] {
     let data = lesson_handoff_test_data()
@@ -99,14 +102,20 @@ test "lesson handoff refuses unaccepted missing ambiguous and changed report bin
       raise fail("fixture")
     }
     acceptance[field] = Json::null()
-    assert_true((try? book_lesson_handoff_projection(data)) is Err(_))
+    assert_true(
+      (try Ok(book_lesson_handoff_projection(data)) catch { e => Err(e) })
+      is Err(_),
+    )
   }
   let data = lesson_handoff_test_data()
   guard native_field(data, "reports") is Array(reports) else {
     raise fail("fixture")
   }
   reports.push(reports[0])
-  assert_true((try? book_lesson_handoff_projection(data)) is Err(_))
+  assert_true(
+    (try Ok(book_lesson_handoff_projection(data)) catch { e => Err(e) })
+    is Err(_),
+  )
 }
 
 ///|

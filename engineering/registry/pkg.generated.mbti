@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "vectie/moonproj/engineering/registry"
 
+import {
+  "moonbitlang/core/json",
+}
+
 // Values
 pub fn parse(String) -> Catalog raise CatalogError
 
@@ -25,12 +29,12 @@ pub(all) struct Document {
   path : String
   source_kind : String
   file_name : String
-  metadata : Map[String, Json]
+  metadata : Map[String, @json.Json]
 }
 
 pub(all) struct Product {
   id : String
-  metadata : Map[String, Json]
+  metadata : Map[String, @json.Json]
   repository : Repository?
   engineering_target : String?
   documents : Array[Document]
@@ -38,7 +42,7 @@ pub(all) struct Product {
 
 pub(all) struct Repository {
   path : String
-  metadata : Map[String, Json]
+  metadata : Map[String, @json.Json]
 }
 
 // Type aliases

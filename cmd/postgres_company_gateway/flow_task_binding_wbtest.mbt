@@ -27,9 +27,9 @@ fn flow_wire_report(body : Json, key : String) -> Json {
   }
   fields.remove("progress_pct")
   fields["progress_bps"] = Json::number(0)
-  fields["actor_id"] = "owner-plan".to_json()
-  fields["command_type"] = "report".to_json()
-  fields["state"] = "observed".to_json()
+  fields["actor_id"] = Json::string("owner-plan")
+  fields["command_type"] = Json::string("report")
+  fields["state"] = Json::string("observed")
   fields["flow_source_revision"] = native_field(
     native_field(body, "flow_binding"),
     "source_revision",
@@ -112,7 +112,7 @@ async test "actual authenticated gateway approves revised task executes once and
     Object(fields) => fields.copy()
     _ => Map::new()
   }
-  fields["workspace"] = workspace.to_json()
+  fields["workspace"] = Json::string(workspace)
   @fs.write_file(
     pointer,
     Json::object(fields).stringify(),
@@ -262,7 +262,7 @@ async test "actual authenticated gateway approves revised task executes once and
           )
         })
       })
-      let headers : Map[String, String] = {
+      let headers : @http.Headers = {
         "Cookie": "moonproj_session=fixture-session",
         "Content-Type": "application/json",
         "X-Moonproj-Actor": "forged-browser-actor",

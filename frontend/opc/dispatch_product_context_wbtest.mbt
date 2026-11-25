@@ -4,28 +4,28 @@ fn dispatch_context_test_json(
   artifact_state? : String = "available",
 ) -> Json {
   Json::object({
-    "schema": "moonproj.product-context.v1".to_json(),
-    "product_id": "product-a".to_json(),
-    "product_name": "Captured product A".to_json(),
-    "coverage": coverage.to_json(),
-    "issues": ["Declared extraction scope"].to_json(),
-    "context_path": ".moonproj/input/run-1/product-context.json".to_json(),
-    "sha256": "captured-context-hash".to_json(),
-    "size_bytes": (4096).to_json(),
+    "schema": ToJson::to_json("moonproj.product-context.v1"),
+    "product_id": ToJson::to_json("product-a"),
+    "product_name": ToJson::to_json("Captured product A"),
+    "coverage": ToJson::to_json(coverage),
+    "issues": ToJson::to_json(["Declared extraction scope"]),
+    "context_path": ToJson::to_json(".moonproj/input/run-1/product-context.json"),
+    "sha256": ToJson::to_json("captured-context-hash"),
+    "size_bytes": ToJson::to_json((4096)),
     "prd": Json::object({
-      "document_id": "prd-a".to_json(),
-      "source_sha256": "captured-source-hash".to_json(),
-      "source_size_bytes": (8192).to_json(),
-      "version": "v-before-retag".to_json(),
-      "coverage": coverage.to_json(),
-      "text_sha256": "captured-text-hash".to_json(),
-      "text_size_bytes": (1024).to_json(),
-      "extraction_version": "visible-body-v1".to_json(),
-      "limitations": ["Tables retain text only"].to_json(),
-      "text": "PRIVATE_PRD_TEXT_MUST_NOT_RENDER".to_json(),
+      "document_id": ToJson::to_json("prd-a"),
+      "source_sha256": ToJson::to_json("captured-source-hash"),
+      "source_size_bytes": ToJson::to_json((8192)),
+      "version": ToJson::to_json("v-before-retag"),
+      "coverage": ToJson::to_json(coverage),
+      "text_sha256": ToJson::to_json("captured-text-hash"),
+      "text_size_bytes": ToJson::to_json((1024)),
+      "extraction_version": ToJson::to_json("visible-body-v1"),
+      "limitations": ToJson::to_json(["Tables retain text only"]),
+      "text": ToJson::to_json("PRIVATE_PRD_TEXT_MUST_NOT_RENDER"),
     }),
-    "artifact_state": artifact_state.to_json(),
-    "artifact_error": "".to_json(),
+    "artifact_state": ToJson::to_json(artifact_state),
+    "artifact_error": ToJson::to_json(""),
   })
 }
 
@@ -43,14 +43,14 @@ fn dispatch_context_test_replace(
 ///|
 fn dispatch_context_test_response(context? : Json) -> String {
   let execution : Map[String, Json] = {
-    "run_id": "run-1".to_json(),
-    "task_id": "task-1".to_json(),
-    "session_id": "session-1".to_json(),
-    "command_id": "command-1".to_json(),
-    "workspace": "/workspace/captured".to_json(),
-    "state": "completed".to_json(),
-    "summary": "Exact native answer".to_json(),
-    "output_urls": ["https://example.test/actual-output"].to_json(),
+    "run_id": ToJson::to_json("run-1"),
+    "task_id": ToJson::to_json("task-1"),
+    "session_id": ToJson::to_json("session-1"),
+    "command_id": ToJson::to_json("command-1"),
+    "workspace": ToJson::to_json("/workspace/captured"),
+    "state": ToJson::to_json("completed"),
+    "summary": ToJson::to_json("Exact native answer"),
+    "output_urls": ToJson::to_json(["https://example.test/actual-output"]),
   }
   if context is Some(value) {
     execution["product_context"] = value
@@ -58,9 +58,9 @@ fn dispatch_context_test_response(context? : Json) -> String {
   Json::object({
     "data": Json::object({
       "task": Json::object({
-        "taskGuid": "task-1".to_json(),
-        "product_id": "product-b".to_json(),
-        "status": "in_progress".to_json(),
+        "taskGuid": ToJson::to_json("task-1"),
+        "product_id": ToJson::to_json("product-b"),
+        "status": ToJson::to_json("in_progress"),
         "execution": Json::object(execution),
       }),
       "reports": Json::array([]),
@@ -75,7 +75,7 @@ fn dispatch_context_test_render(model : Model) -> String {
     _,
     model,
   ) => dispatch_native_result(model))
-  @rabbita.render_to_string(page)
+  opc_render_cell(page)
 }
 
 ///|
@@ -130,23 +130,23 @@ test "legacy and untagged execution context stays unbound even on a tagged curre
 test "malformed optional context never rejects otherwise valid task and execution readback" {
   for
     context in [
-      "wrong shape".to_json(),
+      ToJson::to_json("wrong shape"),
       Json::array([]),
       Json::object({}),
       dispatch_context_test_replace(
         dispatch_context_test_json(),
         "coverage",
-        (3).to_json(),
+        ToJson::to_json((3)),
       ),
       dispatch_context_test_replace(
         dispatch_context_test_json(),
         "issues",
-        "not an array".to_json(),
+        ToJson::to_json("not an array"),
       ),
       dispatch_context_test_replace(
         dispatch_context_test_json(),
         "prd",
-        true.to_json(),
+        ToJson::to_json(true),
       ),
     ] {
     let snapshot = dispatch_decode_snapshot(
@@ -171,7 +171,7 @@ test "future context schema is explicit and nonfatal while unknown v1 fields are
   let future = dispatch_context_test_replace(
     dispatch_context_test_json(),
     "schema",
-    "moonproj.product-context.v2".to_json(),
+    ToJson::to_json("moonproj.product-context.v2"),
   )
   let snapshot = dispatch_decode_snapshot(
     dispatch_context_test_response(context=future),
@@ -200,10 +200,10 @@ test "invalid context byte counts and unknown states cannot claim valid complete
     let context = dispatch_context_test_replace(
       dispatch_context_test_json(),
       "size_bytes",
-      value.to_json(),
+      ToJson::to_json(value),
     )
     assert_eq(dispatch_decode_product_context(context), Malformed)
-    let prd = Json::object({ "text_size_bytes": value.to_json() })
+    let prd = Json::object({ "text_size_bytes": ToJson::to_json(value) })
     assert_eq(
       dispatch_decode_product_context(
         dispatch_context_test_replace(dispatch_context_test_json(), "prd", prd),
@@ -217,7 +217,7 @@ test "invalid context byte counts and unknown states cannot claim valid complete
         dispatch_context_test_replace(
           dispatch_context_test_json(),
           key,
-          "future-value".to_json(),
+          ToJson::to_json("future-value"),
         ),
       ),
       Malformed,
@@ -230,7 +230,7 @@ test "missing and sparse PRD provenance remain optional" {
   for
     prd in [
       Json::null(),
-      Json::object({ "document_id": "sparse-prd".to_json() }),
+      Json::object({ "document_id": ToJson::to_json("sparse-prd") }),
       Json::object({
         "document_id": Json::null(),
         "text_size_bytes": Json::null(),
@@ -330,7 +330,7 @@ test "input diagnostics escape markup and never become links or execution failur
   let context = dispatch_context_test_replace(
     dispatch_context_test_json(artifact_state="conflict"),
     "artifact_error",
-    "<script>conflict</script>".to_json(),
+    ToJson::to_json("<script>conflict</script>"),
   )
   let snapshot = dispatch_decode_snapshot(
     dispatch_context_test_response(context~),

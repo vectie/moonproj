@@ -3,34 +3,38 @@ package "vectie/moonproj/intelligence/policy"
 
 import {
   "moonbitlang/core/debug",
+  "moonbitlang/core/json",
 }
 
 // Values
 pub fn analyze_policy(PolicyDocument?, PolicyDocument, Array[PolicySignalRule]) -> PolicyAnalysis
 
-pub fn build_policy_alerts(PolicyAnalysis, minimum_importance? : Int) -> Array[PolicyAlert]
+pub fn build_policy_alerts(PolicyAnalysis, minimum_importance? : Int32) -> Array[PolicyAlert]
 
 pub fn changping_development_signal_rules() -> Array[PolicySignalRule]
 
 pub fn discover_policy_terms(String) -> Array[String]
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror PolicyIntelligenceError {
   EmptyIdentifier
-  InvalidAuthorityRank(Int)
-  InvalidScore(Int)
+  InvalidAuthorityRank(Int32)
+  InvalidScore(Int32)
   EmptyPhrases
   InvalidState
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) enum BusinessLane {
   B2B
   B2G
   Dual
-} derive(Eq, ToJson, @debug.Debug)
+}
 pub fn BusinessLane::label(Self) -> String
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicyAlert {
   alert_id : String
   severity : PolicyAlertSeverity
@@ -44,24 +48,27 @@ pub(all) struct PolicyAlert {
   review_state : PolicyAlertReviewState
   reviewed_by : String
   review_evidence : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 pub fn PolicyAlert::confirm_interpretation(Self, reviewer_id~ : String, evidence~ : String) -> Self raise PolicyIntelligenceError
 pub fn PolicyAlert::confirm_source(Self, reviewer_id~ : String, evidence~ : String) -> Self raise PolicyIntelligenceError
 pub fn PolicyAlert::dismiss(Self, reviewer_id~ : String, evidence~ : String) -> Self raise PolicyIntelligenceError
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) enum PolicyAlertReviewState {
   Unreviewed
   SourceConfirmed
   InterpretationConfirmed
   Dismissed
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) enum PolicyAlertSeverity {
   Information
   Attention
   Critical
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicyAnalysis {
   current_document_id : String
   previous_document_id : String?
@@ -71,17 +78,19 @@ pub(all) struct PolicyAnalysis {
   nodes : Array[PolicyGraphNode]
   edges : Array[PolicyGraphEdge]
   opportunities : Array[PolicyOpportunity]
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicyChange {
   kind : PolicyChangeKind
   subject : String
   before : String?
   after : String?
-  importance : Int
+  importance : Int32
   evidence : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) enum PolicyChangeKind {
   ClauseAdded
   ClauseRemoved
@@ -89,8 +98,9 @@ pub(all) enum PolicyChangeKind {
   TermRetired
   SignalStrengthened
   SignalWeakened
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicyDocument {
   document_id : String
   title : String
@@ -99,25 +109,28 @@ pub(all) struct PolicyDocument {
   published_on : String
   version : String
   source_url : String
-  authority_rank : Int
+  authority_rank : Int32
   body : String
-} derive(Eq, ToJson, @debug.Debug)
-pub fn PolicyDocument::new(document_id~ : String, title~ : String, issuer~ : String, jurisdiction~ : String, published_on~ : String, version~ : String, source_url~ : String, authority_rank~ : Int, body~ : String) -> Self raise PolicyIntelligenceError
+}
+pub fn PolicyDocument::new(document_id~ : String, title~ : String, issuer~ : String, jurisdiction~ : String, published_on~ : String, version~ : String, source_url~ : String, authority_rank~ : Int32, body~ : String) -> Self raise PolicyIntelligenceError
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicyGraphEdge {
   from_id : String
   to_id : String
   relation : String
   evidence : String
   source_document_id : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicyGraphNode {
   node_id : String
   kind : PolicyGraphNodeKind
   label : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) enum PolicyGraphNodeKind {
   Document
   Authority
@@ -125,13 +138,14 @@ pub(all) enum PolicyGraphNodeKind {
   Signal
   Opportunity
   Audience
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicyOpportunity {
   opportunity_id : String
   lane : BusinessLane
   topic : String
-  score : Int
+  score : Int32
   title : String
   why_now : String
   audience : String
@@ -140,26 +154,28 @@ pub(all) struct PolicyOpportunity {
   evidence_phrase : String
   source_document_id : String
   source_url : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PolicySignalRule {
   rule_id : String
   phrases : Array[String]
   topic : String
   lane : BusinessLane
-  base_score : Int
+  base_score : Int32
   audience : String
   proposed_offer : String
   next_action : String
-} derive(Eq, ToJson, @debug.Debug)
-pub fn PolicySignalRule::new(rule_id~ : String, phrases~ : Array[String], topic~ : String, lane~ : BusinessLane, base_score~ : Int, audience~ : String, proposed_offer~ : String, next_action~ : String) -> Self raise PolicyIntelligenceError
+}
+pub fn PolicySignalRule::new(rule_id~ : String, phrases~ : Array[String], topic~ : String, lane~ : BusinessLane, base_score~ : Int32, audience~ : String, proposed_offer~ : String, next_action~ : String) -> Self raise PolicyIntelligenceError
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) enum SignalMomentum {
   New
   Strengthened
   Stable
   Weakened
-} derive(Eq, ToJson, @debug.Debug)
+}
 
 // Type aliases
 

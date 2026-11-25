@@ -55,7 +55,7 @@ pub async fn prepare_workbench(
   let source : Json = {
     "actor": actor,
     "project": identity,
-    "draft": draft.to_json(),
+    "draft": ToJson::to_json(draft),
   }
   let source_text = source.stringify(indent=2) + "\n"
   let request_json = @plan_workbench.request(
@@ -72,12 +72,12 @@ pub async fn prepare_workbench(
     sha256_text(request_json.stringify()),
     draft.prepared_at,
   )
-  let artifact_json = artifact.to_json()
+  let artifact_json = ToJson::to_json(artifact)
   let artifact_text = artifact_json.stringify(indent=2) + "\n"
   let envelope : Json = {
     "contract": "moonproj.project-plan-workbench.v1",
     "actor": actor,
-    "draft": draft.to_json(),
+    "draft": ToJson::to_json(draft),
     "source": source,
     "request": request_json,
     "artifact": artifact_json,
@@ -149,12 +149,14 @@ pub async fn read_workbench(
     fail("Saved planning source has changed")
   }
   let request = @project_plan.decode_request(request_json)
-  let expected = @project_plan.prepare(
-    request,
-    key,
-    sha256_text(request_json.stringify()),
-    draft.prepared_at,
-  ).to_json()
+  let expected = ToJson::to_json(
+    @project_plan.prepare(
+      request,
+      key,
+      sha256_text(request_json.stringify()),
+      draft.prepared_at,
+    ),
+  )
   guard expected == artifact_json &&
     @json.parse(artifact_text) == expected &&
     digest == sha256_text(artifact_text) &&
@@ -209,7 +211,7 @@ pub async fn list_workbench(
     newest.push(summaries[order[order.length() - i - 1].1])
   }
   {
-    "items": newest.to_json(),
+    "items": Json::array(newest),
     "project_id": project,
     "limit": 100,
     "total_count": order.length(),

@@ -404,7 +404,7 @@ fn native_execution_snapshot(
   }
   if native_coordinated(task) {
     request["payload"] = {
-      "planner_allowed_tools": native_delivery_tools().to_json(),
+      "planner_allowed_tools": ToJson::to_json(native_delivery_tools()),
     }
   }
   match product_context {
@@ -877,7 +877,7 @@ async fn native_poll_task(
         native_delivery_worker_projection,
       )
       if observation is Object(fields) {
-        fields["workers"] = workers.to_json()
+        fields["workers"] = Json::array(workers)
         fields["worker_error"] = Json::string("")
       }
     } catch {

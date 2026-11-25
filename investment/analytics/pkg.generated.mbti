@@ -8,30 +8,33 @@ import {
 // Values
 pub fn analyze_closes(instrument~ : String, closes~ : Array[Int64]) -> AnalysisReport raise AnalysisError
 
-pub fn moving_average(Array[Int64], Int) -> Int64 raise AnalysisError
+pub fn moving_average(Array[Int64], Int32) -> Int64 raise AnalysisError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror AnalysisError {
   EmptyInstrument
   EmptySeries
   InvalidWindow
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct AnalysisReport {
   instrument : String
-  sample_size : Int
+  sample_size : Int32
   first_close_minor : Int64
   last_close_minor : Int64
   trend : Trend
   moving_average_minor : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Trend {
   Rising
   Falling
   Flat
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

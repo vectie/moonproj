@@ -17,7 +17,7 @@ test "submitted result reference remains visible for acceptance" {
     emit,
     model,
   ) => dispatch_durable_task_card(msg => emit(msg), model))
-  let html = @rabbita.render_to_string(page)
+  let html = opc_render_cell(page)
   assert_true(html.contains("https://example.test/output-1.txt"))
 }
 
@@ -259,7 +259,7 @@ test "real output links open while local paths remain literal references" {
     _,
     model,
   ) => dispatch_native_result(model))
-  let html = @rabbita.render_to_string(page)
+  let html = opc_render_cell(page)
   assert_true(html.contains("href=\"https://example.test/output.txt\""))
   assert_true(html.contains("/workspace/output.txt"))
   assert_false(html.contains("href=\"/workspace/output.txt\""))
@@ -385,7 +385,7 @@ test "completed result renders exact artifact paths and manual settling refresh 
     _,
     model,
   ) => dispatch_native_result(model))
-  let html = @rabbita.render_to_string(page)
+  let html = opc_render_cell(page)
   assert_true(html.contains("Results/Review.MD"))
   assert_true(html.contains("event-write"))
   assert_true(html.contains("/workspace/book"))

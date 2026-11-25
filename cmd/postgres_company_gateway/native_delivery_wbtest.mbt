@@ -12,16 +12,23 @@ fn delivery_test_task() -> Json {
 
 ///|
 async test "delivery preparation and immutable revision writes recover in existing directories" {
-  let root = @fs.tmpdir(prefix="moonproj-delivery-recovery-")
-  defer (@fs.rmdir(root, recursive=true) catch { _ => () })
+  let suite = @fs.tmpdir(prefix="moonproj-delivery-recovery-")
+  defer (@fs.rmdir(suite, recursive=true) catch { _ => () })
+  let root = suite + "/selected-book"
+  @fs.mkdir(root)
   let task = continuation_test_field(
     delivery_test_task(),
     "execution_workspace",
-    root.to_json(),
+    Json::string(root),
   )
   native_prepare_delivery_workspace(task)
   native_prepare_delivery_workspace(task)
   let book = native_delivery_workspace(task)
+  let worker_one = native_delivery_workers_base(task) + "/specialist-1"
+  assert_false(worker_one.has_prefix(book + "/"))
+  assert_true(
+    (@fs.kind(worker_one) catch { _ => @fs.FileKind::Regular }) is Directory,
+  )
   native_delivery_write_once(
     book, ".moonsuite/products/moonproj/human-continuations/test/input.md", "Saved brief",
   )

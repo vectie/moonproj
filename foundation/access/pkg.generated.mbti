@@ -9,6 +9,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror AccessError {
   EmptyIdentifier
   InvalidAmount
@@ -34,15 +35,16 @@ pub(all) suberror AccessError {
   WrongRequester
   PermissionDenied
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct AccessDirectory {
   roles : Array[Role]
   assignments : Array[RoleAssignment]
   separation_rules : Array[SeparationRule]
   delegations : Array[Delegation]
-} derive(Eq, @debug.Debug)
+}
 pub fn AccessDirectory::add_delegation(Self, Delegation, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccessError
 pub fn AccessDirectory::add_role(Self, Role, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccessError
 pub fn AccessDirectory::add_separation_rule(Self, SeparationRule, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccessError
@@ -53,6 +55,7 @@ pub fn AccessDirectory::issue_grant(Self, assignment_id~ : String, requester_id~
 pub fn AccessDirectory::revoke_delegation(Self, delegation_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccessError
 pub fn AccessDirectory::revoke_role(Self, assignment_id~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccessError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Delegation {
   delegation_id : String
   principal_id : String
@@ -64,23 +67,26 @@ pub(all) struct Delegation {
   not_before_epoch : Int64
   expires_at_epoch : Int64?
   active : Bool
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Permission {
   capability : String
   scope : String
   max_amount_minor : Int64
-} derive(Eq, @debug.Debug)
+}
 pub fn Permission::new(capability~ : String, scope~ : String, max_amount_minor~ : Int64) -> Self raise AccessError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Role {
   role_id : String
   name : String
   permissions : Array[Permission]
-} derive(Eq, @debug.Debug)
+}
 pub fn Role::add_permission(Self, Permission, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise AccessError
 pub fn Role::new(role_id~ : String, name~ : String) -> Self raise AccessError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct RoleAssignment {
   assignment_id : String
   role_id : String
@@ -89,14 +95,15 @@ pub(all) struct RoleAssignment {
   scope : String
   max_amount_minor : Int64
   active : Bool
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct SeparationRule {
   rule_id : String
   first_capability : String
   second_capability : String
   scope : String
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

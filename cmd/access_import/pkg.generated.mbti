@@ -10,11 +10,12 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror AccessPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Access(@access.AccessError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

@@ -116,7 +116,7 @@ fn plan_task_human_revision_validate(
     ".moonsuite/products/moonproj/human-revisions/" + id + "/content.txt" ||
     size < 0 ||
     size > 256 * 1024 ||
-    json_field(content, "size_bytes") != Some(size.to_json()) ||
+    json_field(content, "size_bytes") != Some(Json::number(size.to_double())) ||
     json_text(base, "scope", "") != "current_workspace_bytes_at_edit" ||
     !valid_identifier(json_text(output, "command_id", "")) ||
     json_text(output, "evidence_id", "").is_empty() ||
@@ -153,6 +153,6 @@ fn plan_task_human_revision_apply(
     Object(fields) => fields.copy()
     _ => Map::new()
   }
-  fields.set("human_revisions", items.to_json())
+  fields.set("human_revisions", Json::array(items))
   Json::object(fields)
 }

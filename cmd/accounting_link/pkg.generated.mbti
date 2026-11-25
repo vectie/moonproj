@@ -10,13 +10,14 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror LinkError {
   InvalidArguments
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Accounting(@accounting.AccountingEventError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

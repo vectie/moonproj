@@ -11,13 +11,14 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror ProgressPromotionError {
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Delivery(@delivery.DeliveryError)
   Money(@finance.MoneyError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

@@ -175,7 +175,7 @@ async fn native_continuation_listing(
   )
   match envelope {
     Object(fields) => {
-      fields["candidate_errors"] = errors.to_json()
+      fields["candidate_errors"] = Json::array(errors)
       Json::object(fields)
     }
     _ => envelope
@@ -240,9 +240,9 @@ async fn native_list_continuations(
       )
       if envelope is Object(fields) {
         fields["human_revision_candidate"] = candidate
-        fields["human_revision_content"] = human_revision_content(
-          original, candidate,
-        ).to_json()
+        fields["human_revision_content"] = Json::string(
+          human_revision_content(original, candidate),
+        )
       }
       return native_json_result(200, envelope)
     }

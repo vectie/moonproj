@@ -131,9 +131,9 @@ fn plan_task_edits_view(
                 change.before.id + " · " + change.fields.join(", "),
               ),
               strong("Before / 修改前"),
-              @html.pre(change.before.to_json().stringify(indent=2)),
+              @html.pre(ToJson::to_json(change.before).stringify(indent=2)),
               strong("After / 修改后"),
-              @html.pre(change.after.to_json().stringify(indent=2)),
+              @html.pre(ToJson::to_json(change.after).stringify(indent=2)),
             ]
           }),
           p(

@@ -12,6 +12,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror StatementError {
   EmptyIdentifier
   InvalidAmount
@@ -35,8 +36,9 @@ pub(all) suberror StatementError {
   Money(@finance.MoneyError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror TreasuryError {
   EmptyIdentifier
   InvalidAmount
@@ -49,8 +51,9 @@ pub(all) suberror TreasuryError {
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror TreasuryPlanError {
   EmptyIdentifier
   InvalidAmount
@@ -59,9 +62,10 @@ pub(all) suberror TreasuryPlanError {
   SameProject
   OverActualization
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct BankStatement {
   statement_id : String
   account_id : String
@@ -74,12 +78,13 @@ pub(all) struct BankStatement {
   matches : Array[StatementMatch]
   ledger_matches : Array[StatementLedgerMatch]
   state : BankStatementState
-} derive(Eq, @debug.Debug)
+}
 pub fn BankStatement::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise StatementError
 pub fn BankStatement::from_statement(statement_id~ : String, account_id~ : String, principal_id~ : String, project_scope~ : String, period~ : String, opening_balance~ : @finance.Money, closing_balance~ : @finance.Money, lines~ : Array[BankStatementLine], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise StatementError
 pub fn BankStatement::reconcile(Self, Array[CashMovement], matches~ : Array[StatementMatch], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise StatementError
 pub fn BankStatement::reconcile_to_ledger(Self, Array[CashMovement], Array[@accounting.AccountingEvent], matches~ : Array[StatementLedgerMatch], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise StatementError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct BankStatementLine {
   line_id : String
   account_id : String
@@ -89,15 +94,17 @@ pub(all) struct BankStatementLine {
   booked_at : String
   amount : @finance.Money
   direction : CashDirection
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum BankStatementState {
   Imported
   Reconciled
   LedgerReconciled
   Rejected
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CashAccount {
   account_id : String
   principal_id : String
@@ -107,29 +114,33 @@ pub(all) struct CashAccount {
   balance : @finance.Money
   state : CashAccountState
   applied_movement_ids : Array[String]
-} derive(Eq, @debug.Debug)
+}
 pub fn CashAccount::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise TreasuryError
 pub fn CashAccount::open(account_id~ : String, principal_id~ : String, project_scope~ : String, currency~ : String, bank_reference~ : String, opening_balance~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryError
 pub fn CashAccount::release(Self, CashMovement, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> (Self, CashMovement) raise TreasuryError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CashAccountState {
   Open
   Suspended
   Closed
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CashDirection {
   Inflow
   Outflow
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CashEvent {
   from : CashMovementState
   to : CashMovementState
   actor_id : String
   capability : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CashMovement {
   movement_id : String
   account_id : String
@@ -140,20 +151,22 @@ pub(all) struct CashMovement {
   direction : CashDirection
   state : CashMovementState
   events : Array[CashEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn CashMovement::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise TreasuryError
 pub fn CashMovement::approve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryError
 pub fn CashMovement::reconcile(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryError
 pub fn CashMovement::request(CashAccount, movement_id~ : String, reference_id~ : String, amount~ : @finance.Money, direction~ : CashDirection, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CashMovementState {
   Requested
   Approved
   Released
   Reconciled
   Rejected
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CashPlan {
   plan_id : String
   principal_id : String
@@ -164,30 +177,34 @@ pub(all) struct CashPlan {
   planned_amount : @finance.Money
   actual_amount : @finance.Money
   state : CashPlanState
-} derive(Eq, @debug.Debug)
+}
 pub fn CashPlan::actualize(Self, actual_amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryPlanError
 pub fn CashPlan::confirm(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryPlanError
 pub fn CashPlan::new(plan_id~ : String, principal_id~ : String, project_scope~ : String, period~ : String, category~ : String, direction~ : CashPlanDirection, planned_amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryPlanError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CashPlanDirection {
   Inflow
   Outflow
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CashPlanState {
   Planned
   Confirmed
   Actualized
   Cancelled
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum DispatchState {
   Pending
   Approved
   Executed
   Cancelled
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct FundDispatch {
   dispatch_id : String
   principal_id : String
@@ -196,20 +213,22 @@ pub(all) struct FundDispatch {
   amount : @finance.Money
   reason : String
   state : DispatchState
-} derive(Eq, @debug.Debug)
+}
 pub fn FundDispatch::approve(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryPlanError
 pub fn FundDispatch::execute(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryPlanError
 pub fn FundDispatch::new(dispatch_id~ : String, principal_id~ : String, from_project~ : String, to_project~ : String, amount~ : @finance.Money, reason~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TreasuryPlanError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct StatementLedgerMatch {
   line_id : String
   event_id : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct StatementMatch {
   line_id : String
   movement_id : String
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

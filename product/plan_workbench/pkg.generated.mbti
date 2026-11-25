@@ -17,9 +17,9 @@ pub fn budget_breakdown(Draft) -> BudgetBreakdown
 
 pub fn budget_report(Draft, String) -> String
 
-pub fn compare_saved(Json, Json) -> PlanComparison raise
+pub fn compare_saved(@json.Json, @json.Json) -> PlanComparison raise
 
-pub fn comparison_delta(Json, Json, String, String) -> String
+pub fn comparison_delta(@json.Json, @json.Json, String, String) -> String
 
 pub fn consolidate_tasks(Draft, Array[String], String, String) -> Draft raise InputError
 
@@ -43,13 +43,13 @@ pub fn export_template(Draft) -> String raise InputError
 
 pub fn extract_phase(Draft, Array[String], String) -> PhaseExtraction raise InputError
 
-pub fn field(Json, String) -> Json
+pub fn field(@json.Json, String) -> @json.Json
 
 pub fn find_tasks(Draft, String, String, String) -> Array[Task]
 
 pub fn import_task_table(Draft, String, Bool, String, String) -> (Draft, Array[String]) raise InputError
 
-pub fn items(Json, String) -> Array[Json]
+pub fn items(@json.Json, String) -> Array[@json.Json]
 
 pub fn minor(String, String) -> Int64 raise InputError
 
@@ -73,11 +73,11 @@ pub fn preview_task_table_updates(Draft, String, Bool) -> TaskTableUpdate raise 
 
 pub fn read_template(String) -> Template raise InputError
 
-pub fn readable(Json) -> String
+pub fn readable(@json.Json) -> String
 
 pub fn rebase_milestones(Draft, String, String) -> MilestoneRebase raise InputError
 
-pub fn request(Draft, String, Json, String, String) -> Json raise InputError
+pub fn request(Draft, String, @json.Json, String, String) -> @json.Json raise InputError
 
 pub fn risk_impact(Draft, String) -> RiskImpact raise InputError
 
@@ -85,56 +85,63 @@ pub fn risk_impact_report(Draft, String, String) -> String raise InputError
 
 pub fn task_handoff(Draft, String) -> TaskHandoff raise InputError
 
-pub fn text(Json, String) -> String
+pub fn text(@json.Json, String) -> String
 
 pub fn transfer_owner(Draft, String, String) -> Draft raise InputError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror InputError {
   Invalid(String)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct BudgetBreakdown {
   currency : String
   known_minor : Int64?
-  invalid_tasks : Int
+  invalid_tasks : Int32
   limit_minor : Int64?
   contingency_minor : Int64?
   remaining_minor : Int64?
   owners : Array[CostBucket]
   milestones : Array[CostBucket]
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ChecklistImport {
   draft : Draft
   entries : Array[ChecklistTask]
-  skipped_checked : Int
-} derive(Eq, @debug.Debug)
+  skipped_checked : Int32
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct ChecklistTask {
-  line : Int
+  line : Int32
   checked : Bool
   text : String
   context : Array[String]
   task : Task
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct CostBucket {
   id : String
   label : String
   task_ids : Array[String]
   known_minor : Int64?
-  invalid_tasks : Int
-} derive(Eq, ToJson, @debug.Debug)
+  invalid_tasks : Int32
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct DependencyPlan {
   waves : Array[Array[String]]
   prerequisites : Array[String]
   downstream : Array[String]
   issues : Array[String]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Draft {
   key : String
   project_id : String
@@ -147,8 +154,9 @@ pub(all) struct Draft {
   tasks : Array[Task]
   milestones : Array[Milestone]
   risks : Array[Risk]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Milestone {
   id : String
   name : String
@@ -156,61 +164,70 @@ pub(all) struct Milestone {
   date : String
   criteria : String
   evidence : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct MilestoneRebase {
   offset_days : Int64
   draft : Draft
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct MilestoneTableChange {
   before : Milestone
   after : Milestone
   fields : Array[String]
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct MilestoneTableImport {
   draft : Draft
   additions : Array[Milestone]
   unchanged : Array[String]
   ignored : Array[String]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct MilestoneTableUpdate {
   draft : Draft
   changes : Array[MilestoneTableChange]
   ignored : Array[String]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Owner {
   id : String
   name : String
   role : String
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct OwnerTableChange {
   before : Owner?
   after : Owner
   fields : Array[String]
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct OwnerTableUpdate {
   draft : Draft
   changes : Array[OwnerTableChange]
   ignored : Array[String]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PhaseExtraction {
   selected : Array[String]
   prerequisites : Array[String]
   partial_milestones : Array[String]
   cross_scope_risks : Array[String]
   unscoped_risks : Array[String]
-  omitted_risk_count : Int
+  omitted_risk_count : Int32
   fallback_owner : Bool
   json : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PlanChange {
   kind : String
   id : String
@@ -219,30 +236,34 @@ pub(all) struct PlanChange {
   before : String
   after : String
   delta : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PlanComparison {
   before_header : String
   after_header : String
   changes : Array[PlanChange]
-} derive(Eq, ToJson, @debug.Debug)
+}
 pub fn PlanComparison::readable(Self) -> String
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct PlanTextChange {
   kind : String
   id : String
   field : String
   before : String
   after : String
-  occurrences : Int
-} derive(Eq, ToJson, @debug.Debug)
+  occurrences : Int32
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct PlanTextReplacement {
   draft : Draft
   changes : Array[PlanTextChange]
-  occurrences : Int
-} derive(Eq, @debug.Debug)
+  occurrences : Int32
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Risk {
   id : String
   summary : String
@@ -250,29 +271,33 @@ pub(all) struct Risk {
   owner : String
   mitigation : String
   tasks : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct RiskImpact {
   direct_tasks : Array[String]
   downstream_tasks : Array[String]
   known_minor : Int64?
-  invalid_tasks : Int
+  invalid_tasks : Int32
   owners : Array[CostBucket]
   milestones : Array[CostBucket]
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct RiskTableChange {
   before : Risk?
   after : Risk
   fields : Array[String]
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct RiskTableUpdate {
   draft : Draft
   changes : Array[RiskTableChange]
   ignored : Array[String]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Task {
   id : String
   name : String
@@ -280,34 +305,39 @@ pub(all) struct Task {
   milestone : String
   cost : String
   dependencies : Array[String]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct TaskHandoff {
   title : String
   acceptance : String
   source_reference : String
   context : String
   end_date : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct TaskStep {
   id : String
   name : String
   cost : String
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.ToJson)
 pub(all) struct TaskTableChange {
   before : Task
   after : Task
   fields : Array[String]
-} derive(Eq, ToJson, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TaskTableUpdate {
   draft : Draft
   changes : Array[TaskTableChange]
   ignored : Array[String]
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug, @json.FromJson, @json.ToJson)
 pub(all) struct Template {
   format : String
   notes : String
@@ -318,7 +348,7 @@ pub(all) struct Template {
   tasks : Array[Task]
   milestones : Array[Milestone]
   risks : Array[Risk]
-} derive(Eq, ToJson, @debug.Debug, @json.FromJson)
+}
 
 // Type aliases
 

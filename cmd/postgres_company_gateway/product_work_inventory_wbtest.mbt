@@ -76,7 +76,7 @@ async test "product work inventory missing malformed or stale does not hide vali
     abort("Inventory fixture")
   }
   guard rows[0] is Object(fields) else { abort("Inventory product") }
-  fields["prd_sha256"] = "stale-document".to_json()
+  fields["prd_sha256"] = Json::string("stale-document")
   @fs.write_file(
     root + "/moonsuite-work-inventory.json",
     value.stringify(),

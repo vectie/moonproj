@@ -292,7 +292,7 @@ fn dispatch_guidance_query(
     dispatch_json_text(target, "record_digest").has_prefix("sha256:") &&
     dispatch_json_text(target, "record_digest").length() == 71 &&
     snapshot == expected_snapshot &&
-    dispatch_json_field(value, "conditions") == conditions.to_json() else {
+    dispatch_json_field(value, "conditions") == Json::array(conditions) else {
     return Err(
       "查询不属于当前任务、产品、项目和版本；请刷新任务后重试。",
     )

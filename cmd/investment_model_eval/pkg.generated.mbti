@@ -10,11 +10,12 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror ModelEvaluationPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Model(@model.ModelError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

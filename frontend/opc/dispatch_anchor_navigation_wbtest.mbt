@@ -60,7 +60,7 @@ fn anchor_test_ack(model : Model) -> String {
         "idempotency_key",
       ),
       "operation_source": continuation_proj_source(),
-      "continuations": model.dispatch_continuation.records.to_json(),
+      "continuations": ToJson::to_json(model.dispatch_continuation.records),
       "selected_delivery_source": continuation_proj_source(),
       "task": {
         "taskGuid": "task-1",

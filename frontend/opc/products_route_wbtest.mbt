@@ -30,7 +30,7 @@ fn products_route_test_catalog(ids : Array[String]) -> String {
     {
       "schema": "moonsuite.product-portfolio.v2",
       "scope": "active_product_definitions",
-      "products": selected.to_json(),
+      "products": ToJson::to_json(selected),
     } : Json).stringify()
 }
 

@@ -17,20 +17,23 @@ pub fn recognition_journal(Commitment, expense_account~ : String, payable_accoun
 pub fn reserve_budget(Commitment, @finance.BudgetLine, reservation_id~ : String, amount_minor~ : Int64) -> (BudgetReservation, @finance.BudgetLine) raise CommitmentBudgetError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror CommitmentAccountingError {
   InvalidState
   Journal(@finance.LedgerError)
   AccountingEvent(@accounting.AccountingEventError)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror CommitmentBudgetError {
   InvalidState
   InvalidAmount
   CurrencyMismatch
   AmountExceedsCommitment
   Budget(@finance.BudgetError)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror CommitmentError {
   EmptyIdentifier
   EmptyReference
@@ -38,19 +41,21 @@ pub(all) suberror CommitmentError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct BudgetReservation {
   reservation_id : String
   commitment_id : String
   budget_line_id : String
   amount_minor : Int64
   currency : String
-} derive(Eq, @debug.Debug)
+}
 pub fn BudgetReservation::consume(Self, @finance.BudgetLine) -> @finance.BudgetLine raise CommitmentBudgetError
 pub fn BudgetReservation::release(Self, @finance.BudgetLine) -> @finance.BudgetLine raise CommitmentBudgetError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Commitment {
   commitment_id : String
   principal_id : String
@@ -59,19 +64,21 @@ pub(all) struct Commitment {
   amount : @finance.Money
   state : CommitmentState
   events : Array[CommitmentEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn Commitment::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise CommitmentError
 pub fn Commitment::is_terminal(Self) -> Bool
 pub fn Commitment::new(commitment_id~ : String, principal_id~ : String, project_scope~ : String, counterparty_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CommitmentError
 pub fn Commitment::transition(Self, CommitmentState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise CommitmentError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct CommitmentEvent {
   from : CommitmentState
   to : CommitmentState
   actor_id : String
   capability : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CommitmentState {
   Draft
   Submitted
@@ -79,7 +86,7 @@ pub(all) enum CommitmentState {
   Performed
   Settled
   Cancelled
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

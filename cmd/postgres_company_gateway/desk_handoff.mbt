@@ -137,7 +137,7 @@ fn desk_handoff_projection(
     "state": state,
     "message": message,
     "desk_origin": match origin {
-      Some(value) => value.to_json()
+      Some(value) => Json::string(value)
       None => Json::null()
     },
     "work": if has_execution {

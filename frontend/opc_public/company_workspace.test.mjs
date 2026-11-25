@@ -19,6 +19,8 @@ test('job apps keep exact Book/path and follow the local shell hostname', () => 
   assert.equal(url.origin, 'http://localhost:4201')
   assert.equal(url.searchParams.get('workspace'), 'book-research')
   assert.equal(url.searchParams.get('path'), 'wiki/proposal.md')
+  const devUrl = new URL(jobAppURL('http://127.0.0.1:4199/?activity=wiki&workspace=book-research&path=wiki%2Findex.md', 'http://localhost:4283/?page=workspace'))
+  assert.equal(devUrl.origin, 'http://localhost:4199')
   for (const value of ['javascript:alert(1)', 'https://example.com/?workspace=book-a&path=x&activity=wiki', 'http://127.0.0.1:4201/', 'http://user:secret@127.0.0.1:4201/?workspace=book-a&path=x&activity=wiki', 'http://127.0.0.1:8888/?workspace=book-a&path=x&activity=wiki']) assert.equal(jobAppURL(value, 'http://localhost:4283'), '')
 })
 
@@ -32,7 +34,10 @@ test('animated transfers require a newly observed exact contribution receipt', (
 
 test('reduced motion and manual pause retain readable static relationships', () => {
   const css = readFileSync(new URL('./company_workspace.css', import.meta.url), 'utf8')
+  const motionCss = readFileSync(new URL('./workspace_motion.css', import.meta.url), 'utf8')
   assert.match(css, /prefers-reduced-motion: reduce/)
   assert.match(css, /data-motion="paused"/)
   assert.match(css, /grid-template-rows: 48px minmax\(0,1fr\) 100px/)
+  assert.match(motionCss, /prefers-reduced-motion: reduce/)
+  assert.match(motionCss, /data-motion="paused"/)
 })

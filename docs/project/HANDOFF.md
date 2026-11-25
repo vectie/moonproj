@@ -1,5 +1,99 @@
 # MoonProj project handoff
 
+## Pure-UI audit fixes: MoonGate resource link, Chinese embedded locale & menu/favicon polish — 2026-11-25
+
+- Added **"在 MoonGate 配置模型"** action (`http://127.0.0.1:15721/ui/rabbita#providers`, `data-open-external="moongate"`) in `资源清单 → 算力与模型` (`frontend/opc/company_resources_view.mbt`).
+- Appended `locale=zh-Hans` when mounting embedded MoonDesk iframes in `frontend/opc_public/company_workspace.js` (eliminating the bilingual Chinese/English seam), auto-closed open `.topbar details[open]` dropdowns on action click, handled `moonsuite:navigate` from embedded MoonDesk to prevent iframe nesting, and added inline SVG favicon in `frontend/opc_public/index.html` (0 `/favicon.ico` 404s).
+- Verified live: 587/587 `frontend/opc` JS tests + `company_workspace.test.mjs` (4/4) + `dist/opc` build passed; installed into `/Applications/MoonProj.app`, strictly signed, and verified live in Chrome.
+
+## Permanent desktop-service orphan cleanup & MoonGate handoff — 2026-11-25
+
+Fixed `MoonProj.app` refusing to reopen after quitting:
+- **Root cause**: When `MoonProj.app` quit, `moonproj-desktop-service` (`scripts/moonproj_desktop_service.sh`) left its child processes `moonproj-company-service` (`:4174`) and `moonproj-company-gateway` (`:4173`) alive. On the next launch, Lepusa aborted startup with `macOS service start refused for main: readiness endpoint is already active; close the other app instance`.
+- **Root fix**:
+  - Updated `scripts/moonproj_desktop_service.sh` to record desktop-owned backend PIDs in `$APP_DATA_DIR/desktop-service.pids`, reclaim stale MoonProj backend listeners on startup, and run a parent/GUI-exit watcher that directly terminates `$gateway_pid`, `$service_pid`, and `$$` (avoiding the macOS `/bin/sh` deferred-trap behavior while blocked in `wait`) the instant `MoonProj.app` exits.
+  - Added a loopback-validated `message` listener (`moonsuite:open-url` for `127.0.0.1:4201`/`15721`) in `frontend/opc_public/company_workspace.js` so embedded MoonDesk's `"Open MoonGate"` action opens cleanly via Lepusa `opener.openUrl`.
+- **Verification**: Installed into `/Applications/MoonProj.app`, strictly ad-hoc signed, and verified two full Launch → Quit → zero `:4173/:4174` listeners → Relaunch cycles cleanly (`PID 52153` → quit → free → `PID 52273` + `/ready` HTTP 200).
+
+## Desktop OS spatial model, standing Dock agents & solid notices — 2026-11-25
+
+Refined MoonProj's human spatial model and eliminated overlapping/transparent warnings:
+- **Root causes**:
+  - `.notice` in dark mode (`frontend/opc_public/styles.css`) used transparent `var(--accent-soft)` (`rgba(139,124,246,.13)`) while `.workspace-main > .notice` was positioned at `inset: 8px 20px auto`, bleeding over and obscuring the Mission Spine.
+  - Clicking `组织与权力` or `资源清单` previously unmounted the entire Desktop/Flow surface, making navigation feel like disorienting page teleports rather than staying anchored on the company desktop, and standing AI agents were not visible in the bottom Dock.
+- **Fixes**:
+  - Made `.notice`, `.charter-inline-alert`, and `.founder-focus` 100% solid opaque surfaces; relocated `.workspace-main > .notice` to a non-overlapping bottom-right floating toast (`bottom: 112px`, above the Dock).
+  - Kept the Desktop canvas (`.company-flow` with Mission Horizon + live SVG Projects Flow) continuously mounted in the background and rendered `组织与权力`, `资源清单`, and clicked Dock agents inside solid opaque floating Overlay Sheets (`.desktop-sheet`, Escape / backdrop-click to dismiss).
+  - Upgraded the bottom Dock (`.job-dock`) into a unified macOS-style bar: **桌面** home + **Project/Task apps** + divider + **Standing AI Agents** (from Company Charter with tier badges and live status dots; clicking opens a focused Agent Inspector Sheet over the desktop).
+  - Added a direct `← 返回公司桌面` button in `.topbar` whenever navigating to secondary routes.
+- **Verification**: `frontend/opc` JS tests (587/587), `company_workspace.test.mjs` (4/4), and `company_no_python_runtime_gate.sh` passed. Built `dist/opc`, installed into `/Applications/MoonProj.app/Contents/Resources/public`, strictly ad-hoc signed, and verified live on `http://127.0.0.1:4173`.
+
+## MoonDesk-in-MoonProj bridge & embedded opening — 2026-11-25
+
+Fixed MoonDesk failing to open inside MoonProj:
+- **Root causes**: (1) When `MoonDesk.app` was not already running, `127.0.0.1:4201` refused connections while `company_workspace.js` blindly cached a dead `ERR_CONNECTION_REFUSED` iframe in `state.frames`; (2) `"在 MoonDesk 打开"` links in `资源清单` and `"独立打开"` in `.job-app-panes` used `target="_blank"`, which macOS WKWebView (Lepusa) drops.
+- **Fixes**:
+  - Added authenticated loopback-only endpoints `GET /api/company/moondesk/status` and `POST /api/company/moondesk/ensure` in `cmd/postgres_company_gateway/moondesk_bridge.mbt` (+ `moondesk_bridge_wbtest.mbt`) that probe `http://127.0.0.1:4201/` and, in desktop mode, background-launch `/Applications/MoonDesk.app` (`open -g -a`) and poll until ready.
+  - Updated `frontend/opc_public/company_workspace.js` to verify/wake MoonDesk before caching any iframe (with clear connecting + offline recovery UI), and intercept `"独立打开"` via `window.lepusa.invoke('opener.openUrl', ...)`.
+  - Added `WorkspaceAction(OpenResource(title, url))` in `frontend/opc/company_workspace.mbt`, `company_workspace_view.mbt`, and `company_resources_view.mbt` so `"在 MoonDesk 打开"` in `资源清单` opens directly inside MoonProj's embedded `.job-app-window`.
+- **Verification**: `cmd/postgres_company_gateway` 116/116 passed, `frontend/opc` charter/workspace tests passed, `company_workspace.test.mjs` 4/4 passed. Installed into `/Applications/MoonProj.app`, strictly ad-hoc signed, and verified cold auto-wake (`4201` down → `POST /api/company/moondesk/ensure` returned `{"reachable":true,"started":true}` → HTTP 200 on `opc-doctoral-research` Wiki).
+
+## Modular OPC frontend, UI/UX cleanup, and focus-guiding motion — 2026-11-25
+
+Modularized the oversized frontend files and polished the Workspace & Charter UI/UX:
+
+- **Frontend modularization**:
+  - Split `frontend/opc/main.mbt` (4,299 lines → 127 lines) into `app_model.mbt` (479), `app_routes.mbt` (331), `app_update.mbt` (1,383), `app_shell_view.mbt` (366), `app_legacy_ops_views.mbt` (860), and `app_legacy_finance_views.mbt` (753).
+  - Split `frontend/opc/company_charter.mbt` (1,468 lines) into `company_charter_types.mbt` (393), `company_charter_codec.mbt` (411), and `company_charter_update.mbt` (664).
+  - Split `frontend/opc/company_charter_view.mbt` (1,025 lines) into `company_charter_shared_view.mbt`, `company_mission_view.mbt`, `company_org_view.mbt`, and `company_resources_view.mbt`.
+  - Split `frontend/opc_public/company_workspace.css` into three focused layers: `company_workspace.css` (shell, flow board, dock, app window), `company_charter.css` (Mission Spine, 80/20 Founder Focus, Org & Resources), and `workspace_motion.css` (GPU-composited motion with full `prefers-reduced-motion` and `[data-motion="paused"]` safety), wired into `index.html` and `scripts/build_opc_frontend.sh`.
+- **UI/UX & functional fixes**:
+  - Fixed stage-click filtering in `company_workspace_view.mbt`: selecting a stage whose `milestone_task_id` points to a regular task (e.g. `OPC-DOCTORAL-PRESENTATION`) now retains its parent goal (`OPC-DOCTORAL-GOAL`) so SVG contribution wires remain connected and spotlighted instead of orphaning the task under `"其他工作"`, and adds a direct `"打开此阶段材料"` action in `.mission-stage-detail`.
+  - Cleaned visual hierarchy on `使命与聚焦`: single `<h1>` on the Mission Spine, proportional segmented `.mission-weight-rail`, concise single-line flow legend, aligned inline `已入 20%` / `标为 20%` pill toggle on `.flow-job-row`, and icon+label segmented workspace tabs.
+  - Humanized `组织与权力` & `资源清单`: resolved `reports_to` and `owner_role` IDs to human-readable role names (`charter_role_display_name`), localized standard power tokens (`charter_power_label`) as compact chips while preserving user-authored text verbatim, and tucked technical paths/models into compact card footers.
+- **Focus-guiding animation layer**:
+  - Sliding GPU-composited active tab indicator (`syncTabIndicator` in `company_workspace.js`), calm breathing beacon on the active milestone (`opc-stage-beacon`), subtle sheen on the active proportional weight rail segment (`opc-rail-sheen`), 80/20 focus beacon & elevation cues, choreographed tab/form entrance (`opc-surface-enter`, `opc-panel-reveal`), and interactive SVG contribution wire highlighting on hover/focus/stage-spotlight while dimming unrelated wires.
+
+Validation:
+- `frontend/opc` JS tests: **587/587 passed** (added test covering task-bound stage parent-goal retention, `"打开此阶段材料"`, role display-name resolution, and power localization).
+- `node --test frontend/opc_public/company_workspace.test.mjs`: **4/4 passed** (verifies reduced-motion & manual pause in both `company_workspace.css` and `workspace_motion.css`).
+- `scripts/company_no_python_runtime_gate.sh`: passed.
+- Warren release build (`dist/opc`) installed into `/Applications/MoonProj.app/Contents/Resources/public`, ad-hoc signed (`codesign --verify --deep --strict` valid), and verified live on `http://127.0.0.1:4173` (all new CSS/JS assets return HTTP 200).
+
+## Top-down OPC Operating System, coordinator wait fix, and Research Lab pilot — 2026-11-25
+
+Implemented the top-down NeoLab-style OPC operating model across MoonProj, MoonClaw, and the registered `opc-doctoral-research` MoonBook, documented in `docs/OPC_OPERATING_SYSTEM_DESIGN.md`:
+
+- **Persisted Company Charter (`GET`/`PUT /api/company/charter`)**: Added `cmd/postgres_company_service/company_charter.mbt` (+ `company_charter_wbtest.mbt`) using the existing PostgreSQL V4 `company_aggregate_projection` + `company_record` (`company_command`, `company_audit_event`) atomic locking/idempotency/recovery pattern (zero schema migration), and allow-listed `PUT /api/company/charter` in `cmd/postgres_company_gateway/main.mbt` (+ `company_charter_wbtest.mbt`). Models Mission + weighted Milestone Spine (`achieved`/`active`/`upcoming`), 3-tier Standing Org & Power Structure (`powers`, `limits`, `skill_ref`, `version`), Resource Registry (`moonbook`/`corpus`/`tool`/`runtime` with direct `desk_url`), Evolution Log, and Founder `critical_task_ids`.
+- **Workspace 80/20 Command Center (`frontend/opc`)**: Added `company_charter.mbt`, `company_charter_view.mbt`, and `company_charter_wbtest.mbt`, extending `Workspace` with three tabs (`使命与聚焦`, `组织与权力`, `资源清单`) while preserving `.flow-board`, `.flow-wires`, `.job-dock`, and warm MoonDesk `.job-app-host` iframes. `jobAppURL()` in `frontend/opc_public/company_workspace.js` now accepts both installed (`4201`) and local dev (`4199`) loopback MoonDesk ports while still rejecting arbitrary ports.
+- **Root-cause fix for worker isolation vs. MoonDesk Book root**: Previously, `native_delivery_workspace` captured the registered MoonBook root while `cmd/postgres_company_service/delivery_work.mbt` (`plan_task_execution_workspace`) still expected `<root>/.moonproj-deliveries/<id>/coordinator` (causing 422 mismatches on reserve) AND `native_prepare_delivery_workspace` created worker books inside `<root>/` (rejected by MoonClaw's `mooncode_worker_roots_overlap`). Fixed both: service and gateway now agree on the registered MoonBook root, final integrated coordinator outputs stay under `<root>/.moonproj-deliveries/<task>/coordinator/`, and isolated worker books live in a disjoint sibling lane `<dirname(root)>/.moonproj-workers/<task>/{specialist-1,specialist-2,reviewer}`.
+- **Root-cause fix for MoonClaw `wait_workers` spin loop (`../moonclaw`)**: `Daemon::mooncode_tool_wait_workers` previously returned synchronously in <1ms, selected unfinished historical workers from prior commands when `worker_ids` was omitted, duplicated `metadata` into `output`, and gave no post-terminal progression guard. Fixed in `../moonclaw/cmd/daemon/mooncode_workers.mbt`, `mooncode_tools.mbt`, `mooncode_runtime_model_planner.mbt`, and `mooncode_workers_wbtest.mbt`: command-scoped default wait, bounded async polling (`timeout_ms` default 15s, `poll_interval_ms` 500ms, early exit on `ready=true`), compact summary + `next_action`, and an escalating `warning.worker_wait_complete` follow-up guard.
+- **Live OPC Research Lab pilot**: Added 4 standing role playbooks (`skills/{research-director,corpus-verifier,defense-editor,advisory-critic}/SKILL.md`) and `wiki/00-opc-lab-charter.md` inside the registered `opc-doctoral-research` MoonBook (verified all 445 files in `raw/originals/` pass `原件校验.sha256`; `~/Downloads/Research` untouched). Seeded revision 1 of `company_charter` in the local app PostgreSQL database bound to the real tasks (`OPC-DOCTORAL-PROPOSAL`, `OPC-DOCTORAL-PRESENTATION`, `OPC-DOCTORAL-DISSERTATION`) with Stage 3 Opening Defense active and marked in `critical_task_ids`. Added reusable fixture `scripts/fixtures/opc_research_charter.json` and `scripts/seed_opc_research_charter.sh`.
+
+Pitfalls & toolchain notes (upgraded 2026-11-25):
+- Upgraded local MoonBit toolchain from `0.1.20260920` to `0.1.20261119 (738607b 2026-11-19)` and installed Warren `0.4.5` (`~/.moon/bin/warren`).
+- `moon.mod` path-override syntax is not supported in the DSL; resolving local `vectie/moonlib` (which fixes `[4015]` impl-method errors present in published `0.1.23`) uses a `moon.work` file via `MOON_WORK=/path/to/moon.work` listing `["/Volumes/Vectie/Codespace/moonlib", "<repo>"]`.
+- Warren `0.4.5` requires `--browser-entry frontend/opc` (positional arg now expects `.mbtx`) and a child `--dist` path under `-C "$ROOT"`; updated `scripts/build_opc_frontend.sh` accordingly.
+- `moon 0.1.20261119` + `async@0.22.x` + `rabbita@0.17.0` breaking changes migrated across MoonProj (`cmd/postgres_company_service`, `cmd/postgres_company_gateway`, `cmd/moonflow_project_plan_adapter`, `integration/moonflow_adapter`, `operations/task_evidence`, `product/plan_workbench`, `frontend/opc`) and MoonClaw (`cmd/daemon`, `internal/*`, `plugin/*`, `tools/*`, `channels/*`, `cmd/main/*`, `gateway/*`): removed `try?`, removed implicit trait impl methods (`.to_json()`, etc.), `@http.Headers` (`Map[@http.CaseInsensitiveString, String]`), `protect_from_cancel` without `resume_on_cancel`, removed `virtual(implement: "moonbitlang/core/abort")`, and `@rabbita.create_state_with_init` + mock DOM test helper (`frontend/opc/test_rabbita_helpers_wbtest.mbt`).
+- Root-cause fix in MoonClaw `cmd/daemon/mooncode_session_journal.mbt`: `mooncode_session_journal_transaction` previously called `file.write(...)` after reading on an `append=false` handle, which overwrote offset 0 under `async@0.22.4` and caused `line 1: journal sequence gap`. Changed to `file.write_at(..., position=state.committed_size)` matching `mooncode_append_session_journal_once_locked`.
+
+Validation (all run on `moon 0.1.20261119` + Warren `0.4.5`):
+- `scripts/company_no_python_runtime_gate.sh`: passed.
+- `node --test frontend/opc_public/company_workspace.test.mjs`: 4/4 passed.
+- MoonProj native tests (`MOON_WORK=/tmp/moonproj-work/moon.work`):
+  - `cmd/postgres_company_service`: **163/163 passed** (incl. 5/5 `company_charter_wbtest.mbt`, 2/2 `delivery_work_wbtest.mbt`).
+  - `integration/moonflow_adapter`: **26/26 passed**.
+  - `cmd/postgres_company_gateway`: **115/115 passed** (incl. 8/8 `native_delivery_wbtest.mbt`, 2/2 `company_charter_wbtest.mbt`).
+- MoonProj frontend JS tests (`MOONPROJ_PLAN_FIXTURE_DIR=/tmp/moonproj-plan-fixtures`): **586/586 passed** (incl. 6/6 `company_charter_wbtest.mbt`, 10/10 `company_workspace_wbtest.mbt`).
+- MoonProj repo-wide `moon info`: **182 tasks, 0 errors** (`.mbti` diffs contain only `0.1.20261119` syntax updates `#derive`, `Int32`, `@json.Json`, zero API changes).
+- MoonClaw native tests (`MOON_WORK=/tmp/moonclaw-work/moon.work`): **72/72 passed** across `mooncode_workers_wbtest.mbt` (7/7), `mooncode_worker_results_wbtest.mbt` (7/7), `mooncode_session_journal_sequence_wbtest.mbt` (17/17), `mooncode_runtime_approvals_wbtest.mbt` (10/10), and `mooncode_session_journal_streaming_wbtest.mbt` (31/31); `moon build --target native --release cmd/main` succeeded with **0 errors**.
+- Release builds & `/Applications/MoonProj.app` install:
+  - Built native release `postgres_company_service.exe` (7.4M), `postgres_company_gateway.exe` (3.2M), and `dist/opc` (`index.js` 2.8M + updated CSS/JS).
+  - Backed up prior app resources to `/tmp/moonproj-app-backup-20261125/`, installed updated binaries + `public/` into `/Applications/MoonProj.app`, re-signed ad-hoc (`codesign --verify --deep --strict` valid on disk), and restarted `moonproj-desktop-service` on ports `4173`/`4174`.
+  - Live HTTP verification: `GET /ready` returned `200 {"ready":true,"scope":"gateway"}`; unauthenticated `GET /api/company/charter` returned `401`; desktop-authenticated `GET /api/company/charter` returned `200` with persisted revision 1 of `OPC 创新研究一人公司（OPC Research Lab）` (4 stages, 5 roles, 5 resources, 2 evolution entries, `critical_task_ids: ["OPC-DOCTORAL-PRESENTATION"]`); `GET /api/company/projects` returned `opc-doctoral-research` (4 tasks); live `index.js` and `company_workspace.css` serve the new 3-tab Workspace UI.
+  - All 445 files in `opc-doctoral-research/raw/originals/` re-verified OK against `原件校验.sha256` (`~/Downloads/Research` untouched).
+- Not yet qualified in this turn: live Chrome DevTools visual inspection (Chrome remote debugging was not enabled on this machine, `DevToolsActivePort` ENOENT) and a live provider-backed multi-agent execution run.
+
 ## Deliverable clarity and MoonDesk context — 2026-11-24
 
 Coordinated work leads with the promised deliverable, Now / Next / Needs you,

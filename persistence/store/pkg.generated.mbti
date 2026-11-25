@@ -14,12 +14,14 @@ pub fn load_snapshot(String) -> RecordStore raise StoreError
 pub fn restore_snapshot(String, String) -> Unit raise StoreError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror DurableStoreError {
   FileIo
   InvalidPendingSnapshot
   Store(StoreError)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror ProjectionError {
   EmptyAggregateType
   EmptyAggregateId
@@ -28,8 +30,9 @@ pub(all) suberror ProjectionError {
   RevisionConflict
   InvalidHistory
   Store(StoreError)
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) suberror StoreError {
   EmptyRecordType
   EmptyRecordId
@@ -42,45 +45,49 @@ pub(all) suberror StoreError {
   FileIo
   EmptyBatch
   Schema(@schema.MigrationError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct AggregateProjection {
   aggregate_type : String
   aggregate_id : String
-  revision : Int
+  revision : Int32
   store : RecordStore
-} derive(Eq, @debug.Debug)
-pub fn AggregateProjection::append(Self, expected_revision~ : Int, payload~ : String, source_event_id~ : String) -> Self raise ProjectionError
+}
+pub fn AggregateProjection::append(Self, expected_revision~ : Int32, payload~ : String, source_event_id~ : String) -> Self raise ProjectionError
 pub fn AggregateProjection::into_store(Self) -> RecordStore
 pub fn AggregateProjection::latest(Self) -> AggregateRevision?
 pub fn AggregateProjection::new(RecordStore, aggregate_type~ : String, aggregate_id~ : String) -> Self raise ProjectionError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct AggregateRevision {
   aggregate_type : String
   aggregate_id : String
-  revision : Int
-  schema_version : Int
+  revision : Int32
+  schema_version : Int32
   payload : String
   source_event_id : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct DurableRecordStore {
   path : String
   pending_path : String
   store : RecordStore
-} derive(Eq, @debug.Debug)
+}
 pub fn DurableRecordStore::open(String, @schema.SchemaState) -> Self raise DurableStoreError
 pub fn DurableRecordStore::snapshot(Self) -> RecordStore
 pub fn DurableRecordStore::transact(Self, Array[StoredRecord]) -> Self raise DurableStoreError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct RecordStore {
   schema : @schema.SchemaState
   records : Array[StoredRecord]
-} derive(Eq, @debug.Debug)
+}
 pub fn RecordStore::append(Self, StoredRecord) -> Self raise StoreError
 pub fn RecordStore::append_batch(Self, Array[StoredRecord]) -> Self raise StoreError
-pub fn RecordStore::count_type(Self, record_type~ : String) -> Int
+pub fn RecordStore::count_type(Self, record_type~ : String) -> Int32
 pub fn RecordStore::from_snapshot(String) -> Self raise StoreError
 pub fn RecordStore::get(Self, record_type~ : String, record_id~ : String) -> StoredRecord?
 pub fn RecordStore::migrate(Self, @schema.MigrationStep) -> Self raise StoreError
@@ -88,14 +95,15 @@ pub fn RecordStore::new(@schema.SchemaState) -> Self
 pub fn RecordStore::save_snapshot(Self, String) -> Unit raise StoreError
 pub fn RecordStore::to_snapshot(Self) -> String
 
+#derive(Eq, @debug.Debug)
 pub(all) struct StoredRecord {
   record_type : String
   record_id : String
-  schema_version : Int
+  schema_version : Int32
   payload : String
   source_id : String
-} derive(Eq, @debug.Debug)
-pub fn StoredRecord::new(record_type~ : String, record_id~ : String, schema_version~ : Int, payload~ : String, source_id~ : String) -> Self raise StoreError
+}
+pub fn StoredRecord::new(record_type~ : String, record_id~ : String, schema_version~ : Int32, payload~ : String, source_id~ : String) -> Self raise StoreError
 
 // Type aliases
 

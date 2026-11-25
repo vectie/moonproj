@@ -68,7 +68,7 @@ fn products_inventory_test_body(
   guard fields["products"] is Array(rows) else { abort("fixture rows") }
   for row in rows {
     if row is Object(item) && item.get("id") == Some(Json::string("moonbook")) {
-      item["work_inventory"] = inventory.to_json()
+      item["work_inventory"] = ToJson::to_json(inventory)
     }
   }
   fields["work_inventory_state"] = Json::string("ready")
@@ -112,7 +112,7 @@ test "all twenty packaged work inventories decode render and retain every requir
       inventory.product_id == id
     })[0].projection()
   }
-  fields["work_inventory_state"] = "ready".to_json()
+  fields["work_inventory_state"] = ToJson::to_json("ready")
   let loaded = products_test_update(
     { ..initial_model(), page: Products, },
     CatalogRead(0, 200, root.stringify()),
@@ -197,7 +197,7 @@ test "inventory preparation requires a real project and preserves canonical task
   assert_eq(ready.dispatch_task_id, selected.dispatch_task_id)
   assert_eq(ready.dispatch_task_title, selected.dispatch_task_title)
   assert_false(
-    draft.product_snapshot.to_json().stringify().contains("work_inventory"),
+    ToJson::to_json(draft.product_snapshot).stringify().contains("work_inventory"),
   )
   let again = products_test_update(
     ready,

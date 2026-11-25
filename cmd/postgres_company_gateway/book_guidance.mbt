@@ -51,7 +51,7 @@ fn book_guidance_query_projection(task : Json) -> Json raise GatewayError {
       snapshot,
     ),
     "task_snapshot": snapshot,
-    "conditions": conditions.to_json(),
+    "conditions": Json::array(conditions),
     "authorizing": false,
   }
 }

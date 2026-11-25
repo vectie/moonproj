@@ -627,14 +627,14 @@ test "offer lost response reconciles exact available receipt and distinguishes h
   )
   println(
     "OFFER_MARKDOWN_FIXTURE=" +
-    @task_evidence.offer_draft_markdown(
-      draft.operation_offer.unwrap(),
-      task_id="offer-task",
-      project_id="offer-project",
-      revision=2,
-    )
-    .to_json()
-    .stringify(),
+    ToJson::to_json(
+      @task_evidence.offer_draft_markdown(
+        draft.operation_offer.unwrap(),
+        task_id="offer-task",
+        project_id="offer-project",
+        revision=2,
+      ),
+    ).stringify(),
   )
 }
 

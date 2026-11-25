@@ -10,23 +10,26 @@ import {
 pub fn project_execution_activity(Array[@agent_port.ExecutionAttempt], principal_id~ : String, at_epoch~ : Int64) -> ExecutionActivityProjection raise AttentionError
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror AttentionError {
   Invalid(String)
   NotFound(String)
   AlreadyResolved
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct AttentionInbox {
-  revision : Int
+  revision : Int32
   items : Array[AttentionItem]
-} derive(Eq, @debug.Debug)
+}
 pub fn AttentionInbox::acknowledge(Self, attention_id~ : String, at_epoch~ : Int64) -> Self raise AttentionError
 pub fn AttentionInbox::new() -> Self
 pub fn AttentionInbox::open_items(Self) -> Array[AttentionItem]
 pub fn AttentionInbox::resolve(Self, attention_id~ : String, resolution_evidence~ : Array[String], at_epoch~ : Int64) -> Self raise AttentionError
 pub fn AttentionInbox::upsert(Self, AttentionItem) -> Self raise AttentionError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct AttentionItem {
   attention_id : String
   dedupe_key : String
@@ -44,47 +47,51 @@ pub(all) struct AttentionItem {
   status : AttentionStatus
   created_at_epoch : Int64
   updated_at_epoch : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum AttentionSeverity {
   Informational
   Normal
   Urgent
   Critical
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum AttentionStatus {
   Open
   Acknowledged
   Resolved
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExecutionActivityProjection {
-  total : Int
-  active : Int
-  waiting : Int
-  review : Int
-  succeeded : Int
-  quarantined : Int
+  total : Int32
+  active : Int32
+  waiting : Int32
+  review : Int32
+  succeeded : Int32
+  quarantined : Int32
   total_cost_minor : Int64
   rows : Array[ExecutionActivityRow]
   inbox : AttentionInbox
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExecutionActivityRow {
   attempt_id : String
   request_id : String
   work_item_id : String
   phase : @agent_port.ExecutionPhase
-  revision : Int
-  attempt_number : Int
-  crash_streak : Int
-  interrupted_streak : Int
-  artifact_count : Int
+  revision : Int32
+  attempt_number : Int32
+  crash_streak : Int32
+  interrupted_streak : Int32
+  artifact_count : Int32
   cost_minor : Int64
   needs_attention : Bool
   last_reason : String
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

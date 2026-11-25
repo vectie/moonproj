@@ -93,7 +93,7 @@ fn continuation_proj_envelope(
       "original_command_id": "command-1",
       "workspace": "/workspace/book",
       "acceptance": "pending",
-      "continuations": model.dispatch_continuation.records.to_json(),
+      "continuations": ToJson::to_json(model.dispatch_continuation.records),
       "selected_delivery_source": source,
       "candidate": candidate,
       "candidates": [],
@@ -287,7 +287,7 @@ test "replayed old C1 operation acknowledgement retires while actual C2 remains 
       "idempotency_key",
     ),
     "operation_source": continuation_proj_source(),
-    "continuations": model.dispatch_continuation.records.to_json(),
+    "continuations": ToJson::to_json(model.dispatch_continuation.records),
     "selected_delivery_source": continuation_proj_source(command="C2", id="K2"),
     "task": {
       "taskGuid": "task-1",
@@ -599,7 +599,7 @@ test "UI shows exact candidate input result source and report identity separatel
     emit,
     model,
   ) => dispatch_continuation_view(msg => emit(msg), model))
-  let html = @rabbita.render_to_string(cell)
+  let html = opc_render_cell(cell)
   for
     text in [
       "C1", "input-hash-K1", "Exact result C1", "captured-model", "evidence-C1",

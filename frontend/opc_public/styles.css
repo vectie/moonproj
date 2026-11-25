@@ -494,7 +494,7 @@ body { color: var(--ink); background: var(--canvas); font-feature-settings: "tnu
 .status-accent { color: #6edba8; background: rgba(67,207,146,.1); border-color: rgba(67,207,146,.25); }
 .status-warning { color: #f4c76d; background: rgba(242,189,82,.1); border-color: rgba(242,189,82,.27); }
 .status-violet { color: #beb5ff; background: var(--accent-soft); border-color: rgba(139,124,246,.27); }
-.notice { margin: -6px auto 16px; color: #c8c1ff; background: var(--accent-soft); border-color: rgba(139,124,246,.27); }
+.notice { margin: -6px auto 16px; color: #e2ddff; background: #1c1a33; border: 1px solid rgba(139,124,246,.48); box-shadow: 0 8px 24px rgba(0,0,0,.35); }
 .section-block { padding: 17px; background: var(--paper); border-color: var(--line); border-radius: 11px; }
 .section-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin: 0 0 11px; }
 .section-title h2, .section-title p { margin: 0; }

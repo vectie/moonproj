@@ -76,7 +76,7 @@ test "outcome actor switch and logout clear prior notes prepared bytes and pendi
         payload: Some(source),
       },
     }
-    let html = @rabbita.render_to_string(
+    let html = opc_render_cell(
       @rabbita.static_cell(dispatch_lesson_handoff_view(_ => none, reopened)),
     )
     assert_false(html.contains(draft.outcome_summary))
@@ -223,7 +223,7 @@ test "outcome matching preview is independent of pending Book connection on same
 ///|
 test "accepted task lesson preparation offers a plain language outcome composer" {
   let model = outcome_test_source_model()
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_lesson_handoff_view(_ => none, model)),
   )
   assert_true(html.contains("记录实际结果"))
@@ -399,7 +399,7 @@ test "tab local outcome drafts survive task switches failed source refresh and c
     dispatch_outcome_draft(failed, source).outcome_summary,
     "My actual observation",
   )
-  let failed_html = @rabbita.render_to_string(
+  let failed_html = opc_render_cell(
     @rabbita.static_cell(dispatch_lesson_handoff_view(_ => none, failed)),
   )
   assert_true(failed_html.contains("My actual observation"))
@@ -483,7 +483,7 @@ test "changed outcome source keeps old authored notes readable without rebinding
       payload: Some(changed),
     },
   }
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_lesson_handoff_view(_ => none, refreshed)),
   )
   for

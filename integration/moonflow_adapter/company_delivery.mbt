@@ -56,7 +56,7 @@ async fn company_binding(
       found = Some(
         @company_flow.binding(
           value,
-          flow.to_json(),
+          ToJson::to_json(flow),
           reference,
           sha256_text(bytes),
         ),
@@ -299,7 +299,7 @@ async fn load_company_task_report(
     "saved report body",
   )
   let progress = json_int_field(body, "progress_pct")
-  if body.get("progress_pct") != Some(progress.to_json()) {
+  if body.get("progress_pct") != Some(ToJson::to_json(progress)) {
     fail("MoonProj Flow report checkpoint has invalid progress")
   }
   let evidence = match fields.get("evidence") {
@@ -444,7 +444,7 @@ fn validate_company_report_command(
       "progress_pct",
     ) *
     100
-  if company_field(request, "progress_bps") != expected_bps.to_json() {
+  if company_field(request, "progress_bps") != ToJson::to_json(expected_bps) {
     fail("MoonProj Flow report response changed progress")
   }
 }
@@ -497,7 +497,7 @@ pub async fn company_task_report_status(
     },
     "report_ref": base + "/report.json",
     "receipt_ref": if receipt is Some(_) {
-      (base + "/receipt.json").to_json()
+      Json::string(base + "/receipt.json")
     } else {
       Json::null()
     },

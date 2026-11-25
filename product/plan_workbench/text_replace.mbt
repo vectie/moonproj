@@ -73,7 +73,7 @@ pub fn preview_plan_text_replacement(
     draft.milestones.length() > 40 ||
     draft.risks.length() > 100 ||
     draft.owners.length() > 40 ||
-    draft.to_json().stringify().length() > 1000000 {
+    ToJson::to_json(draft).stringify().length() > 1000000 {
     raise Invalid(
       "Plan is too large for text replacement (100 tasks, 40 milestones, 100 risks, 40 owners, 1000000 text units).",
     )
@@ -104,7 +104,7 @@ pub fn preview_plan_text_replacement(
       mitigation: replace(r.mitigation, "risks", r.id, "mitigation"),
     }),
   }
-  if after.to_json().stringify().length() > 1000000 {
+  if ToJson::to_json(after).stringify().length() > 1000000 {
     raise Invalid(
       "Replacement result is too large; narrow the scope or replacement text.",
     )

@@ -192,7 +192,7 @@ test "reply projection changes no proposal task acceptance execution demand or m
   assert_eq(json_text(result, "reply_id", ""), "plan_task:update:reply-first")
   assert_eq(json_int(result, "revision", 0), 4)
   for key in ["cash_effect", "accounting_effect", "tax_effect"] {
-    assert_eq(json_field(result, key), Some(false.to_json()))
+    assert_eq(json_field(result, key), Some(Json::boolean(false)))
   }
   assert_eq(json_text(audit, "action", ""), "plan.task.offer_reply")
   let list = plan_task_offer_public({ "taskGuid": "T" }, next, false)

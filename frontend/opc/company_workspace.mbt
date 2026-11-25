@@ -4,13 +4,24 @@
 struct CompanyWorkspace {
   job : String
   pane : String
+  tab : String
+  selected_stage : String
+  resource_title : String
+  resource_url : String
+  focused_agent : String
 }
 
 ///|
 enum WorkspaceMsg {
   Focus(String)
+  FocusPane(String, String)
+  OpenResource(String, String)
+  InspectAgent(String)
+  CloseSheet
   Flow
   Pane(String)
+  Tab(String)
+  SelectStage(String)
   ManageGoal(String)
   Refresh
   Tick(String, Int, String, Int)
@@ -18,7 +29,20 @@ enum WorkspaceMsg {
 
 ///|
 fn workspace_initial() -> CompanyWorkspace {
-  { job: "", pane: "materials", }
+  {
+    job: "",
+    pane: "materials",
+    tab: "focus",
+    selected_stage: "",
+    resource_title: "",
+    resource_url: "",
+    focused_agent: "",
+  }
+}
+
+///|
+fn workspace_has_open_app(ws : CompanyWorkspace) -> Bool {
+  !ws.job.is_empty() || !ws.resource_url.is_empty()
 }
 
 ///|
@@ -142,34 +166,146 @@ fn workspace_update(emit : @rabbita.Emit[Msg], model : Model, action : Workspace
       workspace_update(emit, model, Refresh)
     }
     Refresh => {
-      let state = model.today
-      if state.actor.is_empty() || state.actor != model.dispatch_task_actor_id || state.project_state != "ready" || state.project_id.is_empty() {
-        return today_update(emit, TodayMsg::Refresh, model)
+      let (charter_cmd, refreshed) = if model.charter.status != "loading" {
+        charter_update(emit, Load, model)
+      } else {
+        (none, model)
       }
-      if state.work_state == "loading" { return (none, model) }
+      let state = refreshed.today
+      if state.actor.is_empty() || state.actor != refreshed.dispatch_task_actor_id || state.project_state != "ready" || state.project_id.is_empty() {
+        let (today_cmd, next_model) = today_update(emit, TodayMsg::Refresh, refreshed)
+        return (@cmd.batch([today_cmd, charter_cmd]), next_model)
+      }
+      if state.work_state == "loading" { return (charter_cmd, refreshed) }
       let state = { ..state, work_request: state.work_request + 1, work_state: "loading", }
       // Active selected runs already have the native task reader's polling
       // chain. Refresh a dormant selection too, without forking that chain.
-      let selected = if !model.dispatch_task_id.is_empty() && !delivery_pollable(model) {
-        emit(RefreshDispatchTask(model.dispatch_task_id, model.dispatch_task_selection))
+      let selected = if !refreshed.dispatch_task_id.is_empty() && !delivery_pollable(refreshed) {
+        emit(RefreshDispatchTask(refreshed.dispatch_task_id, refreshed.dispatch_task_selection))
       } else { none }
-      (@cmd.batch([today_load_tasks(emit, state), selected]), { ..model, today: state, })
+      (@cmd.batch([today_load_tasks(emit, state), selected, charter_cmd]), { ..refreshed, today: state, })
     }
     Focus(id) => {
       if !workspace_jobs(model).any(t => t.id == id) { return (none, model) }
-      let next = { ..model, workspace: { job: id, pane: "materials", }, }
+      let next = {
+        ..model,
+        workspace: {
+          ..model.workspace,
+          job: id,
+          pane: "materials",
+          resource_title: "",
+          resource_url: "",
+          focused_agent: "",
+        },
+      }
       if model.dispatch_task_id == id && model.dispatch_task_stage != "loading" {
         return (remember_page_route(Workspace, id, push=true), { ..next, page: Workspace, })
       }
       open_dispatch_task(emit, { ..next, dispatch_task_open_id: id, }, page=Workspace)
     }
+    FocusPane(id, pane) => {
+      if !workspace_jobs(model).any(t => t.id == id) { return (none, model) }
+      let target_pane = if pane == "progress" { "progress" } else { "materials" }
+      let next = {
+        ..model,
+        workspace: {
+          ..model.workspace,
+          job: id,
+          pane: target_pane,
+          resource_title: "",
+          resource_url: "",
+          focused_agent: "",
+        },
+      }
+      if model.dispatch_task_id == id && model.dispatch_task_stage != "loading" {
+        return (remember_page_route(Workspace, id, push=true), { ..next, page: Workspace, })
+      }
+      open_dispatch_task(emit, { ..next, dispatch_task_open_id: id, }, page=Workspace)
+    }
+    OpenResource(title, url) => {
+      let clean_url = url.trim().to_string()
+      if clean_url.is_empty() { return (none, model) }
+      (
+        none,
+        {
+          ..model,
+          page: Workspace,
+          workspace: {
+            ..model.workspace,
+            job: "",
+            pane: "materials",
+            resource_title: if title.is_empty() { "MoonDesk 资源" } else { title },
+            resource_url: clean_url,
+            focused_agent: "",
+          },
+        },
+      )
+    }
+    InspectAgent(role_id) => {
+      let next_agent = if model.workspace.focused_agent == role_id { "" } else { role_id }
+      (
+        none,
+        {
+          ..model,
+          page: Workspace,
+          workspace: {
+            ..model.workspace,
+            job: "",
+            tab: "focus",
+            resource_title: "",
+            resource_url: "",
+            focused_agent: next_agent,
+          },
+        },
+      )
+    }
+    CloseSheet => (
+      none,
+      {
+        ..model,
+        workspace: { ..model.workspace, tab: "focus", focused_agent: "", },
+      },
+    )
     Flow => (
       remember_page_route(Workspace, "", push=true),
-      { ..model, page: Workspace, workspace: { ..model.workspace, job: "", }, },
+      {
+        ..model,
+        page: Workspace,
+        workspace: {
+          ..model.workspace,
+          job: "",
+          tab: "focus",
+          resource_title: "",
+          resource_url: "",
+          focused_agent: "",
+        },
+      },
     )
     Pane(pane) => if ["materials", "progress"].contains(pane) {
       (none, { ..model, workspace: { ..model.workspace, pane, }, })
     } else { (none, model) }
+    Tab(tab) => if ["focus", "org", "resources"].contains(tab) {
+      let next = {
+        ..model,
+        workspace: {
+          ..model.workspace,
+          tab,
+          job: "",
+          resource_title: "",
+          resource_url: "",
+          focused_agent: "",
+        },
+      }
+      if next.charter.status == "idle" {
+        charter_update(emit, Load, next)
+      } else {
+        (none, next)
+      }
+    } else { (none, model) }
+    SelectStage(stage_id) => {
+      let next_stage = if model.workspace.selected_stage == stage_id { "" } else { stage_id }
+      (none, { ..model, workspace: { ..model.workspace, selected_stage: next_stage, }, })
+    }
     ManageGoal(id) => {
       if !model.today.tasks.any(t => t.id == id && objective_is_node(model.today, t)) { return (none, model) }
       open_dispatch_task(emit, { ..model, dispatch_task_open_id: id, }, page=Objectives)

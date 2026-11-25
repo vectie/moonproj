@@ -40,7 +40,7 @@ async fn company_delivery_fixture() -> (String, String, String, FlowRequest) {
   write_test_text(
     root,
     "inputs/project-plan-request.json",
-    plan.to_json().stringify(),
+    ToJson::to_json(plan).stringify(),
   )
   let inputs = old_flow.input_artifacts.copy()
   inputs.push(company_ref)
@@ -50,8 +50,8 @@ async fn company_delivery_fixture() -> (String, String, String, FlowRequest) {
     input_digest: declared_input_digest(root, inputs),
   }
   let request_fields = json_object(read_json_ref(root, request_ref), "request").copy()
-  request_fields["input_artifacts"] = inputs.to_json()
-  request_fields["input_digest"] = flow.input_digest.to_json()
+  request_fields["input_artifacts"] = ToJson::to_json(inputs)
+  request_fields["input_digest"] = Json::string(flow.input_digest)
   write_test_text(root, request_ref, Json::object(request_fields).stringify())
   (root, request_ref, result_ref, flow)
 }
@@ -63,9 +63,9 @@ fn company_report_response(envelope : Json, replay : Bool) -> Json {
   let request = fields.copy()
   request.remove("progress_pct")
   request["progress_bps"] = Json::number(0)
-  request["command_type"] = "report".to_json()
-  request["state"] = "observed".to_json()
-  request["actor_id"] = "reporter".to_json()
+  request["command_type"] = Json::string("report")
+  request["state"] = Json::string("observed")
+  request["actor_id"] = Json::string("reporter")
   let key = company_text(envelope, "idempotency_key")
   let event_id = "delivery:task_report:report:" + key
   {
@@ -224,9 +224,11 @@ async test "rehashing changed task input cannot reuse original company binding o
       }
     }),
   }
-  write_test_text(root, plan_ref, changed.to_json().stringify())
+  write_test_text(root, plan_ref, ToJson::to_json(changed).stringify())
   let request = json_object(read_json_ref(root, request_ref), "request").copy()
-  request["input_digest"] = declared_input_digest(root, flow.input_artifacts).to_json()
+  request["input_digest"] = Json::string(
+    declared_input_digest(root, flow.input_artifacts),
+  )
   write_test_text(root, request_ref, Json::object(request).stringify())
   try bind_company_task(root, request_ref) catch {
     _ => ()
@@ -322,7 +324,7 @@ async test "company bridge rejects changed task bytes result evidence and report
   }
   let response = company_report_response(envelope, false)
   let command = json_object(company_field(response, "command"), "command").copy()
-  command["idempotency_key"] = "other".to_json()
+  command["idempotency_key"] = Json::string("other")
   write_test_text(
     root,
     "wrong-response.json",

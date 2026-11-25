@@ -11,9 +11,36 @@ fn native_delivery_base(task : Json) -> String {
 }
 
 ///|
+fn native_delivery_parent_dir(path : String) -> String {
+  let trimmed = for value = path; value.length() > 1 && value.has_suffix("/"); {
+    continue value[:value.length() - 1].to_owned()
+  } nobreak {
+    value
+  }
+  match trimmed.rev_find("/") {
+    Some(index) if index > 0 => trimmed[:index].to_owned()
+    _ => ""
+  }
+}
+
+///|
+/// Isolated worker MoonBooks live in a sibling lane outside the registered
+/// parent MoonBook so MoonClaw's strict non-overlap check passes while the
+/// coordinator remains anchored to the MoonDesk-discoverable parent root.
+fn native_delivery_workers_base(task : Json) -> String {
+  let workspace = native_text(task, "execution_workspace")
+  let parent = native_delivery_parent_dir(workspace)
+  if parent.is_empty() {
+    native_delivery_base(task)
+  } else {
+    parent + "/.moonproj-workers/" + native_text(task, "taskGuid")
+  }
+}
+
+///|
 fn native_delivery_workspace(task : Json) -> String {
-  // Keep the captured root discoverable by MoonDesk. Output and worker folders
-  // remain isolated below this registered MoonBook.
+  // Keep the captured root discoverable by MoonDesk. Output folders live under
+  // this registered MoonBook, while worker sandboxes stay disjoint siblings.
   native_text(task, "execution_workspace")
 }
 
@@ -35,16 +62,34 @@ async fn native_prepare_delivery_workspace(
   }
   try {
     let root = @fs.realpath(native_text(task, "execution_workspace"))
-    for name in ["coordinator", "specialist-1", "specialist-2", "reviewer"] {
-      let path = root +
-        "/.moonproj-deliveries/" +
-        native_text(task, "taskGuid") +
-        "/" +
-        name
+    let coordinator_path = root +
+      "/.moonproj-deliveries/" +
+      native_text(task, "taskGuid") +
+      "/coordinator"
+    native_delivery_directory(coordinator_path)
+    if !@fs.realpath(coordinator_path).has_prefix(root + "/") {
+      raise GatewayError::InvalidInput(
+        "Delivery workspaces must remain inside the selected workspace",
+      )
+    }
+    let parent = native_delivery_parent_dir(root)
+    if parent.is_empty() {
+      raise GatewayError::InvalidInput(
+        "Selected workspace must have a valid parent directory for isolated workers",
+      )
+    }
+    let workers_root = parent +
+      "/.moonproj-workers/" +
+      native_text(task, "taskGuid")
+    for name in ["specialist-1", "specialist-2", "reviewer"] {
+      let path = workers_root + "/" + name
       native_delivery_directory(path)
-      if !@fs.realpath(path).has_prefix(root + "/") {
+      let real = @fs.realpath(path)
+      if real == root ||
+        real.has_prefix(root + "/") ||
+        root.has_prefix(real + "/") {
         raise GatewayError::InvalidInput(
-          "Delivery workspaces must remain inside the selected workspace",
+          "Isolated worker workspaces must not overlap the parent MoonBook",
         )
       }
     }
@@ -61,13 +106,13 @@ fn native_delivery_prompt(task : Json) -> String {
   if !native_coordinated(task) {
     return ""
   }
-  "\nYou are explicitly authorized to coordinate this delivery with the native spawn_workers and wait_workers tools. Omit each worker's optional model field to inherit this session's actual selected model; do not send a placeholder such as 'default'. Use fresh worker IDs when retrying failed spawns. For plain-text deliverables use native read/write/edit tools; shell availability is not required. Own the complete result and perform routine preparation, handoffs, checks and recovery without asking the founder to dispatch or submit each task. Specialist MoonBooks already exist: " +
-  native_delivery_base(task) +
+  "\nYou are explicitly authorized to coordinate this delivery with the native spawn_workers and wait_workers tools. Omit each worker's optional model field to inherit this session's actual selected model; do not send a placeholder such as 'default'. Use fresh worker IDs when retrying failed spawns. For plain-text deliverables use native read/write/edit tools; shell availability is not required. Own the complete result and perform routine preparation, handoffs, checks and recovery without asking the founder to dispatch or submit each task. Isolated sibling specialist MoonBooks already exist outside the parent MoonBook: " +
+  native_delivery_workers_base(task) +
   "/specialist-1, " +
-  native_delivery_base(task) +
+  native_delivery_workers_base(task) +
   "/specialist-2; independent reviewer MoonBook: " +
-  native_delivery_base(task) +
-  "/reviewer. Use these isolated books, not the coordinator book, for workers. Worker results are returned by wait_workers; ask workers to include their substantive contribution and limitations in their final answer. Preserve successful contributions on recovery; do not re-execute them merely to rebuild status. Have an independent reviewer examine the actual proposed artifact/criteria before final integration. Supply its exact content in the reviewer prompt when files cannot be read across books. Do not claim a review or a worker succeeded without its terminal evidence. Finish by writing the buyer-usable artifact(s) in this coordinator book and reporting acceptance checks, unresolved gaps and observed usage/cost (unknown when unavailable). A summary alone is not the requested artifact. Company signing, payments, posting, trades and external publishing remain outside this delivery permission.\nScope and limits supplied by the founder: " +
+  native_delivery_workers_base(task) +
+  "/reviewer. Use these isolated books, not the coordinator book, for workers. Worker results are returned by wait_workers; once wait_workers reports ready=true, do NOT call wait_workers again—immediately integrate their returned contributions into the deliverable. Ask workers to include their substantive contribution and limitations in their final answer. Preserve successful contributions on recovery; do not re-execute them merely to rebuild status. Have an independent reviewer examine the actual proposed artifact/criteria before final integration. Supply its exact content in the reviewer prompt when files cannot be read across books. Do not claim a review or a worker succeeded without its terminal evidence. Finish by writing the buyer-usable artifact(s) in this coordinator book and reporting acceptance checks, unresolved gaps and observed usage/cost (unknown when unavailable). A summary alone is not the requested artifact. Company signing, payments, posting, trades and external publishing remain outside this delivery permission.\nScope and limits supplied by the founder: " +
   Json::string(native_text(task, "delivery_limits")).stringify() +
   "\nThe selected parent MoonBook is the coordinator's workspace. Preserve its existing sources and working documents. Put final integrated artifacts under .moonproj-deliveries/" +
   native_text(task, "taskGuid") +

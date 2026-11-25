@@ -9,15 +9,17 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror EvidenceError {
   EmptyIdentifier
   InvalidHash
   InvalidState
   DuplicateAudit
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct AuditRecord {
   audit_id : String
   principal_id : String
@@ -28,14 +30,16 @@ pub(all) struct AuditRecord {
   target_id : String
   outcome : String
   evidence_id : String?
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct AuditTrail {
   records : Array[AuditRecord]
-} derive(Eq, @debug.Debug)
+}
 pub fn AuditTrail::append(Self, AuditRecord, grant~ : @foundation.AuthorityGrant) -> Self raise EvidenceError
 pub fn AuditTrail::empty() -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Evidence {
   evidence_id : String
   principal_id : String
@@ -45,25 +49,27 @@ pub(all) struct Evidence {
   content_hash : String
   state : EvidenceState
   events : Array[EvidenceEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn Evidence::archive(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise EvidenceError
 pub fn Evidence::new(evidence_id~ : String, principal_id~ : String, scope~ : String, source_reference~ : String, media_type~ : String, content_hash~ : String, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise EvidenceError
 pub fn Evidence::redact(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise EvidenceError
 pub fn Evidence::verify(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise EvidenceError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct EvidenceEvent {
   from : EvidenceState
   to : EvidenceState
   actor_id : String
   capability : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum EvidenceState {
   Pending
   Verified
   Redacted
   Archived
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

@@ -13,6 +13,7 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror InvoiceSubledgerPromotionError {
   InvalidInput
   Io(@fs.IOError)
@@ -20,7 +21,7 @@ pub(all) suberror InvoiceSubledgerPromotionError {
   Invoice(@invoice.InvoiceError)
   Receivable(@receivable.ReceivableError)
   Payable(@payable.PayableError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

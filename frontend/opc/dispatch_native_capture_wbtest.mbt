@@ -83,7 +83,7 @@ test "actual native cold readback restores exact result and file without human a
     _,
     model,
   ) => dispatch_native_result(model))
-  let html = @rabbita.render_to_string(page)
+  let html = opc_render_cell(page)
   assert_true(html.contains("The welcome note is ready: welcome-note.txt"))
   assert_true(html.contains("输出文件（相对工作区）"))
   assert_true(html.contains("welcome-note.txt"))

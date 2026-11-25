@@ -12,6 +12,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ReceivableError {
   EmptyIdentifier
   InvalidAmount
@@ -22,9 +23,10 @@ pub(all) suberror ReceivableError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Receivable {
   receivable_id : String
   source_id : String
@@ -33,7 +35,7 @@ pub(all) struct Receivable {
   amount : @finance.Money
   collected_minor : Int64
   state : ReceivableState
-} derive(Eq, @debug.Debug)
+}
 pub fn Receivable::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ReceivableError
 pub fn Receivable::collect(Self, amount_minor~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReceivableError
 pub fn Receivable::open(receivable_id~ : String, source_id~ : String, principal_id~ : String, customer_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReceivableError
@@ -41,12 +43,13 @@ pub fn Receivable::outstanding_minor(Self) -> Int64
 pub fn Receivable::to_collection_event(Self, collection_id~ : String, event_id~ : String, event_type~ : String, amount~ : @finance.Money, cash_account~ : String, receivable_account~ : String) -> @accounting.AccountingEvent raise ReceivableError
 pub fn Receivable::to_opening_event(Self, event_id~ : String, event_type~ : String, receivable_account~ : String, revenue_account~ : String) -> @accounting.AccountingEvent raise ReceivableError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ReceivableState {
   Open
   PartiallyCollected
   Collected
   WrittenOff
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

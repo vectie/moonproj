@@ -522,6 +522,7 @@ fn command_path_allowed(
       )
     @http.Put =>
       path == "/api/company/auth/profile" ||
+      path == "/api/company/charter" ||
       path_with_identifier_suffix("/api/company/products/", "/in-gate", path) ||
       path_with_identifier("/api/company/expenses/", path) ||
       path_with_identifier("/api/company/rbac/users/", path) ||
@@ -697,7 +698,7 @@ async fn proxy_request(
 ) -> ProxyResult raise GatewayError {
   try {
     let client = @http.Client(service_uri)
-    let extra_headers : Map[String, String] = {
+    let extra_headers : @http.Headers = {
       "Authorization": "Bearer " + service_token,
       "X-Forwarded-Proto": "https",
       "X-Moonproj-Actor": header(request, "X-Moonproj-Actor"),
@@ -1147,12 +1148,12 @@ async fn send_json(
   payload : Json,
   extra_headers~ : Map[String, String] = {},
 ) -> Unit {
-  let headers : Map[String, String] = {
+  let headers : @http.Headers = {
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
   }
   for key, value in extra_headers {
-    headers[key] = value
+    headers[@http.CaseInsensitiveString(key)] = value
   }
   conn.send_response(status, status_reason(status), extra_headers=headers)
   if status != 204 && !(request_method is @http.Head) {
@@ -1168,7 +1169,7 @@ async fn send_bytes(
   result : ProxyResult,
   extra_headers~ : Map[String, String] = {},
 ) -> Unit {
-  let headers : Map[String, String] = {
+  let headers : @http.Headers = {
     "Content-Type": result.content_type,
     "Cache-Control": "no-store",
   }
@@ -1177,7 +1178,7 @@ async fn send_bytes(
     None => ()
   }
   for key, value in extra_headers {
-    headers[key] = value
+    headers[@http.CaseInsensitiveString(key)] = value
   }
   conn.send_response(
     result.status,
@@ -1818,6 +1819,19 @@ async fn handle(
                 "task_id": task_id,
               })
           }
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if path == "/api/company/moondesk/status" && request.meth is @http.Get {
+          let result = moondesk_ensure_running(moondesk_origin, false)
+          send_bytes(conn, request.meth, result)
+          return
+        }
+        if path == "/api/company/moondesk/ensure" && request.meth is @http.Post {
+          let result = moondesk_ensure_running(
+            moondesk_origin,
+            desktop_actor is Some(_),
+          )
           send_bytes(conn, request.meth, result)
           return
         }

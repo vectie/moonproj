@@ -8,9 +8,11 @@ import {
 // Values
 
 // Errors
-type GatewayError derive(@debug.Debug)
+#derive(@debug.Debug)
+type GatewayError
 
-type ProductCatalogReadError derive(@debug.Debug)
+#derive(@debug.Debug)
+type ProductCatalogReadError
 
 // Types and methods
 type NativeBridge

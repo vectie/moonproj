@@ -11,18 +11,20 @@ pub fn protocol_version() -> String
 pub fn reserved_company_effects() -> Array[String]
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror AgentPortError {
   Invalid(String)
-  RevisionConflict(expected~ : Int, actual~ : Int)
+  RevisionConflict(expected~ : Int32, actual~ : Int32)
   InvalidTransition(from~ : ExecutionPhase, to~ : ExecutionPhase)
   ClaimRequired
   ClaimMismatch
   ClaimAlreadyHeld
   LeaseNotExpired
   AttemptQuarantined
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct AgentRequest {
   protocol_version : String
   request_id : String
@@ -40,36 +42,40 @@ pub(all) struct AgentRequest {
   expected_result_schema : String
   prohibited_effects : Array[String]
   idempotency_key : String
-} derive(Eq, @debug.Debug)
+}
 pub fn AgentRequest::is_well_formed(Self) -> Bool
 pub fn AgentRequest::protects_reserved_effects(Self) -> Bool
 pub fn AgentRequest::validate(Self) -> Unit raise AgentPortError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct AgentResult {
   protocol_version : String
   request_id : String
   attempt_id : String
   status : String
   findings : String
-  confidence_percent : Int
+  confidence_percent : Int32
   evidence : Array[String]
   proposed_commands : Array[ProposedCommand]
   error_classification : String
-} derive(Eq, @debug.Debug)
+}
 pub fn AgentResult::is_terminal(Self) -> Bool
 pub fn AgentResult::is_well_formed(Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) enum AuthorizationPlane {
   RuntimePermission
   CompanyAuthority
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum CoordinationMode {
   CompanyTopDown
   MoonFlowSingleAgent
   MoonTownBottomUp
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExecutionAttempt {
   protocol_version : String
   attempt_id : String
@@ -77,42 +83,45 @@ pub(all) struct ExecutionAttempt {
   work_item_id : String
   flow_run_id : String
   phase : ExecutionPhase
-  revision : Int
-  attempt_number : Int
+  revision : Int32
+  attempt_number : Int32
   claim : ExecutionClaim?
-  crash_streak : Int
-  interrupted_streak : Int
-  rework_round : Int
+  crash_streak : Int32
+  interrupted_streak : Int32
+  rework_round : Int32
   artifact_refs : Array[String]
   cost_minor : Int64
   terminal_reason : String
   events : Array[ExecutionAttemptEvent]
-} derive(Eq, @debug.Debug)
-pub fn ExecutionAttempt::claim(Self, expected_revision~ : Int, claim_token~ : String, executor_id~ : String, now_epoch~ : Int64, lease_seconds~ : Int64) -> Self raise AgentPortError
-pub fn ExecutionAttempt::heartbeat(Self, expected_revision~ : Int, claim_token~ : String, now_epoch~ : Int64, lease_seconds~ : Int64) -> Self raise AgentPortError
+}
+pub fn ExecutionAttempt::claim(Self, expected_revision~ : Int32, claim_token~ : String, executor_id~ : String, now_epoch~ : Int64, lease_seconds~ : Int64) -> Self raise AgentPortError
+pub fn ExecutionAttempt::heartbeat(Self, expected_revision~ : Int32, claim_token~ : String, now_epoch~ : Int64, lease_seconds~ : Int64) -> Self raise AgentPortError
 pub fn ExecutionAttempt::new(AgentRequest, attempt_id~ : String, at_epoch~ : Int64) -> Self raise AgentPortError
-pub fn ExecutionAttempt::record_artifact(Self, expected_revision~ : Int, artifact_ref~ : String) -> Self raise AgentPortError
-pub fn ExecutionAttempt::record_cost(Self, expected_revision~ : Int, additional_minor~ : Int64) -> Self raise AgentPortError
-pub fn ExecutionAttempt::record_crash(Self, expected_revision~ : Int, claim_token~ : String, at_epoch~ : Int64, reason~ : String) -> Self raise AgentPortError
-pub fn ExecutionAttempt::recover_expired_claim(Self, expected_revision~ : Int, now_epoch~ : Int64) -> Self raise AgentPortError
-pub fn ExecutionAttempt::request_rework(Self, expected_revision~ : Int, reviewer_id~ : String, reason~ : String, at_epoch~ : Int64) -> Self raise AgentPortError
-pub fn ExecutionAttempt::transition(Self, expected_revision~ : Int, to~ : ExecutionPhase, actor_id~ : String, claim_token? : String, reason~ : String, at_epoch~ : Int64) -> Self raise AgentPortError
+pub fn ExecutionAttempt::record_artifact(Self, expected_revision~ : Int32, artifact_ref~ : String) -> Self raise AgentPortError
+pub fn ExecutionAttempt::record_cost(Self, expected_revision~ : Int32, additional_minor~ : Int64) -> Self raise AgentPortError
+pub fn ExecutionAttempt::record_crash(Self, expected_revision~ : Int32, claim_token~ : String, at_epoch~ : Int64, reason~ : String) -> Self raise AgentPortError
+pub fn ExecutionAttempt::recover_expired_claim(Self, expected_revision~ : Int32, now_epoch~ : Int64) -> Self raise AgentPortError
+pub fn ExecutionAttempt::request_rework(Self, expected_revision~ : Int32, reviewer_id~ : String, reason~ : String, at_epoch~ : Int64) -> Self raise AgentPortError
+pub fn ExecutionAttempt::transition(Self, expected_revision~ : Int32, to~ : ExecutionPhase, actor_id~ : String, claim_token? : String, reason~ : String, at_epoch~ : Int64) -> Self raise AgentPortError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExecutionAttemptEvent {
-  revision : Int
+  revision : Int32
   from : ExecutionPhase
   to : ExecutionPhase
   actor_id : String
   reason : String
   at_epoch : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExecutionClaim {
   claim_token : String
   executor_id : String
   lease_expires_at_epoch : Int64
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ExecutionPhase {
   Queued
   Ready
@@ -128,10 +137,11 @@ pub(all) enum ExecutionPhase {
   Rejected
   Cancelled
   Quarantined
-} derive(Eq, @debug.Debug)
+}
 pub fn ExecutionPhase::is_dispatchable(Self) -> Bool
 pub fn ExecutionPhase::is_terminal(Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ProposedCommand {
   protocol_version : String
   command_id : String
@@ -149,16 +159,17 @@ pub(all) struct ProposedCommand {
   state : ProposedCommandState
   runtime_permission_observed : Bool
   company_authority_granted : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn ProposedCommand::accept_for_review(Self) -> Self raise AgentPortError
 pub fn ProposedCommand::is_well_formed(Self) -> Bool
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ProposedCommandState {
   ProposalOnly
   AcceptedForReview
   Rejected
   Superseded
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

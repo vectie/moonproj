@@ -52,7 +52,7 @@ async fn native_office_observation(
       native_delivery_worker_projection,
     )
     if result is Object(fields) {
-      fields["workers"] = workers.to_json()
+      fields["workers"] = Json::array(workers)
       fields["state"] = Json::string("observed")
       fields["active_command_id"] = native_field(
         native_field(panel, "context"),

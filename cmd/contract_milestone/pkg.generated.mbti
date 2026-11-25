@@ -13,6 +13,7 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror ContractMilestoneCohortError {
   InvalidInput
   Io(@fs.IOError)
@@ -20,7 +21,7 @@ pub(all) suberror ContractMilestoneCohortError {
   Commitment(@commitment.CommitmentError)
   Contract(@contract.MilestoneError)
   Settlement(@settlement.SettlementError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

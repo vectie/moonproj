@@ -12,6 +12,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror TaxError {
   EmptyIdentifier
   EmptyCategory
@@ -28,16 +29,18 @@ pub(all) suberror TaxError {
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct TaxEvent {
   from : TaxObligationState
   to : TaxObligationState
   actor_id : String
   capability : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TaxFiling {
   filing_id : String
   tax_id : String
@@ -50,24 +53,27 @@ pub(all) struct TaxFiling {
   reported_tax_amount : @finance.Money
   state : TaxFilingState
   events : Array[TaxFilingEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn TaxFiling::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise TaxError
 pub fn TaxFiling::transition(Self, TaxFilingState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TaxFilingEvent {
   from : TaxFilingState
   to : TaxFilingState
   actor_id : String
   capability : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum TaxFilingState {
   Prepared
   Submitted
   Accepted
   Rejected
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TaxObligation {
   tax_id : String
   principal_id : String
@@ -82,7 +88,7 @@ pub(all) struct TaxObligation {
   withholding_amount : @finance.Money
   state : TaxObligationState
   events : Array[TaxEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn TaxObligation::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise TaxError
 pub fn TaxObligation::calculate(Self, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
 pub fn TaxObligation::new(tax_id~ : String, principal_id~ : String, project_scope~ : String, source_reference~ : String, jurisdiction~ : String, category~ : String, base_amount~ : @finance.Money, tax_rate_bps~ : Int64, withholding_rate_bps~ : Int64, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
@@ -90,6 +96,7 @@ pub fn TaxObligation::prepare_filing(Self, filing_id~ : String, filing_period~ :
 pub fn TaxObligation::to_accounting_event(Self, event_id~ : String, event_type~ : String, tax_expense_account~ : String, tax_payable_account~ : String) -> @accounting.AccountingEvent raise TaxError
 pub fn TaxObligation::transition(Self, TaxObligationState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise TaxError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum TaxObligationState {
   Draft
   Calculated
@@ -97,7 +104,7 @@ pub(all) enum TaxObligationState {
   Filed
   Paid
   Voided
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

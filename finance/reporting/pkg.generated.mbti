@@ -12,6 +12,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ReportingError {
   EmptyIdentifier
   NoMappingVersions
@@ -25,9 +26,10 @@ pub(all) suberror ReportingError {
   NotAuthorized(@foundation.AuthorityError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct ConsolidatedReport {
   report_id : String
   period_id : String
@@ -39,23 +41,25 @@ pub(all) struct ConsolidatedReport {
   expected_total : @finance.Money
   actual_total : @finance.Money
   difference_minor : Int64
-  accounting_link_count : Int
-  reconciled_link_count : Int
+  accounting_link_count : Int32
+  reconciled_link_count : Int32
   state : ConsolidatedReportState
-} derive(Eq, @debug.Debug)
+}
 pub fn ConsolidatedReport::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ReportingError
-pub fn ConsolidatedReport::new(report_id~ : String, period_id~ : String, principal_id~ : String, scope~ : String, source_snapshot_id~ : String, mapping_versions~ : Array[String], reports~ : Array[@reconciliation.ReconciliationReport], accounting_link_count~ : Int, reconciled_link_count~ : Int, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReportingError
+pub fn ConsolidatedReport::new(report_id~ : String, period_id~ : String, principal_id~ : String, scope~ : String, source_snapshot_id~ : String, mapping_versions~ : Array[String], reports~ : Array[@reconciliation.ReconciliationReport], accounting_link_count~ : Int32, reconciled_link_count~ : Int32, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ReportingError
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ConsolidatedReportState {
   Reconciled
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ReportSection {
   section_id : String
   expected : @finance.Money
   actual : @finance.Money
   balanced : Bool
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

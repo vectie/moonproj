@@ -53,7 +53,7 @@ test "schedule preview apply reload and repeat flow retains all non-date draft c
     plan_store(
       model.plan.actor,
       model.plan.selected,
-      source.to_json().stringify(),
+      ToJson::to_json(source).stringify(),
     ),
   )
   let original_store = plan_restore(model.plan.actor, model.plan.selected)
@@ -69,7 +69,7 @@ test "schedule preview apply reload and repeat flow retains all non-date draft c
   assert_true(html.contains("未定日期 → 未定日期"))
   ignore(plan_test_file("schedule-preview.html", html))
   ignore(
-    plan_test_file("schedule-input.json", source.to_json().stringify(indent=2)),
+    plan_test_file("schedule-input.json", ToJson::to_json(source).stringify(indent=2)),
   )
   let (cmd, applied) = plan_update(_ => none, Schedule(Apply), preview)
   assert_eq(products_test_effect_count(cmd), 0)
@@ -93,9 +93,9 @@ test "schedule preview apply reload and repeat flow retains all non-date draft c
   assert_eq(applied.plan.schedule, plan_schedule_initial())
   assert_eq(applied.plan.history, model.plan.history)
   let stored = plan_restore(model.plan.actor, model.plan.selected)
-  assert_eq(@json.parse(stored), edited.to_json())
+  assert_eq(@json.parse(stored), ToJson::to_json(edited))
   ignore(
-    plan_test_file("schedule-output.json", edited.to_json().stringify(indent=2)),
+    plan_test_file("schedule-output.json", ToJson::to_json(edited).stringify(indent=2)),
   )
   let (download, unchanged) = plan_update(
     _ => none,

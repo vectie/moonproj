@@ -105,7 +105,7 @@ test "complete template download preview cross-project reuse edits reload and pr
   ignore(
     plan_test_file(
       "template-source-draft.json",
-      plan_template_test_draft().to_json().stringify(indent=2),
+      ToJson::to_json(plan_template_test_draft()).stringify(indent=2),
     ),
   )
   let (_, target) = plan_update(_ => none, Choose("company-second"), source)
@@ -168,12 +168,12 @@ test "complete template download preview cross-project reuse edits reload and pr
     "/api/company/projects/company-second/prepared-plans",
   )
   let body = products_text(call, "body")
-  assert_eq(@json.parse(body), edited.plan.draft.unwrap().to_json())
+  assert_eq(@json.parse(body), ToJson::to_json(edited.plan.draft.unwrap()))
   ignore(plan_test_file("template-ui-request.json", body))
   ignore(
     plan_test_file(
       "template-editable-plan.json",
-      edited.plan.draft.unwrap().to_json().stringify(indent=2),
+      ToJson::to_json(edited.plan.draft.unwrap()).stringify(indent=2),
     ),
   )
   let native = plan_test_file("template-gateway-response.json", "")
@@ -197,7 +197,7 @@ test "complete template download preview cross-project reuse edits reload and pr
     ignore(
       plan_test_file(
         "template-opened-editable-plan.json",
-        opened_draft.to_json().stringify(indent=2),
+        ToJson::to_json(opened_draft).stringify(indent=2),
       ),
     )
     assert_eq(opened_draft.tasks[0].name, "Collect buyer examples")

@@ -32,7 +32,7 @@ async fn revised_fixture(
   write_test_text(
     root,
     "inputs/project-plan-request.json",
-    { ..plan, source_evidence: sources, }.to_json().stringify(),
+    ToJson::to_json({ ..plan, source_evidence: sources }).stringify(),
   )
   let inputs = original.input_artifacts.copy()
   inputs.push(reference)
@@ -41,7 +41,7 @@ async fn revised_fixture(
     input_artifacts: inputs,
     input_digest: declared_input_digest(root, inputs),
   }
-  write_test_text(root, request_ref, flow.to_json().stringify())
+  write_test_text(root, request_ref, ToJson::to_json(flow).stringify())
   (root, request_ref, result_ref, flow)
 }
 
@@ -101,13 +101,13 @@ fn revised_report_response(envelope : Json, replay : Bool) -> Json {
   ) catch {
     _ => abort("fixture")
   }
-  command["actor_id"] = "owner-plan".to_json()
-  request["actor_id"] = "owner-plan".to_json()
+  command["actor_id"] = Json::string("owner-plan")
+  request["actor_id"] = Json::string("owner-plan")
   request["flow_source_revision"] = company_field(
     company_field(company_field(envelope, "report_body"), "flow_binding"),
     "source_revision",
   )
-  result["actor_id"] = "owner-plan".to_json()
+  result["actor_id"] = Json::string("owner-plan")
   original
 }
 
@@ -257,7 +257,11 @@ async test "partial approval checkpoint repairs without inheriting approval acro
   }
   let child_request = "child/runtime/request.json"
   let child_result = "child/runtime/result.json"
-  write_test_text(root, child_request, child_flow.to_json().stringify())
+  write_test_text(
+    root,
+    child_request,
+    ToJson::to_json(child_flow).stringify(),
+  )
   try record_company_task_approval(root, child_request, approval) catch {
     _ => ()
   } noraise {

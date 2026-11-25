@@ -11,13 +11,14 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror SalesCohortError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Sales(@sales.SalesError)
   SalesRecord(@sales.SalesRecordError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 

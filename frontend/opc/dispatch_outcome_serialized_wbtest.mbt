@@ -202,7 +202,7 @@ test "production serialized outcome crosses form HTTP preview and exact three fi
     "UI_OUTCOME_DOWNLOADS.json",
     captured.stringify(indent=2),
   )
-  let html = @rabbita.render_to_string(
+  let html = opc_render_cell(
     @rabbita.static_cell(dispatch_lesson_handoff_view(_ => none, states[0])),
   )
   assert_true(html.contains("准备导出的实际结果"))

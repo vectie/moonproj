@@ -313,7 +313,7 @@ fn flow_report_request(
     _ => Map::new()
   }
   fields["flow_binding"] = binding
-  fields["flow_approval_key"] = key.to_json()
+  fields["flow_approval_key"] = Json::string(key)
   fields["flow_source_revision"] = json_field(binding, "source_revision").unwrap_or(
     Json::null(),
   )

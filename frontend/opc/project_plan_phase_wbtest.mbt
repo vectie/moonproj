@@ -65,14 +65,14 @@ test "append a complete phase preview apply edit reload export and prepare reque
   ignore(
     plan_test_file(
       "phase-destination-before.json",
-      before.to_json().stringify(indent=2),
+      ToJson::to_json(before).stringify(indent=2),
     ),
   )
   ignore(plan_test_file("phase-preview.html", html))
   ignore(
     plan_test_file(
       "phase-preview-draft.json",
-      proposed.to_json().stringify(indent=2),
+      ToJson::to_json(proposed).stringify(indent=2),
     ),
   )
   let (_, applied) = plan_update(_ => none, Template(ApplyAppend), previewed)
@@ -123,7 +123,7 @@ test "append a complete phase preview apply edit reload export and prepare reque
   )
   assert_eq(
     @json.parse(products_text(call, "body")),
-    edited.plan.draft.unwrap().to_json(),
+    ToJson::to_json(edited.plan.draft.unwrap()),
   )
   ignore(
     plan_test_file("phase-ui-prepare-request.json", products_text(call, "body")),

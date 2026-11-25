@@ -13,6 +13,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror ExpenseError {
   EmptyIdentifier
   InvalidIdentifier
@@ -29,15 +30,17 @@ pub(all) suberror ExpenseError {
   Journal(@finance.LedgerError)
   AccountingEvent(@accounting.AccountingEventError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct ExpenseAllocation {
   project_scope : String
   cost_subject : String
   amount : @finance.Money
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExpenseClaim {
   expense_id : String
   principal_id : String
@@ -47,7 +50,7 @@ pub(all) struct ExpenseClaim {
   offset_minor : Int64
   state : ExpenseState
   events : Array[ExpenseEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn ExpenseClaim::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise ExpenseError
 pub fn ExpenseClaim::new(expense_id~ : String, principal_id~ : String, employee_id~ : String, amount~ : @finance.Money, allocations~ : Array[ExpenseAllocation], actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ExpenseError
 pub fn ExpenseClaim::offset_advance(Self, @employee_finance.EmployeeAdvance, amount_minor~ : Int64, actor_id~ : String, expense_grant~ : @foundation.AuthorityGrant, advance_grant~ : @foundation.AuthorityGrant) -> (Self, @employee_finance.EmployeeAdvance) raise ExpenseError
@@ -55,19 +58,21 @@ pub fn ExpenseClaim::to_accounting_event(Self, event_id~ : String, event_type~ :
 pub fn ExpenseClaim::to_recognition_journal(Self, expense_account~ : String, payable_account~ : String) -> @finance.JournalEntry raise ExpenseError
 pub fn ExpenseClaim::transition(Self, ExpenseState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise ExpenseError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct ExpenseEvent {
   from : ExpenseState
   to : ExpenseState
   actor_id : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum ExpenseState {
   Draft
   Submitted
   Approved
   Rejected
   Paid
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

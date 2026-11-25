@@ -33,15 +33,15 @@ fn native_delivery_progress_projection(
     ] {
     fields[key] = Json::string(native_text(note, key))
   }
-  fields["contributions"] = native_array(note, "contributions")
-    .map(item => {
+  fields["contributions"] = Json::array(
+    native_array(note, "contributions").map(item => {
       let contribution : Map[String, Json] = Map([])
       for key in ["worker_id", "responsibility", "contributes_to"] {
         contribution[key] = Json::string(native_text(item, key))
       }
       Json::object(contribution)
-    })
-    .to_json()
+    }),
+  )
   Json::object(fields)
 }
 

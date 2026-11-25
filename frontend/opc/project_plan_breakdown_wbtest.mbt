@@ -63,7 +63,7 @@ test "breakdown UI previews applies persists exports and prepares complete rewir
     plan_store(
       model.plan.actor,
       model.plan.selected,
-      before.to_json().stringify(),
+      ToJson::to_json(before).stringify(),
     ),
   )
   let input = breakdown_test_input(model)
@@ -73,7 +73,7 @@ test "breakdown UI previews applies persists exports and prepares complete rewir
   assert_eq(preview.plan.revision, model.plan.revision)
   assert_eq(
     @json.parse(plan_restore(model.plan.actor, model.plan.selected)),
-    before.to_json(),
+    ToJson::to_json(before),
   )
   assert_eq(plan_test_requests(), "[]")
   let html = products_test_html(preview)
@@ -101,7 +101,7 @@ test "breakdown UI previews applies persists exports and prepares complete rewir
   ignore(
     plan_test_file(
       "breakdown-before.json",
-      before.to_json().stringify(indent=2),
+      ToJson::to_json(before).stringify(indent=2),
     ),
   )
   let (_, repeated_preview) = plan_update(
@@ -134,10 +134,10 @@ test "breakdown UI previews applies persists exports and prepares complete rewir
   assert_eq(applied.plan.task_finder.focus, "")
   assert_eq(
     @json.parse(plan_restore(model.plan.actor, model.plan.selected)),
-    edited.to_json(),
+    ToJson::to_json(edited),
   )
   ignore(
-    plan_test_file("breakdown-after.json", edited.to_json().stringify(indent=2)),
+    plan_test_file("breakdown-after.json", ToJson::to_json(edited).stringify(indent=2)),
   )
   let (_, repeated) = plan_update(_ => none, Breakdown(Apply), applied)
   assert_eq(repeated.plan, applied.plan)
@@ -164,7 +164,7 @@ test "breakdown UI previews applies persists exports and prepares complete rewir
     fail("one explicit prepare")
   }
   let body = products_text(request, "body")
-  assert_eq(@json.parse(body), edited.to_json())
+  assert_eq(@json.parse(body), ToJson::to_json(edited))
   ignore(plan_test_file("breakdown-prepare-request.json", body))
   let (again, unchanged) = plan_update(_ => none, Prepare, pending)
   assert_eq(products_test_effect_count(again), 0)

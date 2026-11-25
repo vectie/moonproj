@@ -13,6 +13,7 @@ import {
 // Values
 
 // Errors
+#derive(Eq, @debug.Debug)
 pub(all) suberror SettlementError {
   EmptyIdentifier
   InvalidCommitmentState
@@ -25,9 +26,10 @@ pub(all) suberror SettlementError {
   AccountingEvent(@accounting.AccountingEventError)
   NotAuthorized(@foundation.AuthorityError)
   Journal(@finance.LedgerError)
-} derive(Eq, @debug.Debug)
+}
 
 // Types and methods
+#derive(Eq, @debug.Debug)
 pub(all) struct Settlement {
   settlement_id : String
   commitment_id : String
@@ -37,7 +39,7 @@ pub(all) struct Settlement {
   amount : @finance.Money
   state : SettlementState
   events : Array[SettlementEvent]
-} derive(Eq, @debug.Debug)
+}
 pub fn Settlement::append_projection(Self, @store.AggregateProjection) -> @store.AggregateProjection raise SettlementError
 pub fn Settlement::request(@commitment.Commitment, settlement_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SettlementError
 pub fn Settlement::request_with_milestone(@commitment.Commitment, milestone_id~ : String, settlement_id~ : String, amount~ : @finance.Money, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SettlementError
@@ -45,20 +47,22 @@ pub fn Settlement::to_accounting_event(Self, event_id~ : String, event_type~ : S
 pub fn Settlement::to_journal(Self, payable_account~ : String, cash_account~ : String) -> @finance.JournalEntry raise SettlementError
 pub fn Settlement::transition(Self, SettlementState, actor_id~ : String, grant~ : @foundation.AuthorityGrant) -> Self raise SettlementError
 
+#derive(Eq, @debug.Debug)
 pub(all) struct SettlementEvent {
   from : SettlementState
   to : SettlementState
   actor_id : String
   capability : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(Eq, @debug.Debug)
 pub(all) enum SettlementState {
   Requested
   Approved
   Released
   Reconciled
   Rejected
-} derive(Eq, @debug.Debug)
+}
 
 // Type aliases
 

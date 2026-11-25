@@ -113,7 +113,10 @@ test "task execution rejects cross-command result and terminal state regression"
     "command_id": "wrong-command",
     "state": "completed",
   }
-  assert_true((try? plan_task_execution_merge(current, foreign)) is Err(_))
+  assert_true(
+    (try Ok(plan_task_execution_merge(current, foreign)) catch { e => Err(e) })
+    is Err(_),
+  )
 }
 
 ///|
@@ -307,12 +310,21 @@ test "stale task update or Accept never acknowledges an unapplied command" {
     "task_id": "PT-1",
     "changes": { "status": "done" },
   }
-  assert_true((try? plan_task_applied_command(None, update)) is Err(_))
   assert_true(
-    (try? plan_task_applied_command(
-      Some({ "request": { "command_type": "dispatch" } }),
-      update,
-    ))
+    (try Ok(plan_task_applied_command(None, update)) catch { e => Err(e) })
+    is Err(_),
+  )
+  assert_true(
+    (try
+      Ok(
+        plan_task_applied_command(
+          Some({ "request": { "command_type": "dispatch" } }),
+          update,
+        ),
+      )
+    catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let applied : Json = {

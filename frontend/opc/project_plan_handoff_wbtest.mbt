@@ -139,13 +139,13 @@ test "plan task handoff creates persists and reopens an independent source-backe
   ignore(
     plan_test_file(
       "plan-task-handoff-source.json",
-      before.to_json().stringify(indent=2),
+      ToJson::to_json(before).stringify(indent=2),
     ),
   )
   ignore(
     plan_test_file(
       "plan-task-handoff-draft.json",
-      fresh.to_json().stringify(indent=2),
+      ToJson::to_json(fresh).stringify(indent=2),
     ),
   )
   ignore(plan_test_file("plan-task-handoff-brief.json", packet.encode()))

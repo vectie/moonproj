@@ -243,7 +243,7 @@ pub fn export_risk_table(draft : Draft) -> String {
         risk.severity,
         risk.owner,
         risk.mitigation,
-        risk.tasks.to_json().stringify(),
+        ToJson::to_json(risk.tasks).stringify(),
       ]
       .map(task_csv_cell)
       .join(","),

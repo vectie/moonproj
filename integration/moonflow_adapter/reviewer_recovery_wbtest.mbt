@@ -43,7 +43,7 @@ async test "reviewer rejects report checkpoint belonging to another task" {
   )
   let fields = json_object(envelope, "envelope").copy()
   let body = json_object(company_field(envelope, "report_body"), "body").copy()
-  body["task_id"] = "PT-other-company-task".to_json()
+  body["task_id"] = Json::string("PT-other-company-task")
   fields["report_body"] = Json::object(body)
   let changed = Json::object(fields)
   write_test_text(

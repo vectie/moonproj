@@ -11,13 +11,14 @@ import {
 // Values
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror CbsLinkError {
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Cbs(@cbs.CbsError)
   Money(@finance.MoneyError)
-} derive(@debug.Debug)
+}
 
 // Types and methods
 
