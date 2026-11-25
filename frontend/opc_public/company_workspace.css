@@ -16,7 +16,7 @@
   min-width: 0;
   color: var(--ink);
   background: var(--canvas);
-  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Hiragino Sans GB", "Segoe UI", system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -420,6 +420,28 @@
 .dock-agent-icon {
   background: var(--paper);
   border-color: var(--line-strong);
+}
+.dock-agent-icon::before,
+.dock-agent-icon::after {
+  content: "";
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  pointer-events: none;
+}
+.dock-agent-icon::before {
+  top: -1px;
+  right: -1px;
+  border-top: 2px solid var(--ms-ai-mark, #0d9488);
+  border-right: 2px solid var(--ms-ai-mark, #0d9488);
+  border-radius: 0 10px 0 0;
+}
+.dock-agent-icon::after {
+  bottom: -1px;
+  left: -1px;
+  border-bottom: 2px solid var(--ms-ai-mark, #0d9488);
+  border-left: 2px solid var(--ms-ai-mark, #0d9488);
+  border-radius: 0 0 0 10px;
 }
 .dock-agent[aria-pressed="true"] .dock-agent-icon {
   border-color: var(--accent);
