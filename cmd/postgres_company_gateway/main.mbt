@@ -1389,6 +1389,62 @@ async fn handle(
               }),
             )
           None =>
+            match desktop_actor {
+              Some(actor) => {
+                let token = session_token(session_secret, actor, sequence.val)
+                sequence.val += 1
+                sessions[token] = actor
+                send_json(
+                  conn,
+                  request.meth,
+                  200,
+                  Json::object({
+                    "authenticated": Json::boolean(true),
+                    "actor_id": Json::string(actor),
+                  }),
+                  extra_headers={
+                    "Set-Cookie": SESSION_COOKIE +
+                    "=" +
+                    token +
+                    "; HttpOnly; Path=/; SameSite=Lax; Max-Age=28800",
+                  },
+                )
+              }
+              None =>
+                send_json(
+                  conn,
+                  request.meth,
+                  401,
+                  Json::object({
+                    "authenticated": Json::boolean(false),
+                    "error": Json::string("session required"),
+                  }),
+                )
+            }
+        }
+      None =>
+        match desktop_actor {
+          Some(actor) => {
+            let token = session_token(session_secret, actor, sequence.val)
+            sequence.val += 1
+            sessions[token] = actor
+            send_json(
+              conn,
+              request.meth,
+              200,
+              Json::object({
+                "authenticated": Json::boolean(true),
+                "actor_id": Json::string(actor),
+              }),
+              extra_headers={
+                "Set-Cookie": SESSION_COOKIE +
+                "=" +
+                token +
+                "; HttpOnly; Path=/; SameSite=Lax; Max-Age=28800",
+              },
+            )
+          }
+          None =>
             send_json(
               conn,
               request.meth,
@@ -1399,16 +1455,6 @@ async fn handle(
               }),
             )
         }
-      None =>
-        send_json(
-          conn,
-          request.meth,
-          401,
-          Json::object({
-            "authenticated": Json::boolean(false),
-            "error": Json::string("session required"),
-          }),
-        )
     }
     return
   }
@@ -1618,9 +1664,17 @@ async fn handle(
     return
   }
   if path.has_prefix("/api/") {
-    let actor = match cookie_value(header(request, "Cookie"), SESSION_COOKIE) {
+    let mut actor = match cookie_value(header(request, "Cookie"), SESSION_COOKIE) {
       Some(cookie) => sessions.get(cookie)
       None => None
+    }
+    if actor is None && desktop_actor is Some(desk_actor) {
+      let origin = header(request, "Origin")
+      if origin == "" ||
+        origin.has_prefix("http://127.0.0.1:") ||
+        origin.has_prefix("http://localhost:") {
+        actor = Some(desk_actor)
+      }
     }
     match actor {
       None => {
