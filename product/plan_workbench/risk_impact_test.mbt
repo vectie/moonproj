@@ -51,7 +51,7 @@ fn impact_draft() -> @plan_workbench.Draft {
 ///|
 test "risk impact unions convergent paths once and excludes ancestors and unrelated work" {
   let d = impact_draft()
-  let before = d.to_json().stringify()
+  let before = ToJson::to_json(d).stringify()
   let result = @plan_workbench.risk_impact(d, "supplier")
   assert_eq(result.direct_tasks, ["build", "design"])
   assert_eq(result.downstream_tasks, ["ship", "docs"])
@@ -82,7 +82,7 @@ test "risk impact unions convergent paths once and excludes ancestors and unrela
   assert_true(report.contains("Downstream-only tasks (2)"))
   assert_false(report.contains("Unrelated [unrelated]"))
   assert_true(report.contains("not expected loss"))
-  assert_eq(d.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(d).stringify(), before)
 }
 
 ///|
@@ -157,12 +157,12 @@ test "stale risk links and invalid dependency graphs reject without partial outp
       },
     ] {
     assert_true(
-      (try? @plan_workbench.risk_impact_report(bad, "supplier", "Release"))
+      (try Ok(@plan_workbench.risk_impact_report(bad, "supplier", "Release")) catch { e => Err(e) })
       is Err(_),
     )
   }
-  assert_true((try? @plan_workbench.risk_impact(d, "removed")) is Err(_))
-  assert_true((try? @plan_workbench.risk_impact(d, "")) is Err(_))
+  assert_true((try Ok(@plan_workbench.risk_impact(d, "removed")) catch { e => Err(e) }) is Err(_))
+  assert_true((try Ok(@plan_workbench.risk_impact(d, "")) catch { e => Err(e) }) is Err(_))
   assert_eq(d, impact_draft())
 }
 
@@ -191,6 +191,6 @@ test "bounded large risk scope exposes cost overflow instead of wrapping" {
   )
   let too_many = { ..large, tasks: [..tasks, { ..tasks[0], id: "t100", }], }
   assert_true(
-    (try? @plan_workbench.risk_impact(too_many, "supplier")) is Err(_),
+    (try Ok(@plan_workbench.risk_impact(too_many, "supplier")) catch { e => Err(e) }) is Err(_),
   )
 }

@@ -81,7 +81,7 @@ test "owner roster rejects invalid input atomically and does not match by name" 
       "id,name\n",
     ] {
     assert_true(
-      (try? @plan_workbench.preview_owner_table(original, source, false))
+      (try Ok(@plan_workbench.preview_owner_table(original, source, false)) catch { e => Err(e) })
       is Err(_),
     )
     assert_eq(original, update_table_draft())
@@ -97,11 +97,11 @@ test "owner roster rejects invalid input atomically and does not match by name" 
       [{ id: " alex ", name: "Padded", role: "", }],
     ] {
     assert_true(
-      (try? @plan_workbench.preview_owner_table(
+      (try Ok(@plan_workbench.preview_owner_table(
         { ..original, owners, },
         "id,role\nalex,Writer",
         false,
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -122,25 +122,25 @@ test "owner roster bounds permit forty owners and reject an overflowing addition
   let csv = @plan_workbench.export_owner_table(full)
   assert_eq(@plan_workbench.preview_owner_table(full, csv, false).draft, full)
   assert_true(
-    (try? @plan_workbench.preview_owner_table(
+    (try Ok(@plan_workbench.preview_owner_table(
       full, "id,name,role\nextra,New,Reviewer", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.preview_owner_table(
+    (try Ok(@plan_workbench.preview_owner_table(
       original,
       csv + "extra,New,Reviewer\n",
       false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.preview_owner_table(
+    (try Ok(@plan_workbench.preview_owner_table(
       original,
       "x".repeat(1000001),
       false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }

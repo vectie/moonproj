@@ -29,7 +29,7 @@ test "task handoff preserves authored context and a stable exact source referenc
       },
     ],
   }
-  let before = d.to_json().stringify()
+  let before = ToJson::to_json(d).stringify()
   let handoff = @plan_workbench.task_handoff(d, "T2")
   assert_eq(handoff.title, "  Review 🚀  ")
   assert_eq(handoff.end_date, "date undecided")
@@ -54,7 +54,7 @@ test "task handoff preserves authored context and a stable exact source referenc
     "task_id": "T2",
     "prepared_at": d.prepared_at,
   })
-  assert_eq(d.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(d).stringify(), before)
   let revised = { ..d, key: "later-plan", notes: "Changed context", }
   let next = @plan_workbench.task_handoff(revised, "T2")
   assert_true(next.source_reference != handoff.source_reference)
@@ -98,7 +98,7 @@ test "task handoff shows incomplete and ambiguous planning links without guessin
 test "task handoff rejects absent or ambiguous selected identity and missing snapshot identity" {
   let base = update_table_draft()
   for id in ["", "missing"] {
-    assert_true((try? @plan_workbench.task_handoff(base, id)) is Err(_))
+    assert_true((try Ok(@plan_workbench.task_handoff(base, id)) catch { e => Err(e) }) is Err(_))
   }
   for
     d in [
@@ -106,6 +106,6 @@ test "task handoff rejects absent or ambiguous selected identity and missing sna
       { ..base, project_id: "", },
       { ..base, tasks: [base.tasks[1], base.tasks[1]], },
     ] {
-    assert_true((try? @plan_workbench.task_handoff(d, "T2")) is Err(_))
+    assert_true((try Ok(@plan_workbench.task_handoff(d, "T2")) catch { e => Err(e) }) is Err(_))
   }
 }

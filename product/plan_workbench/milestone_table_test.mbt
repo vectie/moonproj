@@ -128,9 +128,9 @@ test "milestone table rejects broken identity dates and records without partial 
     milestones: [original.milestones[0], original.milestones[0]],
   }
   assert_true(
-    (try? @plan_workbench.preview_milestone_table_updates(
+    (try Ok(@plan_workbench.preview_milestone_table_updates(
       duplicate, "id,date\nrelease,", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   let owners = {
@@ -138,9 +138,9 @@ test "milestone table rejects broken identity dates and records without partial 
     owners: [..original.owners, { id: "other", name: "Sam", role: "second", }],
   }
   assert_true(
-    (try? @plan_workbench.preview_milestone_table_updates(
+    (try Ok(@plan_workbench.preview_milestone_table_updates(
       owners, "id,owner\nrelease,Sam", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_eq(
@@ -157,17 +157,17 @@ test "milestone table rejects broken identity dates and records without partial 
     ],
   }
   assert_true(
-    (try? @plan_workbench.preview_milestone_table_updates(
+    (try Ok(@plan_workbench.preview_milestone_table_updates(
       duplicate_owner, "id,owner\nrelease,Other", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.preview_milestone_table_updates(
+    (try Ok(@plan_workbench.preview_milestone_table_updates(
       original,
       "x".repeat(1000001),
       false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }
@@ -193,7 +193,7 @@ test "milestone table edits reach existing plan request and calendar projections
     @plan_workbench.items(first, "task_ids"),
     original.tasks
     .filter(t => t.milestone == "release")
-    .map(t => t.id.to_json()),
+    .map(t => ToJson::to_json(t.id)),
   )
   let gate = @plan_workbench.items(request, "acceptance_gates")[0]
   assert_eq(@plan_workbench.items(gate, "criteria"), ["First", "Second"])

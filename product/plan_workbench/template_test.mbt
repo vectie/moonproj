@@ -78,7 +78,7 @@ fn reusable_template() -> @plan_workbench.Template {
 ///|
 test "whole template reuse preserves authored fields and remaps every reference" {
   let t = reusable_template()
-  let before = t.to_json().stringify()
+  let before = ToJson::to_json(t).stringify()
   let target = {
     ..table_draft(),
     key: "new-request",
@@ -101,7 +101,7 @@ test "whole template reuse preserves authored fields and remaps every reference"
   assert_eq(imported.tasks[0].cost, "0125.40")
   assert_eq(imported.limit, "001000.00")
   assert_eq(imported.contingency, "100.0")
-  assert_eq(t.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(t).stringify(), before)
   let exported = @plan_workbench.export_template(imported)
   for
     absent in [
@@ -160,7 +160,7 @@ test "template authoring round trip retains blanks invalid dates costs and order
     milestones: [{ ..base.milestones[0], date: "date not set", }],
     risks: [],
   }
-  let parsed = @plan_workbench.read_template(t.to_json().stringify())
+  let parsed = @plan_workbench.read_template(ToJson::to_json(t).stringify())
   assert_eq(parsed, t)
   let imported = @plan_workbench.apply_template(
     parsed,
@@ -177,14 +177,14 @@ test "template authoring round trip retains blanks invalid dates costs and order
   assert_eq(imported.milestones[0].date, "date not set")
   assert_eq(imported.limit, "not yet estimated")
   assert_true(
-    (try? @plan_workbench.request(imported, "alex", {}, "s", "d")) is Err(_),
+    (try Ok(@plan_workbench.request(imported, "alex", {}, "s", "d")) catch { e => Err(e) }) is Err(_),
   )
 }
 
 ///|
 test "invalid template structure and unsupported fields do not silently lose content" {
   let t = reusable_template()
-  let json = t.to_json().stringify()
+  let json = ToJson::to_json(t).stringify()
   for
     source in [
       "{",
@@ -200,7 +200,7 @@ test "invalid template structure and unsupported fields do not silently lose con
         new="\"status\":\"approved\",\"format\":",
       ),
     ] {
-    assert_true((try? @plan_workbench.read_template(source)) is Err(_))
+    assert_true((try Ok(@plan_workbench.read_template(source)) catch { e => Err(e) }) is Err(_))
   }
   for
     changed in [
@@ -212,41 +212,41 @@ test "invalid template structure and unsupported fields do not silently lose con
       { ..t, owners: [], },
     ] {
     assert_true(
-      (try? @plan_workbench.read_template(changed.to_json().stringify()))
+      (try Ok(@plan_workbench.read_template(ToJson::to_json(changed).stringify())) catch { e => Err(e) })
       is Err(_),
     )
   }
   assert_true(
-    (try? @plan_workbench.apply_template(
+    (try Ok(@plan_workbench.apply_template(
       t,
       table_draft(),
       "alex",
       "missing",
       "Morgan",
       "fresh",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.apply_template(
+    (try Ok(@plan_workbench.apply_template(
       t,
       table_draft(),
       "alex",
       "lead",
       " ",
       "fresh",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.apply_template(
+    (try Ok(@plan_workbench.apply_template(
       t,
       table_draft(),
       "other-actor",
       "lead",
       "Morgan",
       "fresh",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }
@@ -256,13 +256,13 @@ test "template row and text bounds are consistent for import and export" {
   let t = reusable_template()
   let too_many = { ..t, owners: Array::make(41, t.owners[0]), }
   assert_true(
-    (try? @plan_workbench.read_template(too_many.to_json().stringify()))
+    (try Ok(@plan_workbench.read_template(ToJson::to_json(too_many).stringify())) catch { e => Err(e) })
     is Err(_),
   )
   let huge = { ..t, notes: "x".repeat(1000001), }
   assert_true(
-    (try? @plan_workbench.read_template(huge.to_json().stringify())) is Err(_),
+    (try Ok(@plan_workbench.read_template(ToJson::to_json(huge).stringify())) catch { e => Err(e) }) is Err(_),
   )
   let draft = { ..table_draft(), notes: "x".repeat(1000001), }
-  assert_true((try? @plan_workbench.export_template(draft)) is Err(_))
+  assert_true((try Ok(@plan_workbench.export_template(draft)) catch { e => Err(e) }) is Err(_))
 }

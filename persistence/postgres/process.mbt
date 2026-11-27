@@ -54,7 +54,7 @@ pub fn Connection::with_overrides(
 
 ///|
 fn process_text(process : @spawn.CompletedProcess, key : String) -> String {
-  match process.to_json() {
+  match ToJson::to_json(process) {
     Object(fields) =>
       match fields.get(key) {
         Some(String(value)) => value
@@ -66,7 +66,7 @@ fn process_text(process : @spawn.CompletedProcess, key : String) -> String {
 
 ///|
 fn process_status(process : @spawn.CompletedProcess) -> Int {
-  match process.to_json() {
+  match ToJson::to_json(process) {
     Object(fields) =>
       match fields.get("status") {
         Some(Number(value, ..)) => value.to_int()

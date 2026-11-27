@@ -24,8 +24,8 @@ fn parsed(kind : String) -> @research_handoff.Brief {
 test "actual final MoonFind export round-trips every known field and Unicode" {
   for kind in ["current", "historical", "undecided"] {
     let brief = parsed(kind)
-    assert_eq(brief.to_json(), @json.parse(producer_export(kind)))
-    assert_eq(@research_handoff.decode(brief.to_json().stringify()), Ok(brief))
+    assert_eq(ToJson::to_json(brief), @json.parse(producer_export(kind)))
+    assert_eq(@research_handoff.decode(ToJson::to_json(brief).stringify()), Ok(brief))
     assert_eq(
       brief.worksheet.evidence.papers[0].retrieved_at,
       Some(1790000000000L),
@@ -92,8 +92,8 @@ test "unknown authority credential and execution metadata is excluded at every t
   guard @research_handoff.decode(dirty.stringify()) is Ok(clean) else {
     fail("metadata should be ignored")
   }
-  assert_eq(clean.to_json(), original)
-  assert_false(clean.to_json().stringify().contains("SECRET-"))
+  assert_eq(ToJson::to_json(clean), original)
+  assert_false(ToJson::to_json(clean).stringify().contains("SECRET-"))
   assert_false(clean.markdown().contains("SECRET-"))
 }
 
@@ -161,7 +161,7 @@ test "missing selected option and malformed retained source or claim references 
     ] {
     assert_true(
       @research_handoff.decode(
-        { ..brief, worksheet: sheet, }.to_json().stringify(),
+        ToJson::to_json({ ..brief, worksheet: sheet, }).stringify(),
       )
       is Err(_),
     )
@@ -187,7 +187,7 @@ test "input size bound rejects before parsing and optional source dates stay unk
       evidence: { ..brief.worksheet.evidence, papers: [source], },
     },
   }
-  guard @research_handoff.decode(undated.to_json().stringify()) is Ok(restored) else {
+  guard @research_handoff.decode(ToJson::to_json(undated).stringify()) is Ok(restored) else {
     fail("optional dates rejected")
   }
   assert_true(

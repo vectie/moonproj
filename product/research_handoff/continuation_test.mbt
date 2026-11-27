@@ -5,8 +5,8 @@ test "actual continued MoonFind current changed removed exports retain full type
     guard @research_handoff.decode(encoded) is Ok(brief) else {
       fail("continued producer rejected: " + kind)
     }
-    assert_eq(brief.to_json(), @json.parse(encoded))
-    assert_eq(@research_handoff.decode(brief.to_json().stringify()), Ok(brief))
+    assert_eq(ToJson::to_json(brief), @json.parse(encoded))
+    assert_eq(@research_handoff.decode(ToJson::to_json(brief).stringify()), Ok(brief))
     assert_eq(brief.worksheet.chosen_option_id, "option-1")
     assert_eq(brief.worksheet.reasoning, "Learn before committing")
     assert_eq(brief.worksheet.next_action, "Interview three buyers")
@@ -75,7 +75,7 @@ test "continued research consumer rejects ambiguous cross-run oversized history 
       worksheet: { ..brief.worksheet, history: Some(history), },
     }
     assert_true(
-      @research_handoff.decode(invalid.to_json().stringify()) is Err(_),
+      @research_handoff.decode(ToJson::to_json(invalid).stringify()) is Err(_),
     )
   }
   let original = @json.parse(continuation_export("changed"))
@@ -93,6 +93,6 @@ test "continued research consumer rejects ambiguous cross-run oversized history 
   guard @research_handoff.decode(dirty.stringify()) is Ok(clean) else {
     fail("unknown metadata blocked")
   }
-  assert_false(clean.to_json().stringify().contains("do-not-retain"))
+  assert_false(ToJson::to_json(clean).stringify().contains("do-not-retain"))
   assert_eq(clean, brief)
 }

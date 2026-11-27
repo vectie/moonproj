@@ -49,7 +49,7 @@ test "owner brief preserves context and distinguishes cross-owner handoffs" {
       },
     ],
   }
-  let before = d.to_json().stringify()
+  let before = ToJson::to_json(d).stringify()
   let brief = @plan_workbench.owner_brief(d, "alex", "Launch")
   assert_true(brief.contains("分配给此负责人的任务（1）"))
   assert_true(brief.contains("计划成本（原文）：001.20 USD"))
@@ -69,7 +69,7 @@ test "owner brief preserves context and distinguishes cross-owner handoffs" {
   assert_true(brief.contains("任务上下文：Input late"))
   assert_true(brief.contains("Ask\nThen revise"))
   assert_false(brief.contains("Unrelated risk"))
-  assert_eq(d.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(d).stringify(), before)
   assert_eq(@plan_workbench.owner_brief(d, "alex", "Launch"), brief)
 }
 
@@ -81,13 +81,13 @@ test "owner brief supports empty assignments and incomplete authored rows" {
       "无已分配任务。",
     ),
   )
-  assert_true((try? @plan_workbench.owner_brief(d, "unknown", "P")) is Err(_))
+  assert_true((try Ok(@plan_workbench.owner_brief(d, "unknown", "P")) catch { e => Err(e) }) is Err(_))
   assert_true(
-    (try? @plan_workbench.owner_brief(
+    (try Ok(@plan_workbench.owner_brief(
       { ..d, owners: [..d.owners, ..d.owners], },
       "alex",
       "P",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   let broken = {

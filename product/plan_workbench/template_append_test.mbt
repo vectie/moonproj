@@ -31,13 +31,13 @@ fn phase_append_target() -> @plan_workbench.Draft {
 test "phase append preserves destination and composes complete remapped rows" {
   let t = reusable_template()
   let target = phase_append_target()
-  let old = target.to_json().stringify()
-  let source = t.to_json().stringify()
+  let old = ToJson::to_json(target).stringify()
+  let source = ToJson::to_json(t).stringify()
   let combined = @plan_workbench.append_template(
     t, target, "alex", "reviewer", "phase",
   )
-  assert_eq(target.to_json().stringify(), old)
-  assert_eq(t.to_json().stringify(), source)
+  assert_eq(ToJson::to_json(target).stringify(), old)
+  assert_eq(ToJson::to_json(t).stringify(), source)
   assert_eq(combined.key, target.key)
   assert_eq(combined.project_id, target.project_id)
   assert_eq(combined.prepared_at, target.prepared_at)
@@ -87,8 +87,8 @@ test "phase append preserves destination and composes complete remapped rows" {
   // Returned arrays can be edited without changing either authored input.
   combined.tasks[3].dependencies.push("unrelated")
   combined.risks[0].tasks.push("unrelated")
-  assert_eq(target.to_json().stringify(), old)
-  assert_eq(t.to_json().stringify(), source)
+  assert_eq(ToJson::to_json(target).stringify(), old)
+  assert_eq(ToJson::to_json(t).stringify(), source)
 }
 
 ///|
@@ -117,24 +117,26 @@ test "phase append rejects currency identity mapping and combined limit mistakes
   let t = reusable_template()
   let target = phase_append_target()
   for bad in [{ ..t, currency: "EUR", }, { ..t, tasks: [], }] {
-    let result = try? @plan_workbench.append_template(
-      bad, target, "alex", "lead", "fresh",
-    )
+    let result = try
+      Ok(@plan_workbench.append_template(bad, target, "alex", "lead", "fresh"))
+    catch {
+      e => Err(e)
+    }
     assert_true(result is Err(_))
   }
   assert_true(
-    (try? @plan_workbench.append_template(t, target, "alex", "unknown", "fresh"))
+    (try Ok(@plan_workbench.append_template(t, target, "alex", "unknown", "fresh")) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.append_template(t, target, "missing", "lead", "fresh"))
+    (try Ok(@plan_workbench.append_template(t, target, "missing", "lead", "fresh")) catch { e => Err(e) })
     is Err(_),
   )
   let imported = @plan_workbench.append_template(
     t, target, "alex", "lead", "fresh",
   )
   assert_true(
-    (try? @plan_workbench.append_template(t, imported, "alex", "lead", "fresh"))
+    (try Ok(@plan_workbench.append_template(t, imported, "alex", "lead", "fresh")) catch { e => Err(e) })
     is Err(_),
   )
   let many = {
@@ -146,7 +148,7 @@ test "phase append rejects currency identity mapping and combined limit mistakes
     risks: [],
   }
   assert_true(
-    (try? @plan_workbench.append_template(t, many, "alex", "lead", "fresh"))
+    (try Ok(@plan_workbench.append_template(t, many, "alex", "lead", "fresh")) catch { e => Err(e) })
     is Err(_),
   )
 }
@@ -170,13 +172,13 @@ test "phase append retains incomplete authored dates costs and blank assignments
   assert_eq(after.tasks[1].owner, "")
   assert_eq(after.milestones[1].date, "target pending")
   assert_true(
-    (try? @plan_workbench.request(
+    (try Ok(@plan_workbench.request(
       after,
       "alex",
       { "project_id": "project" },
       "synthetic",
       "digest",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }

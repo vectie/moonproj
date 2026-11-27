@@ -104,7 +104,7 @@ test "Markdown checked items are explicit planned copies without completion or d
   for task in @plan_workbench.items(request, "tasks") {
     assert_eq(
       @plan_workbench.field(task, "dependencies"),
-      ([] : Array[String]).to_json(),
+      ToJson::to_json(([] : Array[String])),
     )
     assert_true(@plan_workbench.field(task, "status") is Null)
   }
@@ -119,9 +119,9 @@ test "Markdown checklist rejects empty invalid or ambiguous inputs without parti
       "<!--\n- [ ] comment", "- [x] checked only",
     ] {
     assert_true(
-      (try? @plan_workbench.preview_markdown_checklist(
+      (try Ok(@plan_workbench.preview_markdown_checklist(
         d, source, "alex", "release", "new", false,
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
     assert_eq(d, table_draft())
@@ -133,26 +133,26 @@ test "Markdown checklist rejects empty invalid or ambiguous inputs without parti
       ("alex", "release", " "),
     ] {
     assert_true(
-      (try? @plan_workbench.preview_markdown_checklist(
+      (try Ok(@plan_workbench.preview_markdown_checklist(
         d, "- [ ] Good", owner, milestone, prefix, false,
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
   let duplicate = { ..d, owners: [..d.owners, d.owners[0]], }
   assert_true(
-    (try? @plan_workbench.preview_markdown_checklist(
+    (try Ok(@plan_workbench.preview_markdown_checklist(
       duplicate, "- [ ] Good", "alex", "release", "n", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   let first = @plan_workbench.preview_markdown_checklist(
       d, "- [ ] Good", "alex", "release", "new", false,
     ).draft
   assert_true(
-    (try? @plan_workbench.preview_markdown_checklist(
+    (try Ok(@plan_workbench.preview_markdown_checklist(
       first, "- [ ] Good", "alex", "release", "new", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   let dangling = {
@@ -160,9 +160,9 @@ test "Markdown checklist rejects empty invalid or ambiguous inputs without parti
     tasks: [{ ..first.tasks[0], id: "other", dependencies: ["new-line-1"], }],
   }
   assert_true(
-    (try? @plan_workbench.preview_markdown_checklist(
+    (try Ok(@plan_workbench.preview_markdown_checklist(
       dangling, "- [ ] Good", "alex", "release", "new", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }

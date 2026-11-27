@@ -43,14 +43,14 @@ test "consolidation keeps chosen identity cost and external references through e
       @plan_workbench.items(wire, "milestones")[0],
       "task_ids",
     ),
-    ["T2", "T3"].to_json(),
+    ToJson::to_json(["T2", "T3"]),
   )
   assert_eq(
     @plan_workbench.field(
       @plan_workbench.items(wire, "tasks")[0],
       "planned_cost_minor",
     ),
-    1650L.to_json(),
+    ToJson::to_json(1650L),
   )
 }
 
@@ -123,12 +123,12 @@ test "consolidation rejects path contraction cycles missing dependencies and amb
       [d.tasks[0], d.tasks[1], { ..d.tasks[2], id: "", }],
     ] {
     assert_true(
-      (try? @plan_workbench.consolidate_tasks(
+      (try Ok(@plan_workbench.consolidate_tasks(
         { ..d, tasks, },
         ["T1", "T2"],
         "T1",
         "Combined",
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -140,24 +140,24 @@ test "consolidation requires distinct same-assignment selection and a nonempty c
   let d = update_table_draft()
   for selected in [[], ["T1"], ["T1", "T1"], ["T1", "missing"]] {
     assert_true(
-      (try? @plan_workbench.consolidate_tasks(d, selected, "T1", "Combined"))
+      (try Ok(@plan_workbench.consolidate_tasks(d, selected, "T1", "Combined")) catch { e => Err(e) })
       is Err(_),
     )
   }
   for retained in ["", "T3", "missing"] {
     assert_true(
-      (try? @plan_workbench.consolidate_tasks(
+      (try Ok(@plan_workbench.consolidate_tasks(
         d,
         ["T1", "T2"],
         retained,
         "Combined",
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
   for name in ["", " \n "] {
     assert_true(
-      (try? @plan_workbench.consolidate_tasks(d, ["T1", "T2"], "T1", name))
+      (try Ok(@plan_workbench.consolidate_tasks(d, ["T1", "T2"], "T1", name)) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -167,12 +167,12 @@ test "consolidation requires distinct same-assignment selection and a nonempty c
       { ..d.tasks[1], milestone: "later", },
     ] {
     assert_true(
-      (try? @plan_workbench.consolidate_tasks(
+      (try Ok(@plan_workbench.consolidate_tasks(
         { ..d, tasks: [d.tasks[0], task, d.tasks[2]], },
         ["T1", "T2"],
         "T1",
         "Combined",
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -197,12 +197,12 @@ test "consolidation adds exact cents rejects unsupported cost and supports the f
     cost in ["", "nan", "-1", "0.001", "1000000000000000", "999999999999999.99"] {
     let bad = { ..d, tasks: [{ ..d.tasks[0], cost, }, d.tasks[1], d.tasks[2]], }
     assert_true(
-      (try? @plan_workbench.consolidate_tasks(
+      (try Ok(@plan_workbench.consolidate_tasks(
         bad,
         ["T1", "T2"],
         "T1",
         "Combined",
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -222,12 +222,12 @@ test "consolidation adds exact cents rejects unsupported cost and supports the f
   assert_eq(one.tasks[0].cost, "0.00")
   assert_eq(one.tasks[0].id, "item-99")
   assert_true(
-    (try? @plan_workbench.consolidate_tasks(
+    (try Ok(@plan_workbench.consolidate_tasks(
       { ..large, tasks: [..large.tasks, { ..d.tasks[0], id: "extra", }], },
       selected,
       "item-99",
       "All",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }

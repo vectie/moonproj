@@ -16,7 +16,7 @@ fn rebase_fixture() -> @plan_workbench.Draft {
 ///|
 test "rebase crosses leap day preserves intervals blanks identities and every other field" {
   let source = rebase_fixture()
-  let bytes = source.to_json().stringify()
+  let bytes = ToJson::to_json(source).stringify()
   let rebased = @plan_workbench.rebase_milestones(
     source, "kickoff", "2028-03-02",
   )
@@ -31,7 +31,7 @@ test "rebase crosses leap day preserves intervals blanks identities and every ot
       date: rebased.draft.milestones[i].date,
     }),
   })
-  assert_eq(source.to_json().stringify(), bytes)
+  assert_eq(ToJson::to_json(source).stringify(), bytes)
   let reverse = @plan_workbench.rebase_milestones(
     rebased.draft,
     "review",
@@ -83,20 +83,20 @@ test "rebase works backwards and across century calendar boundaries" {
 ///|
 test "rebase rejects invalid input and shifted overflow atomically" {
   let source = rebase_fixture()
-  let bytes = source.to_json().stringify()
+  let bytes = ToJson::to_json(source).stringify()
   for
     date in [
       "", "2026-02-29", "2100-02-29", "2028-13-01", "2028-02-30", "2028-2-29", " 2028-03-01",
       "0000-01-01", "10000-01-01",
     ] {
     assert_true(
-      (try? @plan_workbench.rebase_milestones(source, "kickoff", date))
+      (try Ok(@plan_workbench.rebase_milestones(source, "kickoff", date)) catch { e => Err(e) })
       is Err(_),
     )
   }
   for anchor in ["missing", "", "later"] {
     assert_true(
-      (try? @plan_workbench.rebase_milestones(source, anchor, "2028-03-02"))
+      (try Ok(@plan_workbench.rebase_milestones(source, anchor, "2028-03-02")) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -108,7 +108,7 @@ test "rebase rejects invalid input and shifted overflow atomically" {
     ],
   }
   assert_true(
-    (try? @plan_workbench.rebase_milestones(invalid, "kickoff", "2028-03-02"))
+    (try Ok(@plan_workbench.rebase_milestones(invalid, "kickoff", "2028-03-02")) catch { e => Err(e) })
     is Err(@plan_workbench.Invalid(message)) &&
     message.contains("review"),
   )
@@ -117,23 +117,23 @@ test "rebase rejects invalid input and shifted overflow atomically" {
     milestones: [source.milestones[0], source.milestones[0]],
   }
   assert_true(
-    (try? @plan_workbench.rebase_milestones(duplicate, "kickoff", "2028-03-02"))
+    (try Ok(@plan_workbench.rebase_milestones(duplicate, "kickoff", "2028-03-02")) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.rebase_milestones(
+    (try Ok(@plan_workbench.rebase_milestones(
       { ..source, milestones: [], },
       "kickoff",
       "2028-03-02",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.rebase_milestones(
+    (try Ok(@plan_workbench.rebase_milestones(
       { ..source, milestones: Array::make(41, source.milestones[0]), },
       "kickoff",
       "2028-03-02",
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   for
@@ -148,12 +148,12 @@ test "rebase rejects invalid input and shifted overflow atomically" {
         { ..source.milestones[1], date: other_date, },
       ],
     }
-    let before = edge.to_json().stringify()
+    let before = ToJson::to_json(edge).stringify()
     assert_true(
-      (try? @plan_workbench.rebase_milestones(edge, "kickoff", new_date))
+      (try Ok(@plan_workbench.rebase_milestones(edge, "kickoff", new_date)) catch { e => Err(e) })
       is Err(_),
     )
-    assert_eq(edge.to_json().stringify(), before)
+    assert_eq(ToJson::to_json(edge).stringify(), before)
   }
-  assert_eq(source.to_json().stringify(), bytes)
+  assert_eq(ToJson::to_json(source).stringify(), bytes)
 }

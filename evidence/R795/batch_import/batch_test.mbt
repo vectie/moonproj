@@ -36,5 +36,5 @@ test "R793-R797 planning import uses production task table" {
   assert_eq(ignored.length(), 0)
   assert_eq(imported.tasks[0].id, "R793")
   assert_eq(imported.tasks[4].id, "R797")
-  println("BATCH_IMPORTED_DRAFT=" + imported.to_json().stringify())
+  println("BATCH_IMPORTED_DRAFT=" + ToJson::to_json(imported).stringify())
 }

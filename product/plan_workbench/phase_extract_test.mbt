@@ -32,7 +32,7 @@ fn phase_extract_source() -> @plan_workbench.Draft {
 ///|
 test "extract prerequisite closure preserves authored rows and complete portable references" {
   let source = phase_extract_source()
-  let before = source.to_json().stringify()
+  let before = ToJson::to_json(source).stringify()
   let e = @plan_workbench.extract_phase(source, ["review"], "")
   assert_eq(e.selected, ["review"])
   assert_eq(e.prerequisites, ["research", "draft"])
@@ -124,7 +124,7 @@ test "extract prerequisite closure preserves authored rows and complete portable
   )
   t.tasks[1].dependencies.push("local-edit")
   t.risks[0].tasks.push("local-edit")
-  assert_eq(source.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(source).stringify(), before)
 }
 
 ///|
@@ -179,7 +179,7 @@ test "milestone union reverse order cyclic editable graph and unassigned owner s
 ///|
 test "invalid extraction rejects without altering source and fresh edits regenerate output" {
   let d = phase_extract_source()
-  let before = d.to_json().stringify()
+  let before = ToJson::to_json(d).stringify()
   for
     (tasks, milestone) in [
       ([], ""),
@@ -189,7 +189,7 @@ test "invalid extraction rejects without altering source and fresh edits regener
       ([], "missing"),
     ] {
     assert_true(
-      (try? @plan_workbench.extract_phase(d, tasks, milestone)) is Err(_),
+      (try Ok(@plan_workbench.extract_phase(d, tasks, milestone)) catch { e => Err(e) }) is Err(_),
     )
   }
   let empty = {
@@ -197,7 +197,7 @@ test "invalid extraction rejects without altering source and fresh edits regener
     milestones: [..d.milestones, { ..d.milestones[0], id: "empty", }],
   }
   assert_true(
-    (try? @plan_workbench.extract_phase(empty, [], "empty")) is Err(_),
+    (try Ok(@plan_workbench.extract_phase(empty, [], "empty")) catch { e => Err(e) }) is Err(_),
   )
   for
     broken in [
@@ -207,7 +207,7 @@ test "invalid extraction rejects without altering source and fresh edits regener
       { ..d, notes: "x".repeat(1000001), },
     ] {
     assert_true(
-      (try? @plan_workbench.extract_phase(broken, ["research"], "")) is Err(_),
+      (try Ok(@plan_workbench.extract_phase(broken, ["research"], "")) catch { e => Err(e) }) is Err(_),
     )
   }
   let old = @plan_workbench.extract_phase(d, ["review"], "")
@@ -225,5 +225,5 @@ test "invalid extraction rejects without altering source and fresh edits regener
   assert_true(fresh.json != old.json)
   assert_true(fresh.json.contains("New draft"))
   assert_true(fresh.json.contains("012.30"))
-  assert_eq(d.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(d).stringify(), before)
 }

@@ -80,9 +80,9 @@ test "milestone import appends TSV drafts and preserves existing plan values" {
   assert_eq(result.unchanged, ["release", "later", "extra"])
   assert_eq(result.additions.map(m => m.id), ["new-phase"])
   assert_true(
-    (try? @plan_workbench.preview_milestone_table_updates(
+    (try Ok(@plan_workbench.preview_milestone_table_updates(
       original, "id,title\nnew-phase,Phase", false,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }

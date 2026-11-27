@@ -55,7 +55,7 @@ test "breakdown inserts sequence reconnects followers expands risks and preserve
   let m = @plan_workbench.items(wire, "milestones")[0]
   assert_eq(
     @plan_workbench.field(m, "task_ids"),
-    ["T1", "review-1", "review-2", "review-3", "T3"].to_json(),
+    ToJson::to_json(["T1", "review-1", "review-2", "review-3", "T3"]),
   )
 }
 
@@ -94,31 +94,31 @@ test "breakdown rejects ambiguous or reused identities including dangling refere
   let d = update_table_draft()
   let steps = breakdown_steps()
   assert_true(
-    (try? @plan_workbench.break_down_task(d, "missing", steps)) is Err(_),
+    (try Ok(@plan_workbench.break_down_task(d, "missing", steps)) catch { e => Err(e) }) is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.break_down_task(
+    (try Ok(@plan_workbench.break_down_task(
       { ..d, tasks: [..d.tasks, d.tasks[1]], },
       "T2",
       steps,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try? @plan_workbench.break_down_task(
+    (try Ok(@plan_workbench.break_down_task(
       { ..d, tasks: [..d.tasks, d.tasks[0]], },
       "T2",
       steps,
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   for id in ["", "  ", "T1", "T2", "T3", "review-2"] {
     assert_true(
-      (try? @plan_workbench.break_down_task(d, "T2", [
+      (try Ok(@plan_workbench.break_down_task(d, "T2", [
         { ..steps[0], id, },
         steps[1],
         steps[2],
-      ]))
+      ])) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -131,18 +131,18 @@ test "breakdown rejects ambiguous or reused identities including dangling refere
     ],
   }
   assert_true(
-    (try? @plan_workbench.break_down_task(dangling, "T2", steps)) is Err(_),
+    (try Ok(@plan_workbench.break_down_task(dangling, "T2", steps)) catch { e => Err(e) }) is Err(_),
   )
   let risk_ref = { ..d, risks: [{ ..d.risks[0], tasks: ["review-1"], }], }
   assert_true(
-    (try? @plan_workbench.break_down_task(risk_ref, "T2", steps)) is Err(_),
+    (try Ok(@plan_workbench.break_down_task(risk_ref, "T2", steps)) catch { e => Err(e) }) is Err(_),
   )
   let self_link = {
     ..d,
     tasks: [d.tasks[0], { ..d.tasks[1], dependencies: ["T2"], }, d.tasks[2]],
   }
   assert_true(
-    (try? @plan_workbench.break_down_task(self_link, "T2", steps)) is Err(_),
+    (try Ok(@plan_workbench.break_down_task(self_link, "T2", steps)) catch { e => Err(e) }) is Err(_),
   )
   assert_eq(d, update_table_draft())
 }
@@ -153,21 +153,21 @@ test "breakdown rejects incomplete names and invalid unequal costs with integer-
   let steps = breakdown_steps()
   for name in ["", " \n "] {
     assert_true(
-      (try? @plan_workbench.break_down_task(d, "T2", [
+      (try Ok(@plan_workbench.break_down_task(d, "T2", [
         { ..steps[0], name, },
         steps[1],
         steps[2],
-      ]))
+      ])) catch { e => Err(e) })
       is Err(_),
     )
   }
   for cost in ["-1", "1.201", "nan", "", "1.19", "1.21", "1000000000000000"] {
     assert_true(
-      (try? @plan_workbench.break_down_task(d, "T2", [
+      (try Ok(@plan_workbench.break_down_task(d, "T2", [
         { ..steps[0], cost, },
         steps[1],
         steps[2],
-      ]))
+      ])) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -196,7 +196,7 @@ test "breakdown rejects incomplete names and invalid unequal costs with integer-
     tasks: [d.tasks[0], { ..d.tasks[1], cost: "unknown", }, d.tasks[2]],
   }
   assert_true(
-    (try? @plan_workbench.break_down_task(bad_original, "T2", steps)) is Err(_),
+    (try Ok(@plan_workbench.break_down_task(bad_original, "T2", steps)) catch { e => Err(e) }) is Err(_),
   )
 }
 
@@ -211,7 +211,7 @@ test "breakdown enforces step and resulting task bounds and preserves later vali
       cost: "0",
     })
     assert_true(
-      (try? @plan_workbench.break_down_task(d, "T2", invalid)) is Err(_),
+      (try Ok(@plan_workbench.break_down_task(d, "T2", invalid)) catch { e => Err(e) }) is Err(_),
     )
   }
   let tasks = Array::makei(98, i => {
@@ -235,11 +235,11 @@ test "breakdown enforces step and resulting task bounds and preserves later vali
     100,
   )
   assert_true(
-    (try? @plan_workbench.break_down_task(
+    (try Ok(@plan_workbench.break_down_task(
       { ..large, tasks: [..tasks, { ..tasks[0], id: "overflow", }], },
       "T0",
       [..two, { ..steps[2], cost: "0", }],
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
   let incomplete = {
@@ -280,11 +280,11 @@ test "breakdown supports all ten steps and bounded high amounts without overflow
   assert_eq(after.tasks[11].dependencies, ["step-9"])
   assert_eq(after.risks[0].tasks.length(), 10)
   assert_true(
-    (try? @plan_workbench.break_down_task(
+    (try Ok(@plan_workbench.break_down_task(
       high,
       "T2",
       steps.map(step => { ..step, cost: "999999999999999.99", }),
-    ))
+    )) catch { e => Err(e) })
     is Err(_),
   )
 }

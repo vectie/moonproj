@@ -37,7 +37,7 @@ test "owner transfer preserves every other field and source" {
       },
     ],
   }
-  let bytes = source.to_json().stringify()
+  let bytes = ToJson::to_json(source).stringify()
   let result = @plan_workbench.transfer_owner(source, "old", "new")
   assert_eq(result, {
     ..source,
@@ -45,7 +45,7 @@ test "owner transfer preserves every other field and source" {
     milestones: [{ ..source.milestones[0], owner: "new", }],
     risks: [{ ..source.risks[0], owner: "new", }],
   })
-  assert_eq(source.to_json().stringify(), bytes)
+  assert_eq(ToJson::to_json(source).stringify(), bytes)
   assert_eq(@plan_workbench.transfer_owner(result, "old", "new"), result)
   assert_eq(@plan_workbench.transfer_owner(result, "new", "old"), source)
 }
@@ -69,7 +69,7 @@ test "owner transfer rejects missing ambiguous empty and identical endpoints" {
       ("missing", "b"),
     ] {
     assert_true(
-      (try? @plan_workbench.transfer_owner(source, from, dest)) is Err(_),
+      (try Ok(@plan_workbench.transfer_owner(source, from, dest)) catch { e => Err(e) }) is Err(_),
     )
   }
   for id in ["a", "b"] {
@@ -77,6 +77,6 @@ test "owner transfer rejects missing ambiguous empty and identical endpoints" {
       ..source,
       owners: [..source.owners, { id, name: "Duplicate", role: "", }],
     }
-    assert_true((try? @plan_workbench.transfer_owner(dup, "a", "b")) is Err(_))
+    assert_true((try Ok(@plan_workbench.transfer_owner(dup, "a", "b")) catch { e => Err(e) }) is Err(_))
   }
 }

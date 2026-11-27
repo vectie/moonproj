@@ -36,7 +36,7 @@ test "milestone calendar retains authored dates and task context without schedul
       },
     ],
   }
-  let before = draft.to_json().stringify()
+  let before = ToJson::to_json(draft).stringify()
   let output = @plan_workbench.export_milestone_calendar(draft, "Launch")
   let unfolded = calendar_unfold(output)
   assert_true(output.has_prefix("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n"))
@@ -61,7 +61,7 @@ test "milestone calendar retains authored dates and task context without schedul
     assert_false(unfolded.contains(absent))
   }
   assert_eq(unfolded.split("TRANSP:TRANSPARENT\r\n").count(), 3)
-  assert_eq(draft.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(draft).stringify(), before)
   assert_eq(@plan_workbench.export_milestone_calendar(draft, "Launch"), output)
 }
 
@@ -142,10 +142,10 @@ test "calendar export rejects incomplete calendar inputs atomically" {
       "", "2026-2-01", "2026-02-29", "2026-04-31", "2026-13-01", "2026-01-00", "2026-01-01\nBEGIN:VEVENT",
     ] {
     assert_true(
-      (try? @plan_workbench.export_milestone_calendar(
+      (try Ok(@plan_workbench.export_milestone_calendar(
         { ..draft, milestones: [{ ..draft.milestones[0], date, }], },
         "Demo",
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -154,10 +154,10 @@ test "calendar export rejects incomplete calendar inputs atomically" {
       "", "2026-10-08T00:00:00+00:00", "2026-02-29T00:00:00Z", "2026-10-08T25:00:00Z",
     ] {
     assert_true(
-      (try? @plan_workbench.export_milestone_calendar(
+      (try Ok(@plan_workbench.export_milestone_calendar(
         { ..draft, prepared_at, },
         "Demo",
-      ))
+      )) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -182,7 +182,7 @@ test "calendar export rejects incomplete calendar inputs atomically" {
       },
     ] {
     assert_true(
-      (try? @plan_workbench.export_milestone_calendar(invalid, "Demo"))
+      (try Ok(@plan_workbench.export_milestone_calendar(invalid, "Demo")) catch { e => Err(e) })
       is Err(_),
     )
   }

@@ -58,7 +58,7 @@ test "cycle and missing prerequisite keep ordering unavailable" {
     tasks: [task, { ..task, id: "b", dependencies: ["a"], }],
   }
   assert_true(!@plan_workbench.dependency_plan(draft, "a").issues.is_empty())
-  assert_true((try? @plan_workbench.order_dependencies(draft)) is Err(_))
+  assert_true((try Ok(@plan_workbench.order_dependencies(draft)) catch { e => Err(e) }) is Err(_))
   let missing = { ..draft, tasks: [task], }
   assert_true(
     @plan_workbench.dependency_plan(missing, "a").issues[0].contains(

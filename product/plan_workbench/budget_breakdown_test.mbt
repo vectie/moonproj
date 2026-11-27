@@ -37,7 +37,7 @@ fn budget_draft() -> @plan_workbench.Draft {
 ///|
 test "budget allocation partitions exact amounts and includes unassigned and missing references" {
   let d = budget_draft()
-  let before = d.to_json().stringify()
+  let before = ToJson::to_json(d).stringify()
   let b = @plan_workbench.budget_breakdown(d)
   assert_eq(b.known_minor, Some(360L))
   assert_eq(b.remaining_minor, Some(1490L))
@@ -47,7 +47,7 @@ test "budget allocation partitions exact amounts and includes unassigned and mis
   assert_eq(b.milestones[0].known_minor, Some(130L))
   assert_eq(b.milestones[1].label, "Unassigned")
   assert_eq(b.milestones[1].task_ids, ["b"])
-  assert_eq(d.to_json().stringify(), before)
+  assert_eq(ToJson::to_json(d).stringify(), before)
   let report = @plan_workbench.budget_report(d, "Synthetic launch")
   assert_true(report.contains("001.20 => 120"))
   assert_true(report.contains("Remaining after tasks and contingency: 1490"))
