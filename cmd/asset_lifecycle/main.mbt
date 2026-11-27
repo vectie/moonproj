@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror AssetPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Asset(@assets.AssetError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise AssetPromotionError {
@@ -365,27 +366,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: asset_lifecycle <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       AssetPromotionError::InvalidInput => {
         println("asset lifecycle promotion failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       AssetPromotionError::Io(_) => {
         println("asset lifecycle promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       AssetPromotionError::Money(_) => {
         println("asset lifecycle promotion failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       AssetPromotionError::Asset(_) => {
         println("asset lifecycle promotion failed: asset lifecycle validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

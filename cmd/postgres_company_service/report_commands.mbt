@@ -23,7 +23,7 @@ fn report_template_definition(
       }),
     )
   }
-  let filterable_values : Map[String, Json] = {}
+  let filterable_values : Map[String, Json] = Map([])
   for item in filterable {
     let field = item.0
     let field_type = item.1
@@ -276,7 +276,7 @@ fn report_template_text(
   primary : String,
   alternate : String,
   required : Bool,
-  max_length : Int,
+  max_length : Int32,
 ) -> String raise CompanyServiceError {
   let value = match json_field(body, primary) {
     Some(String(text)) => text
@@ -353,7 +353,7 @@ fn report_template_spec(
     raise reject(400, "please select at least one column")
   }
   let columns : Array[String] = []
-  let seen : Map[String, Bool] = {}
+  let seen : Map[String, Bool] = Map([])
   for value in raw_columns {
     let column = match value {
       String(text) => text.trim().to_owned()
@@ -459,7 +459,7 @@ async fn report_template_projection_payloads() -> Array[Json] raise CompanyServi
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'report_template' ORDER BY aggregate_id, revision LIMIT 4000",
   )
-  let latest : Map[String, Json] = {}
+  let latest : Map[String, Json] = Map([])
   for line_view in output.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
@@ -480,7 +480,7 @@ async fn report_template_projection_payloads() -> Array[Json] raise CompanyServi
 ///|
 async fn report_template_latest_projection(
   template_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'report_template' AND aggregate_id = " +
     @postgres.sql_literal(template_id) +
@@ -584,7 +584,7 @@ async fn report_template_list_response() -> Json raise CompanyServiceError {
       date_order
     }
   })
-  let coverage : Map[String, Int] = {}
+  let coverage : Map[String, Int32] = Map([])
   coverage.set("sys_report_template", source_rows.length())
   Json::object({
     "success": Json::boolean(true),
@@ -654,7 +654,7 @@ fn report_template_compare(
   left : Json,
   right : Json,
   field_type : String,
-) -> Int {
+) -> Int32 {
   if field_type == "number" {
     report_template_scalar_number(left).compare(
       report_template_scalar_number(right),
@@ -734,7 +734,7 @@ fn report_template_filter_matches(
 ///|
 async fn report_template_run_native(
   body : Json,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let spec = report_template_spec(body, false)
   let base_table = json_text(spec, "base_table", "")
   let definition = report_template_definition_for(base_table).unwrap()
@@ -799,7 +799,7 @@ async fn report_template_run_native(
   let mut index = 0
   while index < selected_rows.length() && rows.length() < limit {
     let row = selected_rows[index]
-    let output : Map[String, Json] = {}
+    let output : Map[String, Json] = Map([])
     match selected_columns {
       Array(requested) =>
         for column in requested {
@@ -814,7 +814,7 @@ async fn report_template_run_native(
     rows.push(Json::object(output))
     index += 1
   }
-  let coverage : Map[String, Int] = {}
+  let coverage : Map[String, Int32] = Map([])
   for table in report_template_metadata_tables() {
     let name = json_text(table, "name", "")
     coverage.set(name, raw_source_rows(name, 1000).length())
@@ -886,7 +886,7 @@ fn report_template_command_envelope(
 fn report_template_copy_fields(value : Json) -> Map[String, Json] {
   match value {
     Object(fields) => {
-      let result : Map[String, Json] = {}
+      let result : Map[String, Json] = Map([])
       fields.each((key, item) => result.set(key, item))
       result
     }
@@ -907,7 +907,7 @@ async fn report_template_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

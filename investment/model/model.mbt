@@ -2,19 +2,21 @@
 /// A versioned investment model imported from an operational source. The
 /// model stores index values as source representations so percentages,
 /// currency amounts, dates, and formulas are not silently conflated.
+#derive(Debug, Eq)
 pub(all) struct ModelVersion {
   version_id : String
   project_id : String
   principal_id : String
   name : String
-  version_no : Int
+  version_no : Int32
   current : Bool
   created_by : String
   created_at : String
   remark : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ModelIndex {
   index_id : String
   version_id : String
@@ -26,16 +28,18 @@ pub(all) struct ModelIndex {
   unit : String?
   value_repr : String?
   remark : String?
-  sort_order : Int
-} derive(Debug, Eq)
+  sort_order : Int32
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct InvestmentModel {
   version : ModelVersion
   indexes : Array[ModelIndex]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ModelError {
   EmptyIdentifier
   InvalidVersion
@@ -46,7 +50,7 @@ pub(all) suberror ModelError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ModelVersion::new(
@@ -54,7 +58,7 @@ pub fn ModelVersion::new(
   project_id~ : String,
   principal_id~ : String,
   name~ : String,
-  version_no~ : Int,
+  version_no~ : Int32,
   current~ : Bool,
   created_by~ : String,
   created_at~ : String,
@@ -108,7 +112,7 @@ pub fn ModelIndex::new(
   unit~ : String?,
   value_repr~ : String?,
   remark~ : String?,
-  sort_order~ : Int,
+  sort_order~ : Int32,
 ) -> ModelIndex raise ModelError {
   if index_id.trim() == "" ||
     version_id.trim() == "" ||
@@ -138,7 +142,7 @@ pub fn ModelIndex::new(
 
 ///|
 pub fn InvestmentModel::new(version : ModelVersion) -> InvestmentModel {
-  { version, indexes: [] }
+  { version, indexes: [], }
 }
 
 ///|
@@ -182,7 +186,7 @@ fn optional_json(value : String?) -> Json {
 }
 
 ///|
-fn int_json(value : Int) -> Json {
+fn int_json(value : Int32) -> Json {
   Json::number(value.to_double(), repr=value.to_string())
 }
 

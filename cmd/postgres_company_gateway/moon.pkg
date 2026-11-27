@@ -1,6 +1,5 @@
 import {
   "vectie/moonproj/operations/task_evidence",
-  "vectie/moonproj/integration/company_flow",
   "vectie/moonproj/integration/moonflow_adapter",
   "vectie/moonproj/integration/project_plan",
   "vectie/moonproj/product/plan_workbench",
@@ -16,7 +15,6 @@ import {
   "moonbitlang/core/encoding/base64",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
-  "moonbitlang/x/sys",
   "moonbitlang/x/crypto",
   "moonbitlang/x/time",
 }

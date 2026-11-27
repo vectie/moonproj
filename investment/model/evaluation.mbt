@@ -2,14 +2,16 @@
 /// How a preserved ERP value was interpreted by the explicit model evaluator.
 /// A source representation that is not a JSON number remains evidence and is
 /// never coerced into a financial value.
+#derive(Debug, Eq)
 pub(all) enum ModelValueKind {
   Numeric
   DateSerial
   Unparsed
   Missing
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug)
 pub(all) struct ModelEvaluatedValue {
   index_id : String
   full_code : String
@@ -17,22 +19,24 @@ pub(all) struct ModelEvaluatedValue {
   raw_value : String?
   numeric_value : Double?
   kind : ModelValueKind
-} derive(Debug)
+}
 
 ///|
 /// A derived ratio is a reporting metric only. It does not create an
 /// investment, journal, cash movement, or approval.
+#derive(Debug, Eq)
 pub(all) struct ModelDerivedMetric {
   metric_code : String
   numerator_code : String
   denominator_code : String
   value_bps : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// Deterministic evaluation of explicit numeric model indexes and parent
 /// totals. Formula-like derivations are emitted only for known code pairs;
 /// unknown source remarks and units remain untouched.
+#derive(Debug)
 pub(all) struct ModelEvaluation {
   version_id : String
   project_id : String
@@ -40,11 +44,11 @@ pub(all) struct ModelEvaluation {
   mapping_version : String
   values : Array[ModelEvaluatedValue]
   derived_metrics : Array[ModelDerivedMetric]
-  parent_check_count : Int
-  mismatch_count : Int
+  parent_check_count : Int32
+  mismatch_count : Int32
   issues : Array[String]
   validated : Bool
-} derive(Debug)
+}
 
 ///|
 fn parse_numeric(value : String) -> Double? {

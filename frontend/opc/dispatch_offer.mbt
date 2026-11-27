@@ -1,23 +1,25 @@
 ///|
 // Ordinary content and operation identity only. Authority is rebuilt at send.
+#derive(Debug, Eq, ToJson, FromJson)
 struct DispatchOfferDraft {
   task_id : String
   project_id : String
   value : Json
-  base_revision : Int
+  base_revision : Int32
   state : String
   operation_key : String
   operation_offer : Json?
-  operation_revision : Int
-  saved_revision : Int
+  operation_revision : Int32
+  saved_revision : Int32
   note : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(ToJson, FromJson)
 struct DispatchOfferStore {
-  version : Int
+  version : Int32
   drafts : Array[DispatchOfferDraft]
-} derive(ToJson, FromJson)
+}
 
 ///|
 enum DispatchOfferMsg {
@@ -34,8 +36,8 @@ enum DispatchOfferMsg {
   ExportCanonical
   OfferStored(String, String, String, Bool)
   OfferRestored(String, String)
-  Written(String, String, String, Int, String)
-  Read(String, String, String, Int, String)
+  Written(String, String, String, Int32, String)
+  Read(String, String, String, Int32, String)
 }
 
 ///|
@@ -51,7 +53,7 @@ fn dispatch_offer_empty() -> Json {
 }
 
 ///|
-fn dispatch_offer_revision(value : Json) -> Int {
+fn dispatch_offer_revision(value : Json) -> Int32 {
   match dispatch_json_field(value, "revision") {
     Number(number, ..) if number > 0.0 &&
       number <= 2147483647.0 &&
@@ -62,7 +64,7 @@ fn dispatch_offer_revision(value : Json) -> Int {
 
 ///|
 // A reply-only update advances the task snapshot, not the saved proposal.
-fn dispatch_offer_canonical_revision(model : Model) -> Int {
+fn dispatch_offer_canonical_revision(model : Model) -> Int32 {
   if dispatch_json_text(model.dispatch_task_commitment, "task_id") !=
     model.dispatch_task_id {
     return 0
@@ -417,7 +419,7 @@ fn dispatch_offer_update(
         model
       }
       let latest = if next.dispatch_task_id == task {
-        Int::max(revision, dispatch_offer_revision(next.dispatch_offer_task))
+        Int32::max(revision, dispatch_offer_revision(next.dispatch_offer_task))
       } else {
         revision
       }
@@ -561,7 +563,7 @@ fn dispatch_offer_after_snapshot(model : Model) -> Model {
 fn dispatch_offer_receipt_revision(
   commitment : Json,
   draft : DispatchOfferDraft,
-) -> Int {
+) -> Int32 {
   if dispatch_json_text(commitment, "task_id") != draft.task_id {
     return 0
   }

@@ -38,7 +38,7 @@ fn dispatch_reply_persist(
 ///|
 extern "js" fn dispatch_reply_storage_write(
   actor : String,
-  generation : Int,
+  generation : Int32,
   text : String,
 ) -> Bool =
   #| (actor,generation,text)=>{if(!actor||typeof window==='undefined'||window.__moonprojReplyActor!==actor||window.__moonprojReplyGeneration!==generation)return false;try{window.sessionStorage.setItem('moonproj.dispatch.offer-replies.v1.'+encodeURIComponent(actor),text);return true;}catch(_){return false;}}
@@ -52,7 +52,10 @@ extern "js" fn dispatch_reply_storage_clear(actor : String) -> Bool =
   #| actor=>{if(!actor||typeof window==='undefined')return false;try{window.sessionStorage.removeItem('moonproj.dispatch.offer-replies.v1.'+encodeURIComponent(actor));return true;}catch(_){return false;}}
 
 ///|
-extern "js" fn dispatch_reply_storage_session(actor : String, generation : Int) =
+extern "js" fn dispatch_reply_storage_session(
+  actor : String,
+  generation : Int32,
+) =
   #| (actor,generation)=>{if(typeof window!=='undefined'){window.__moonprojReplyActor=actor;window.__moonprojReplyGeneration=generation;}}
 
 ///|
@@ -60,7 +63,7 @@ fn dispatch_reply_session(
   emit : @rabbita.Emit[Msg],
   previous : String,
   actor : String,
-  generation : Int,
+  generation : Int32,
 ) -> Cmd {
   @cmd.custom_cmd(scheduler => {
     dispatch_reply_storage_session(actor, generation)
@@ -120,7 +123,7 @@ fn dispatch_reply_write(
   emit : @rabbita.Emit[Msg],
   actor : String,
   draft : DispatchReplyDraft,
-  generation : Int,
+  generation : Int32,
 ) -> Cmd {
   let body = dispatch_reply_update_body(actor, draft).stringify()
   @cmd.custom_cmd(scheduler => {
@@ -148,7 +151,7 @@ fn dispatch_reply_read(
   emit : @rabbita.Emit[Msg],
   actor : String,
   draft : DispatchReplyDraft,
-  generation : Int,
+  generation : Int32,
 ) -> Cmd {
   @cmd.custom_cmd(scheduler => {
     dispatch_offer_get_request(

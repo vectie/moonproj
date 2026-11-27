@@ -16,7 +16,6 @@ import {
   "vectie/moonproj/operations/workflow",
   "vectie/moonproj/investment/model",
   "vectie/moonproj/persistence/store",
-  "moonbitlang/core/json",
 }
 
 import {

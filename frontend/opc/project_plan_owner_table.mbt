@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq)
 struct PlanOwnerTableState {
   text : String
   tsv : Bool
   base : @plan_workbench.Draft?
   preview : @plan_workbench.OwnerTableUpdate?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanOwnerTableMsg {
   Text(String)
   Format(Bool)
@@ -15,7 +17,7 @@ enum PlanOwnerTableMsg {
   Apply
   Close
   Export
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_owner_table_initial() -> PlanOwnerTableState {
@@ -186,7 +188,8 @@ fn plan_owner_table_view(
               strong("Before / 修改前"),
               match change.before {
                 None => p("New owner / 新增负责人")
-                Some(before) => @html.pre(ToJson::to_json(before).stringify(indent=2))
+                Some(before) =>
+                  @html.pre(ToJson::to_json(before).stringify(indent=2))
               },
               strong("After / 修改后"),
               @html.pre(ToJson::to_json(change.after).stringify(indent=2)),

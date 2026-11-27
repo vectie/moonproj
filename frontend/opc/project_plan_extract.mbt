@@ -1,20 +1,22 @@
 ///|
+#derive(Debug, Eq)
 struct PlanExtractState {
   tasks : Array[String]
   milestone : String
   source : @plan_workbench.Draft?
   preview : @plan_workbench.PhaseExtraction?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanExtractMsg {
   Task(String)
   Milestone(String)
   Preview
   Download
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_extract_initial() -> PlanExtractState {

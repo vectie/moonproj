@@ -59,7 +59,7 @@ async fn cbs_batch_adjust_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

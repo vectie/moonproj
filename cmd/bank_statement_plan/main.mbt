@@ -1,10 +1,11 @@
 ///|
 /// Compile a reviewed bank-statement map without inferring cash or ledger
 /// effects. The resulting plan is consumed by the native statement importer.
+#derive(Debug)
 pub(all) suberror BankStatementPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> BankStatementPlanError {
@@ -260,19 +261,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: bank_statement_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     BankStatementPlanError::InvalidInput(message) => {
       println("bank-statement plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     BankStatementPlanError::Io(_) => {
       println("bank-statement plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

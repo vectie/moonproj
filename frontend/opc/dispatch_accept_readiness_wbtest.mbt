@@ -73,8 +73,8 @@ test "rejected and repeated Accept clicks show guidance without accepting old re
 
 ///|
 fn acceptance_readiness_report(
-  command? : String = "C1",
-  id? : String = "K1",
+  command~ : String = "C1",
+  id~ : String = "K1",
 ) -> Json {
   {
     "reportGuid": "report-" + command,

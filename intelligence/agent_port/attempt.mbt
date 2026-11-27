@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ExecutionPhase {
   Queued
   Ready
@@ -14,29 +15,32 @@ pub(all) enum ExecutionPhase {
   Rejected
   Cancelled
   Quarantined
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ExecutionClaim {
   claim_token : String
   executor_id : String
   lease_expires_at_epoch : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ExecutionAttemptEvent {
-  revision : Int
+  revision : Int32
   from : ExecutionPhase
   to : ExecutionPhase
   actor_id : String
   reason : String
   at_epoch : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// Runtime execution state is recoverable operational data, not a company
 /// authorization record. `revision` is the compare-and-set boundary used by
 /// MoonClaw/MoonFlow adapters and any future OpenOPC-compatible adapter.
+#derive(Debug, Eq)
 pub(all) struct ExecutionAttempt {
   protocol_version : String
   attempt_id : String
@@ -44,17 +48,17 @@ pub(all) struct ExecutionAttempt {
   work_item_id : String
   flow_run_id : String
   phase : ExecutionPhase
-  revision : Int
-  attempt_number : Int
+  revision : Int32
+  attempt_number : Int32
   claim : ExecutionClaim?
-  crash_streak : Int
-  interrupted_streak : Int
-  rework_round : Int
+  crash_streak : Int32
+  interrupted_streak : Int32
+  rework_round : Int32
   artifact_refs : Array[String]
   cost_minor : Int64
   terminal_reason : String
   events : Array[ExecutionAttemptEvent]
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ExecutionPhase::is_terminal(self : ExecutionPhase) -> Bool {
@@ -127,7 +131,7 @@ fn append_event(
 ///|
 fn require_revision(
   attempt : ExecutionAttempt,
-  expected_revision : Int,
+  expected_revision : Int32,
 ) -> Unit raise AgentPortError {
   if attempt.revision != expected_revision {
     raise RevisionConflict(expected=expected_revision, actual=attempt.revision)
@@ -187,7 +191,7 @@ pub fn ExecutionAttempt::new(
 ///|
 pub fn ExecutionAttempt::claim(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   claim_token~ : String,
   executor_id~ : String,
   now_epoch~ : Int64,
@@ -230,7 +234,7 @@ pub fn ExecutionAttempt::claim(
 ///|
 pub fn ExecutionAttempt::heartbeat(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   claim_token~ : String,
   now_epoch~ : Int64,
   lease_seconds~ : Int64,
@@ -253,7 +257,7 @@ pub fn ExecutionAttempt::heartbeat(
 ///|
 pub fn ExecutionAttempt::transition(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   to~ : ExecutionPhase,
   actor_id~ : String,
   claim_token? : String,
@@ -290,7 +294,7 @@ pub fn ExecutionAttempt::transition(
 ///|
 pub fn ExecutionAttempt::record_crash(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   claim_token~ : String,
   at_epoch~ : Int64,
   reason~ : String,
@@ -321,7 +325,7 @@ pub fn ExecutionAttempt::record_crash(
 ///|
 pub fn ExecutionAttempt::recover_expired_claim(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   now_epoch~ : Int64,
 ) -> ExecutionAttempt raise AgentPortError {
   require_revision(self, expected_revision)
@@ -369,7 +373,7 @@ pub fn ExecutionAttempt::recover_expired_claim(
 ///|
 pub fn ExecutionAttempt::request_rework(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   reviewer_id~ : String,
   reason~ : String,
   at_epoch~ : Int64,
@@ -394,7 +398,7 @@ pub fn ExecutionAttempt::request_rework(
 ///|
 pub fn ExecutionAttempt::record_artifact(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   artifact_ref~ : String,
 ) -> ExecutionAttempt raise AgentPortError {
   require_revision(self, expected_revision)
@@ -411,7 +415,7 @@ pub fn ExecutionAttempt::record_artifact(
 ///|
 pub fn ExecutionAttempt::record_cost(
   self : ExecutionAttempt,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   additional_minor~ : Int64,
 ) -> ExecutionAttempt raise AgentPortError {
   require_revision(self, expected_revision)

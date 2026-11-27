@@ -1,9 +1,10 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct TaskStep {
   id : String
   name : String
   cost : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 /// Replace one draft task, in place, with a sequential breakdown. New steps

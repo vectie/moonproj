@@ -2,9 +2,9 @@
 fn journey_test_row(
   action : String,
   event : String,
-  revision : Int,
+  revision : Int32,
   request : Json,
-  report? : Bool = false,
+  report~ : Bool = false,
 ) -> Json {
   {
     "event_id": event,
@@ -106,7 +106,7 @@ fn journey_test_rows() -> Array[Json] {
 }
 
 ///|
-fn journey_test_body(rows? : Array[Json] = journey_test_rows()) -> String {
+fn journey_test_body(rows~ : Array[Json] = journey_test_rows()) -> String {
   let source = human_revision_proj_source()
   (
     {
@@ -164,7 +164,7 @@ fn journey_test_model() -> Model {
 
 ///|
 #warnings("-alert_unstable")
-fn journey_test_html(model : Model, whole? : Bool = false) -> String {
+fn journey_test_html(model : Model, whole~ : Bool = false) -> String {
   let page = @rabbita.simple_cell(model~, update=(_ : Msg, model) => model, view=(
     emit,
     model,

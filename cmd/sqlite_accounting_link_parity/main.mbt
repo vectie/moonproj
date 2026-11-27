@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteAccountingLinkParityError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct Item {
@@ -108,7 +109,7 @@ fn load_receipt(path : String) -> Receipt raise SqliteAccountingLinkParityError 
       principal_id: string(item, "principal_id", path),
     })
   }
-  { source_snapshot_id, mapping_version, items }
+  { source_snapshot_id, mapping_version, items, }
 }
 
 ///|
@@ -124,7 +125,7 @@ fn decode_hex(value : String) -> String raise SqliteAccountingLinkParityError {
     raise fail("invalid SQLite hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -283,15 +284,15 @@ fn run(args : Array[String]) -> Unit raise SqliteAccountingLinkParityError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     SqliteAccountingLinkParityError::InvalidInput(message) => {
       println("company SQLite accounting-link parity failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     SqliteAccountingLinkParityError::Io(_) => {
       println("company SQLite accounting-link parity failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

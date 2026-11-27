@@ -13,7 +13,7 @@ fn marketing_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "campaign controls placement and spend" {
-  let campaign = MarketingCampaign::new(
+  let campaign = @marketing.MarketingCampaign::new(
     campaign_id="campaign-001",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -25,7 +25,7 @@ test "campaign controls placement and spend" {
     actor_id="alice",
     grant=marketing_grant("marketing:campaign:activate"),
   )
-  let placement = MarketingPlacement::new(
+  let placement = @marketing.MarketingPlacement::new(
     placement_id="placement-001",
     campaign,
     channel="online",
@@ -47,14 +47,14 @@ test "campaign controls placement and spend" {
       actor_id="alice",
       grant=marketing_grant("marketing:campaign:complete"),
     )
-  assert_true(placement.state == PlacementState::Placed)
+  assert_true(placement.state == @marketing.PlacementState::Placed)
   assert_eq(placement.leads, 42)
-  assert_true(campaign.state == CampaignState::Completed)
+  assert_true(campaign.state == @marketing.CampaignState::Completed)
 }
 
 ///|
 test "campaign blocks spend above budget" {
-  let campaign = MarketingCampaign::new(
+  let campaign = @marketing.MarketingCampaign::new(
     campaign_id="campaign-002",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -73,7 +73,7 @@ test "campaign blocks spend above budget" {
       grant=marketing_grant("marketing:spend"),
     )
   catch {
-    MarketingError::BudgetExceeded => ()
+    @marketing.MarketingError::BudgetExceeded => ()
     _ => fail("wrong marketing error")
   } noraise {
     _ => fail("expected marketing error")

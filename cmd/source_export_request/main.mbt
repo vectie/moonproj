@@ -1,9 +1,10 @@
 ///|
 /// MoonBit source-export request generator.
+#derive(Debug)
 pub(all) suberror SourceExportRequestError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> SourceExportRequestError {
@@ -72,7 +73,7 @@ fn optional_int(
   fields : Map[String, Json],
   key : String,
   path : String,
-) -> Int raise SourceExportRequestError {
+) -> Int32 raise SourceExportRequestError {
   match fields.get(key) {
     None => 0
     Some(Number(value, ..)) if value == value.trunc() => value.to_int()
@@ -170,15 +171,15 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: source_export_request <schema_gap> <cohort_plan> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let report = run(args[1], args[2]) catch {
     error => {
-      println("ERP source export request failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("ERP source export request failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
@@ -186,7 +187,7 @@ fn main {
   @fs.write_string_to_file(args[3], output) catch {
     _ => {
       println("ERP source export request failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   println(output)

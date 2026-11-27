@@ -1,12 +1,14 @@
 ///|
 /// The commercial lane that can act on a policy signal.
+#derive(Debug, Eq, ToJson)
 pub(all) enum BusinessLane {
   B2B
   B2G
   Dual
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) enum PolicyChangeKind {
   ClauseAdded
   ClauseRemoved
@@ -14,17 +16,19 @@ pub(all) enum PolicyChangeKind {
   TermRetired
   SignalStrengthened
   SignalWeakened
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) enum SignalMomentum {
   New
   Strengthened
   Stable
   Weakened
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) enum PolicyGraphNodeKind {
   Document
   Authority
@@ -32,12 +36,13 @@ pub(all) enum PolicyGraphNodeKind {
   Signal
   Opportunity
   Audience
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 /// An immutable version of a policy or official guidance document. The source
 /// URL is evidence metadata; the analysis engine never treats the document as
 /// law merely because it was ingested.
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicyDocument {
   document_id : String
   title : String
@@ -46,59 +51,64 @@ pub(all) struct PolicyDocument {
   published_on : String
   version : String
   source_url : String
-  authority_rank : Int
+  authority_rank : Int32
   body : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 /// Phrases are ordered from weaker/general wording to stronger/more specific
 /// wording. This lets the engine distinguish a genuinely new signal from a
 /// change in policy intensity.
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicySignalRule {
   rule_id : String
   phrases : Array[String]
   topic : String
   lane : BusinessLane
-  base_score : Int
+  base_score : Int32
   audience : String
   proposed_offer : String
   next_action : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicyChange {
   kind : PolicyChangeKind
   subject : String
   before : String?
   after : String?
-  importance : Int
+  importance : Int32
   evidence : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicyGraphNode {
   node_id : String
   kind : PolicyGraphNodeKind
   label : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicyGraphEdge {
   from_id : String
   to_id : String
   relation : String
   evidence : String
   source_document_id : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 /// A scored and explainable business hypothesis. It is a lead for validation,
 /// not an authorization to bid, sell, spend, or represent government intent.
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicyOpportunity {
   opportunity_id : String
   lane : BusinessLane
   topic : String
-  score : Int
+  score : Int32
   title : String
   why_now : String
   audience : String
@@ -107,9 +117,10 @@ pub(all) struct PolicyOpportunity {
   evidence_phrase : String
   source_document_id : String
   source_url : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicyAnalysis {
   current_document_id : String
   previous_document_id : String?
@@ -119,16 +130,17 @@ pub(all) struct PolicyAnalysis {
   nodes : Array[PolicyGraphNode]
   edges : Array[PolicyGraphEdge]
   opportunities : Array[PolicyOpportunity]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror PolicyIntelligenceError {
   EmptyIdentifier
-  InvalidAuthorityRank(Int)
-  InvalidScore(Int)
+  InvalidAuthorityRank(Int32)
+  InvalidScore(Int32)
   EmptyPhrases
   InvalidState
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn PolicyDocument::new(
@@ -139,7 +151,7 @@ pub fn PolicyDocument::new(
   published_on~ : String,
   version~ : String,
   source_url~ : String,
-  authority_rank~ : Int,
+  authority_rank~ : Int32,
   body~ : String,
 ) -> PolicyDocument raise PolicyIntelligenceError {
   if document_id.trim().is_empty() ||
@@ -174,7 +186,7 @@ pub fn PolicySignalRule::new(
   phrases~ : Array[String],
   topic~ : String,
   lane~ : BusinessLane,
-  base_score~ : Int,
+  base_score~ : Int32,
   audience~ : String,
   proposed_offer~ : String,
   next_action~ : String,

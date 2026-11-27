@@ -1,7 +1,7 @@
 ///|
 test "SQL catalog validates the generic record envelope migration" {
-  let migrations = initial_catalog()
-  let state = validate_catalog(@schema.SchemaState::initial(), migrations)
+  let migrations = @sql.initial_catalog()
+  let state = @sql.validate_catalog(@schema.SchemaState::initial(), migrations)
   assert_eq(state.version, 1)
   assert_eq(state.checksum, "sha256:company-record-envelope-v1")
   assert_true(migrations[0].up_sql.contains("CREATE TABLE company_record"))
@@ -11,7 +11,7 @@ test "SQL catalog validates the generic record envelope migration" {
 ///|
 test "SQL catalog rejects a migration without rollback SQL" {
   try
-    SqlMigration::new(
+    @sql.SqlMigration::new(
       @schema.MigrationStep::new(
         version=1,
         migration_id="V1__bad",
@@ -22,7 +22,7 @@ test "SQL catalog rejects a migration without rollback SQL" {
       down_sql="",
     )
   catch {
-    SqlCatalogError::InvalidDownMigration => ()
+    @sql.SqlCatalogError::InvalidDownMigration => ()
     _ => fail("wrong SQL catalog error")
   } noraise {
     _ => fail("expected SQL catalog error")
@@ -31,8 +31,8 @@ test "SQL catalog rejects a migration without rollback SQL" {
 
 ///|
 test "company SQL catalog includes projection, accounting, and receipt gates" {
-  let migrations = company_catalog()
-  let state = validate_catalog(@schema.SchemaState::initial(), migrations)
+  let migrations = @sql.company_catalog()
+  let state = @sql.validate_catalog(@schema.SchemaState::initial(), migrations)
   assert_eq(state.version, 4)
   assert_eq(state.checksum, "sha256:migration-receipt-v1")
   assert_true(migrations[1].up_sql.contains("company_aggregate_projection"))

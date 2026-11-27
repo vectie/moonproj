@@ -1,19 +1,22 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum MigrationDisposition {
   Imported
   Quarantined
   Skipped
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum MigrationRunState {
   Planned
   Validated
   Applied
   RolledBack
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MigrationItem {
   source_type : String
   source_id : String
@@ -21,18 +24,20 @@ pub(all) struct MigrationItem {
   target_id : String?
   disposition : MigrationDisposition
   reason : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MigrationManifest {
   run_id : String
   source_snapshot_id : String
   principal_id : String
   items : Array[MigrationItem]
   state : MigrationRunState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ManifestError {
   EmptyIdentifier
   DuplicateSource
@@ -44,7 +49,7 @@ pub(all) suberror ManifestError {
   RecordTargetMismatch
   NotAuthorized(@foundation.AuthorityError)
   Store(@store.StoreError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn MigrationManifest::new(
@@ -152,7 +157,7 @@ pub fn MigrationManifest::validate(
   ) catch {
     error => raise ManifestError::NotAuthorized(error)
   }
-  { ..self, state: MigrationRunState::Validated }
+  { ..self, state: MigrationRunState::Validated, }
 }
 
 ///|
@@ -174,7 +179,7 @@ pub fn MigrationManifest::apply(
   ) catch {
     error => raise ManifestError::NotAuthorized(error)
   }
-  { ..self, state: MigrationRunState::Applied }
+  { ..self, state: MigrationRunState::Applied, }
 }
 
 ///|
@@ -229,7 +234,7 @@ pub fn MigrationManifest::apply_records(
       error => raise ManifestError::Store(error)
     }
   }
-  ({ ..self, state: MigrationRunState::Applied }, next_store)
+  ({ ..self, state: MigrationRunState::Applied, }, next_store)
 }
 
 ///|
@@ -251,14 +256,14 @@ pub fn MigrationManifest::rollback(
   ) catch {
     error => raise ManifestError::NotAuthorized(error)
   }
-  { ..self, state: MigrationRunState::RolledBack }
+  { ..self, state: MigrationRunState::RolledBack, }
 }
 
 ///|
 pub fn MigrationManifest::count(
   self : MigrationManifest,
   disposition : MigrationDisposition,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for item in self.items {
     if item.disposition == disposition {

@@ -1,10 +1,11 @@
 ///|
+#derive(Eq, Debug)
 pub(all) struct DependencyPlan {
   waves : Array[Array[String]]
   prerequisites : Array[String]
   downstream : Array[String]
   issues : Array[String]
-} derive(Eq, Debug)
+}
 
 ///|
 // Reachability is bounded by the finite task set, including malformed cycles.

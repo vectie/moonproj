@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct PositionPerformance {
   position_id : String
   instrument : String
   cost_basis : @finance.Money
   market_value : @finance.Money
   gain_loss : @finance.Money
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PerformanceReport {
   portfolio_id : String
   period_id : String
@@ -18,9 +20,10 @@ pub(all) struct PerformanceReport {
   return_bps : Int64
   positions : Array[PositionPerformance]
   within_mandate : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct BenchmarkComparison {
   portfolio_id : String
   period_id : String
@@ -29,13 +32,14 @@ pub(all) struct BenchmarkComparison {
   benchmark_return_bps : Int64
   active_return_bps : Int64
   outperformed : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 /// An externally supplied benchmark observation. The observation is treated
 /// as source evidence, not as a quote that the portfolio can execute against.
 /// Its snapshot, mapping, and evidence identities are mandatory so a later
 /// reconciliation can be replayed without guessing which feed was used.
+#derive(Debug, Eq)
 pub(all) struct BenchmarkObservation {
   observation_id : String
   benchmark_id : String
@@ -44,12 +48,13 @@ pub(all) struct BenchmarkObservation {
   mapping_version : String
   evidence_id : String
   return_bps : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// Reconciles a local benchmark comparison against one source-owned external
 /// observation. This is analytics evidence only: it cannot mutate positions,
 /// post accounting, or release cash.
+#derive(Debug, Eq)
 pub(all) struct BenchmarkReconciliation {
   reconciliation_id : String
   portfolio_id : String
@@ -66,7 +71,7 @@ pub(all) struct BenchmarkReconciliation {
   difference_bps : Int64
   tolerance_bps : Int64
   reconciled : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn BenchmarkObservation::new(

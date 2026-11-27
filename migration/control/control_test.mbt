@@ -1,6 +1,8 @@
 ///|
 test "opening controls compile into a reproducible shadow plan" {
-  let controls = OpeningControlSet::new(source_snapshot_id="erp-opening-001")
+  let controls = @control.OpeningControlSet::new(
+      source_snapshot_id="erp-opening-001",
+    )
     .add({
       metric_id: "cash:company:co-001:CNY",
       domain: "treasury",
@@ -26,7 +28,9 @@ test "opening controls compile into a reproducible shadow plan" {
 
 ///|
 test "opening controls reject duplicate or negative totals" {
-  let controls = OpeningControlSet::new(source_snapshot_id="erp-opening-002")
+  let controls = @control.OpeningControlSet::new(
+    source_snapshot_id="erp-opening-002",
+  )
   let controls = controls.add({
     metric_id: "cash",
     domain: "treasury",
@@ -43,7 +47,7 @@ test "opening controls reject duplicate or negative totals" {
       tolerance: 0L,
     })
   catch {
-    ControlError::DuplicateMetric => ()
+    @control.ControlError::DuplicateMetric => ()
     _ => fail("wrong control error")
   } noraise {
     _ => fail("expected duplicate control")
@@ -57,7 +61,7 @@ test "opening controls reject duplicate or negative totals" {
       tolerance: 0L,
     })
   catch {
-    ControlError::NegativeValue => ()
+    @control.ControlError::NegativeValue => ()
     _ => fail("wrong negative control error")
   } noraise {
     _ => fail("expected negative control")

@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror InvestmentPromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> InvestmentPromotionPlanError {
@@ -134,7 +135,7 @@ fn run(
     Array(values) => values
     _ => raise fail("investment indexes must be an array")
   }
-  let version_ids : Map[String, Bool] = {}
+  let version_ids : Map[String, Bool] = Map([])
   for version in versions {
     version_ids.set(text(field(version, "version_guid")), true)
   }
@@ -172,7 +173,7 @@ fn run(
     if version_indexes.is_empty() {
       reasons.push("missing_indexes")
     }
-    let seen_codes : Map[String, Bool] = {}
+    let seen_codes : Map[String, Bool] = Map([])
     let candidates : Array[Json] = []
     for row in version_indexes {
       let index_id = text(field(row, "index_guid"))
@@ -324,19 +325,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: investment_promotion_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     InvestmentPromotionPlanError::InvalidInput(message) => {
       println("investment promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     InvestmentPromotionPlanError::Io(_) => {
       println("investment promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

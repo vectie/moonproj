@@ -3,7 +3,6 @@ import {
   "vectie/moonproj/foundation",
   "vectie/moonproj/operations/commitment",
   "vectie/moonproj/persistence/store",
-  "moonbitlang/core/json",
 }
 
 import {

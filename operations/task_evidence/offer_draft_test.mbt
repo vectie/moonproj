@@ -23,7 +23,7 @@ fn offer_test_invalid(value : Json) -> Unit raise {
 }
 
 ///|
-fn offer_test_repeat(value : String, count : Int) -> String {
+fn offer_test_repeat(value : String, count : Int32) -> String {
   let result = StringBuilder()
   for _ in 0..<count {
     result.write_string(value)

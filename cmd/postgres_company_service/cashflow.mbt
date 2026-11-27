@@ -2,7 +2,7 @@
 /// Native source-backed cashflow observations.
 struct CashflowContext {
   rows : Map[String, Array[SourceRow]]
-  coverage : Map[String, Int]
+  coverage : Map[String, Int32]
 }
 
 ///|
@@ -16,8 +16,8 @@ fn cashflow_tables() -> Array[String] {
 
 ///|
 async fn cashflow_context() -> CashflowContext raise CompanyServiceError {
-  let rows : Map[String, Array[SourceRow]] = {}
-  let coverage : Map[String, Int] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
+  let coverage : Map[String, Int32] = Map([])
   for table in cashflow_tables() {
     let values = raw_source_rows(table, 500)
     rows.set(table, values)
@@ -27,7 +27,7 @@ async fn cashflow_context() -> CashflowContext raise CompanyServiceError {
 }
 
 ///|
-fn cashflow_missing(coverage : Map[String, Int]) -> Array[Json] {
+fn cashflow_missing(coverage : Map[String, Int32]) -> Array[Json] {
   let values : Array[String] = []
   for table, count in coverage {
     if count == 0 {
@@ -39,7 +39,7 @@ fn cashflow_missing(coverage : Map[String, Int]) -> Array[Json] {
 }
 
 ///|
-fn cashflow_envelope(data : Json, coverage : Map[String, Int]) -> Json {
+fn cashflow_envelope(data : Json, coverage : Map[String, Int32]) -> Json {
   Json::object({
     "success": Json::boolean(true),
     "code": Json::number(0),
@@ -55,8 +55,8 @@ fn cashflow_envelope(data : Json, coverage : Map[String, Int]) -> Json {
 
 ///|
 async fn cashflow_months(
-  months : Int,
-  offset : Int,
+  months : Int32,
+  offset : Int32,
 ) -> Array[String] raise CompanyServiceError {
   if months < 1 || months > 24 {
     raise reject(422, "months must be between 1 and 24")
@@ -123,7 +123,7 @@ fn cashflow_optional_text(value : String?) -> Json {
 
 ///|
 async fn cashflow_forecast_response(
-  months : Int,
+  months : Int32,
   bu_guid : String?,
   proj_guid : String?,
 ) -> Json raise CompanyServiceError {
@@ -138,7 +138,7 @@ async fn cashflow_forecast_response(
     _ => ()
   }
   let context = cashflow_context()
-  let contracts : Map[String, String] = {}
+  let contracts : Map[String, String] = Map([])
   for row in context.rows.get_or_default("cb_contract", []) {
     contracts.set(
       report_text(row.payload, "contract_guid", row.record_id),
@@ -148,9 +148,9 @@ async fn cashflow_forecast_response(
   let units = context.rows.get_or_default("mu_business_unit", [])
   let projects = context.rows.get_or_default("ep_project", [])
   let month_list = cashflow_months(months, 0)
-  let series : Map[String, Map[String, Double]] = {}
-  let by_bu : Map[String, Double] = {}
-  let by_proj : Map[String, Double] = {}
+  let series : Map[String, Map[String, Double]] = Map([])
+  let by_bu : Map[String, Double] = Map([])
+  let by_proj : Map[String, Double] = Map([])
   for month in month_list {
     series.set(month, {
       "planned": 0.0,
@@ -384,7 +384,7 @@ async fn cashflow_detail_response(
     raise reject(422, "ym must use YYYY-MM")
   }
   let context = cashflow_context()
-  let contracts : Map[String, String] = {}
+  let contracts : Map[String, String] = Map([])
   for row in context.rows.get_or_default("cb_contract", []) {
     contracts.set(
       report_text(row.payload, "contract_guid", row.record_id),
@@ -453,7 +453,7 @@ async fn cashflow_detail_response(
 
 ///|
 async fn cashflow_inflow_response(
-  months : Int,
+  months : Int32,
   bu_guid : String?,
   proj_guid : String?,
 ) -> Json raise CompanyServiceError {
@@ -472,8 +472,8 @@ async fn cashflow_inflow_response(
   }
   let context = cashflow_context()
   let month_list = cashflow_months(months + 3, -3)
-  let month_set : Map[String, Bool] = {}
-  let series_values : Map[String, Map[String, Double]] = {}
+  let month_set : Map[String, Bool] = Map([])
+  let series_values : Map[String, Map[String, Double]] = Map([])
   for month in month_list {
     month_set.set(month, true)
     series_values.set(month, {
@@ -563,7 +563,9 @@ async fn cashflow_inflow_response(
 }
 
 ///|
-async fn cashflow_net_response(months : Int) -> Json raise CompanyServiceError {
+async fn cashflow_net_response(
+  months : Int32,
+) -> Json raise CompanyServiceError {
   if months < 1 || months > 24 {
     raise reject(422, "months must be between 1 and 24")
   }
@@ -571,7 +573,7 @@ async fn cashflow_net_response(months : Int) -> Json raise CompanyServiceError {
   let forecast = cashflow_forecast_response(months, None, None)
   let data = json_field(forecast, "data").unwrap_or(Json::object({}))
   let rows = json_field(data, "series").unwrap_or(Json::array([]))
-  let revenue_by_month : Map[String, Double] = {}
+  let revenue_by_month : Map[String, Double] = Map([])
   for row in context.rows.get_or_default("sale_revenue", []) {
     if dashboard_active(row.payload) {
       let month = cashflow_month(row.payload, "receive_date")
@@ -612,7 +614,7 @@ async fn cashflow_net_response(months : Int) -> Json raise CompanyServiceError {
 }
 
 ///|
-fn cashflow_date_parts(value : String) -> (Int, Int, Int)? {
+fn cashflow_date_parts(value : String) -> (Int32, Int32, Int32)? {
   if value.length() < 10 || value[4:5] != "-" || value[7:8] != "-" {
     return None
   }
@@ -656,7 +658,7 @@ fn cashflow_week_start(value : String) -> String {
 
 ///|
 async fn cashflow_gap_response(
-  horizon_days : Int,
+  horizon_days : Int32,
 ) -> Json raise CompanyServiceError {
   if horizon_days < 7 || horizon_days > 365 {
     raise reject(422, "horizonDays must be between 7 and 365")
@@ -664,7 +666,7 @@ async fn cashflow_gap_response(
   let context = cashflow_context()
   let today = @env.now().to_string()[0:10].to_owned()
   let end_date = plan_shift_date(today, horizon_days)
-  let contracts : Map[String, String] = {}
+  let contracts : Map[String, String] = Map([])
   for row in context.rows.get_or_default("cb_contract", []) {
     if dashboard_active(row.payload) {
       contracts.set(
@@ -673,9 +675,9 @@ async fn cashflow_gap_response(
       )
     }
   }
-  let buckets : Map[String, Map[String, Double]] = {}
-  let out_items : Map[String, Array[Json]] = {}
-  let in_items : Map[String, Array[Json]] = {}
+  let buckets : Map[String, Map[String, Double]] = Map([])
+  let out_items : Map[String, Array[Json]] = Map([])
+  let in_items : Map[String, Array[Json]] = Map([])
   for row in context.rows.get_or_default("cb_contract_milestone", []) {
     if !dashboard_active(row.payload) ||
       report_text(row.payload, "trigger_type", "") != "time" ||
@@ -790,7 +792,7 @@ async fn cashflow_gap_response(
 
 ///|
 async fn cashflow_v3_response(
-  months : Int,
+  months : Int32,
   proj_guid : String,
 ) -> Json raise CompanyServiceError {
   if months < 1 || months > 24 {
@@ -879,7 +881,7 @@ async fn cashflow_v3_response(
   } else {
     total_d * 0.05
   }
-  let revenue_by_month : Map[String, Double] = {}
+  let revenue_by_month : Map[String, Double] = Map([])
   for row in context.rows.get_or_default("sale_revenue", []) {
     if dashboard_active(row.payload) &&
       report_text(row.payload, "proj_guid", "") == proj_guid &&

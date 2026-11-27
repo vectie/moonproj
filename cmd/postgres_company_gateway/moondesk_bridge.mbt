@@ -1,8 +1,8 @@
 ///|
 fn moondesk_loopback_origin(origin : String) -> String? {
-  let trimmed = origin.trim().to_string()
+  let trimmed = origin.trim().to_owned()
   let clean = if trimmed.has_suffix("/") {
-    trimmed[:trimmed.length() - 1].to_string()
+    trimmed[:trimmed.length() - 1].to_owned()
   } else {
     trimmed
   }
@@ -17,12 +17,10 @@ fn moondesk_loopback_origin(origin : String) -> String? {
 
 ///|
 async fn moondesk_probe_reachable(origin : String) -> Bool {
-  try {
-    @async.with_timeout(1500, async fn() {
-      let (response, _) = @http.get(origin + "/")
-      response.code >= 200 && response.code < 400
-    })
-  } catch {
+  @async.with_timeout(1500, async fn() {
+    let (response, _) = @http.get(origin + "/")
+    response.code >= 200 && response.code < 400
+  }) catch {
     _ => false
   }
 }
@@ -61,11 +59,7 @@ async fn moondesk_ensure_running(
     })
   }
   let app_path = "/Applications/MoonDesk.app"
-  let installed = try {
-    @fs.exists(app_path)
-  } catch {
-    _ => false
-  }
+  let installed = @fs.exists(app_path) catch { _ => false }
   if !installed {
     return native_json_result(200, {
       "reachable": false,
@@ -106,7 +100,9 @@ async fn moondesk_ensure_running(
     "error": if ready {
       ""
     } else {
-      "已尝试启动 MoonDesk，但 " + origin + " 尚未就绪，请稍候点击重试"
+      "已尝试启动 MoonDesk，但 " +
+      origin +
+      " 尚未就绪，请稍候点击重试"
     },
   })
 }

@@ -198,7 +198,7 @@ async fn native_delivery_report(
   }
   // One stable report per exact command. Reads/restarts reconcile reporting,
   // never rerun a provider or turn a technical result into owner acceptance.
-  let date = @time.unix((@env.now() / 1000UL).to_int64())
+  let date = @time.unix((@env.now() / 1000UL).reinterpret_as_int64())
     .to_plain_date()
     .to_string() catch {
       _ => native_text(task, "planEndDate")

@@ -331,7 +331,7 @@ fn offer_test_value() -> Json {
 
 ///|
 fn offer_test_body(
-  revision : Int,
+  revision : Int32,
   offer : Json,
   history : Array[Json],
 ) -> String {
@@ -387,7 +387,7 @@ fn offer_test_frozen() -> Model {
 ///|
 fn offer_test_receipt(
   draft : DispatchOfferDraft,
-  revision : Int,
+  revision : Int32,
   audit : String,
 ) -> Json {
   {

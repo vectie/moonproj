@@ -1,7 +1,8 @@
 ///|
+#derive(Debug, Eq)
 pub suberror OfferDraftError {
   InvalidOfferDraft(String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn offer_draft_keys() -> Array[String] {
@@ -17,7 +18,7 @@ fn offer_draft_keys() -> Array[String] {
 fn offer_clean_text(
   value : String,
   key : String,
-  limit : Int,
+  limit : Int32,
 ) -> String raise OfferDraftError {
   let result = StringBuilder()
   let mut after_cr = false
@@ -53,7 +54,7 @@ fn offer_clean_text(
 fn offer_optional_text(
   value : Json,
   key : String,
-  limit : Int,
+  limit : Int32,
 ) -> Json raise OfferDraftError {
   match field(value, key) {
     Null => Json::null()
@@ -278,7 +279,7 @@ fn offer_markdown_text(value : String) -> String {
         '&' => result.write_string("&amp;")
         '<' => result.write_string("&lt;")
         '>' => result.write_string("&gt;")
-        '!'..='/' | ':'..='@' | '['..='`' | '{'..='~' => {
+        '!'..<='/' | ':'..<='@' | '['..<='`' | '{'..<='~' => {
           result.write_char('\\')
           result.write_char(char)
         }
@@ -323,7 +324,7 @@ pub fn offer_draft_markdown(
   value : Json,
   task_id~ : String,
   project_id~ : String,
-  revision~ : Int,
+  revision~ : Int32,
 ) -> String raise OfferDraftError {
   let normalized = normalize_offer_draft(value)
   let task = offer_clean_text(task_id, "task_id", 512)

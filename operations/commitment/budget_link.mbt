@@ -1,22 +1,24 @@
 ///|
 /// A commitment-to-budget reservation is explicit so budget consumption can be
 /// reconciled independently from contract and payment state.
+#derive(Debug, Eq)
 pub(all) struct BudgetReservation {
   reservation_id : String
   commitment_id : String
   budget_line_id : String
   amount_minor : Int64
   currency : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror CommitmentBudgetError {
   InvalidState
   InvalidAmount
   CurrencyMismatch
   AmountExceedsCommitment
   Budget(@finance.BudgetError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn reserve_budget(

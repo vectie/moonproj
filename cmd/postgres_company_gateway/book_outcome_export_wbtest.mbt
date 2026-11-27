@@ -144,14 +144,12 @@ test "outcome export rejects missing unknown false-default and invented evidence
       "decisiveness_gap",
     ] {
     assert_true(
-      (try
-        Ok(
-          book_outcome_export_projection(
-            handoff,
-            outcome_export_test_changed(draft, key, Json::null()),
-          ),
-        )
-      catch {
+      (Ok(
+        book_outcome_export_projection(
+          handoff,
+          outcome_export_test_changed(draft, key, Json::null()),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -169,41 +167,35 @@ test "outcome export rejects missing unknown false-default and invented evidence
     ] {
     let gap = outcome_export_test_changed(outcome_export_test_gap(), key, value)
     assert_true(
-      (try
-        Ok(
-          book_outcome_export_projection(
-            handoff,
-            outcome_export_test_changed(draft, "information_gap", gap),
-          ),
-        )
-      catch {
+      (Ok(
+        book_outcome_export_projection(
+          handoff,
+          outcome_export_test_changed(draft, "information_gap", gap),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
     )
   }
   assert_true(
-    (try
-      Ok(
-        book_outcome_export_projection(
-          handoff,
-          outcome_export_test_changed(draft, "recorded_at", Json::number(1)),
-        ),
-      )
-    catch {
+    (Ok(
+      book_outcome_export_projection(
+        handoff,
+        outcome_export_test_changed(draft, "recorded_at", Json::number(1)),
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
   )
   assert_true(
-    (try
-      Ok(
-        book_outcome_export_projection(
-          handoff,
-          outcome_export_test_changed(draft, "observed_at", Json::number(1.5)),
-        ),
-      )
-    catch {
+    (Ok(
+      book_outcome_export_projection(
+        handoff,
+        outcome_export_test_changed(draft, "observed_at", Json::number(1.5)),
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -225,9 +217,7 @@ test "a present gap requires an explicit complete change descriptor and hashes i
     gap,
   )
   assert_true(
-    (try Ok(book_outcome_export_projection(handoff, draft)) catch {
-      e => Err(e)
-    })
+    (Ok(book_outcome_export_projection(handoff, draft)) catch { e => Err(e) })
     is Err(_),
   )
   let descriptor : Json = {
@@ -253,14 +243,12 @@ test "a present gap requires an explicit complete change descriptor and hashes i
   for key in ["id", "version", "summary", "change_text"] {
     let broken = outcome_export_test_changed(descriptor, key, Json::null())
     assert_true(
-      (try
-        Ok(
-          book_outcome_export_projection(
-            handoff,
-            outcome_export_test_changed(draft, "capability", broken),
-          ),
-        )
-      catch {
+      (Ok(
+        book_outcome_export_projection(
+          handoff,
+          outcome_export_test_changed(draft, "capability", broken),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -322,52 +310,46 @@ test "outcome export is bounded and exact route matching cannot select another e
   }
   let handoff = book_lesson_handoff_projection(lesson_handoff_test_data())
   assert_true(
-    (try
-      Ok(
-        book_outcome_export_projection(
-          handoff,
-          outcome_export_test_changed(
-            outcome_export_test_draft(),
-            "root",
-            Json::string("/foreign"),
-          ),
-        ),
-      )
-    catch {
-      e => Err(e)
-    })
-    is Err(_),
-  )
-  assert_true(
-    (try
-      Ok(
-        book_outcome_export_projection(
-          handoff,
-          outcome_export_test_changed(
-            outcome_export_test_draft(),
-            "outcome_summary",
-            Json::string("界".repeat(3000)),
-          ),
-        ),
-      )
-    catch {
-      e => Err(e)
-    })
-    is Err(_),
-  )
-  assert_true(
-    (try
-      Ok(
-        book_outcome_export_projection(
-          outcome_export_test_changed(
-            handoff,
-            "task_snapshot",
-            Json::string(native_text(handoff, "task_snapshot") + " "),
-          ),
+    (Ok(
+      book_outcome_export_projection(
+        handoff,
+        outcome_export_test_changed(
           outcome_export_test_draft(),
+          "root",
+          Json::string("/foreign"),
         ),
-      )
-    catch {
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
+  assert_true(
+    (Ok(
+      book_outcome_export_projection(
+        handoff,
+        outcome_export_test_changed(
+          outcome_export_test_draft(),
+          "outcome_summary",
+          Json::string("界".repeat(3000)),
+        ),
+      ),
+    ) catch {
+      e => Err(e)
+    })
+    is Err(_),
+  )
+  assert_true(
+    (Ok(
+      book_outcome_export_projection(
+        outcome_export_test_changed(
+          handoff,
+          "task_snapshot",
+          Json::string(native_text(handoff, "task_snapshot") + " "),
+        ),
+        outcome_export_test_draft(),
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -391,14 +373,12 @@ test "exported display route preserves a mount and strips credential query fragm
       "https://proj.example.test\\foreign/apps/proj/?page=dispatch&task=task-fixture",
     ] {
     assert_true(
-      (try
-        Ok(
-          book_outcome_export_projection(
-            handoff,
-            outcome_export_test_changed(draft, "owner_route", Json::string(bad)),
-          ),
-        )
-      catch {
+      (Ok(
+        book_outcome_export_projection(
+          handoff,
+          outcome_export_test_changed(draft, "owner_route", Json::string(bad)),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),

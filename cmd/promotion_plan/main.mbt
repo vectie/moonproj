@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror PromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> PromotionPlanError {
@@ -106,7 +107,7 @@ fn mapping(
 ) -> Map[String, String] raise PromotionPlanError {
   let value = config.get(key).unwrap_or(Json::object({}))
   let fields = object(value, key)
-  let result : Map[String, String] = {}
+  let result : Map[String, String] = Map([])
   for name, value in fields {
     result.set(name, text(value))
   }
@@ -114,7 +115,7 @@ fn mapping(
 }
 
 ///|
-fn power10(digits : Int) -> Int64 {
+fn power10(digits : Int32) -> Int64 {
   let mut result : Int64 = 1
   for _ in 0..<digits {
     result *= 10
@@ -320,11 +321,11 @@ fn run(
   let contracts = rows(export_dir, "cb_contract")
   let costs = rows(export_dir, "cb_cost")
   let loans = rows(export_dir, "vcb_loan_simple")
-  let bu_ids : Map[String, Bool] = {}
+  let bu_ids : Map[String, Bool] = Map([])
   for row in business_units {
     bu_ids.set(text(field(row, "bu_guid")), true)
   }
-  let project_ids : Map[String, Bool] = {}
+  let project_ids : Map[String, Bool] = Map([])
   for row in projects {
     project_ids.set(text(field(row, "proj_guid")), true)
   }
@@ -447,7 +448,7 @@ fn run(
     if currency.is_empty() {
       reason(why, "missing_currency_by_bu")
     }
-    let components : Map[String, Json] = {}
+    let components : Map[String, Json] = Map([])
     if !currency.is_empty() {
       for name in required_cost_fields {
         let source_name = text(cost_map.get(name).unwrap())
@@ -568,19 +569,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: promotion_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2], args[3]) catch {
       PromotionPlanError::InvalidInput(message) => {
         println("promotion plan failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
       }
       PromotionPlanError::Io(_) => {
         println("promotion plan failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

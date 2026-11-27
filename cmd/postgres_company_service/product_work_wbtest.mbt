@@ -99,7 +99,7 @@ test "product normalization accepts explicit unknown IDs but rejects malformed n
         { "product_id": "a b" },
       ] : Array[Json]) {
     assert_true(
-      (try Ok(plan_task_product_id(body)) catch { e => Err(e) }) is Err(_),
+      (Ok(plan_task_product_id(body)) catch { e => Err(e) }) is Err(_),
     )
   }
 }
@@ -420,19 +420,19 @@ test "task scope rejects malformed filters but does not need catalog admission" 
   project_plan_validate_task_scope(None, None, Some("missing-catalog-entry"))
   for invalid in ["", "contains spaces", "a/b"] {
     assert_true(
-      (try Ok(project_plan_validate_task_scope(None, None, Some(invalid))) catch {
+      (Ok(project_plan_validate_task_scope(None, None, Some(invalid))) catch {
         e => Err(e)
       })
       is Err(_),
     )
     assert_true(
-      (try Ok(project_plan_validate_task_scope(Some(invalid), None, None)) catch {
+      (Ok(project_plan_validate_task_scope(Some(invalid), None, None)) catch {
         e => Err(e)
       })
       is Err(_),
     )
     assert_true(
-      (try Ok(project_plan_validate_task_scope(None, Some(invalid), None)) catch {
+      (Ok(project_plan_validate_task_scope(None, Some(invalid), None)) catch {
         e => Err(e)
       })
       is Err(_),

@@ -1,10 +1,11 @@
 ///|
 /// Compile a reviewed opening-control map into explicit shadow expectations.
 /// Controls are evidence, not inferred balances or posting instructions.
+#derive(Debug)
 pub(all) suberror OpeningControlPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> OpeningControlPlanError {
@@ -206,19 +207,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: opening_control_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     OpeningControlPlanError::InvalidInput(message) => {
       println("opening-control plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     OpeningControlPlanError::Io(_) => {
       println("opening-control plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

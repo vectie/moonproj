@@ -40,7 +40,7 @@ async fn workflow_command_payloads(
 async fn workflow_latest_projection(
   aggregate_type : String,
   aggregate_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
     @postgres.sql_literal(aggregate_type) +
@@ -176,7 +176,7 @@ fn workflow_instance_payload(
 fn workflow_action_payload(
   action_id : String,
   instance_id : String,
-  step_order : Int,
+  step_order : Int32,
   step_name : String,
   assignee_id : String,
   assignee_name : String,
@@ -204,7 +204,7 @@ fn workflow_action_payload(
 fn workflow_command_result(
   instance_id : String,
   status : String,
-  current_step_order : Int,
+  current_step_order : Int32,
   decision : String,
   event_id : String,
   audit_id : String,
@@ -239,7 +239,7 @@ async fn workflow_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !["start", "approve", "reject", "cosign", "transfer"].contains(
       command_type,
     ) {

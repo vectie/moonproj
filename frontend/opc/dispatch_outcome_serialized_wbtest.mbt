@@ -3,11 +3,11 @@ extern "js" fn outcome_serialized_fixture() -> String =
   #| () => {const path=globalThis.process?.env?.MOONPROJ_OUTCOME_FIXTURE;return path?require('node:fs').readFileSync(path,'utf8'):'';}
 
 ///|
-extern "js" fn outcome_serialized_time(seconds : Int) -> String =
+extern "js" fn outcome_serialized_time(seconds : Int32) -> String =
   #| seconds=>new Date(seconds*1000).toISOString().slice(0,19)
 
 ///|
-extern "js" fn outcome_serialized_clock(seconds : Int, run : () -> Unit) =
+extern "js" fn outcome_serialized_clock(seconds : Int32, run : () -> Unit) =
   #| (seconds,run)=>{const prior=Date.now;Date.now=()=>seconds*1000;try{run();}finally{Date.now=prior;}}
 
 ///|

@@ -35,7 +35,7 @@ fn signed_customer_message(
     body,
     signature: "",
   }
-  { ..unsigned, signature: @customer_channel.sign_envelope(unsigned, secret~) }
+  { ..unsigned, signature: @customer_channel.sign_envelope(unsigned, secret~), }
 }
 
 ///|

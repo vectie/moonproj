@@ -63,7 +63,7 @@ pub fn Receivable::to_collection_event(
     entry_id: "receivable/" + collection_id + "/collection",
     description: "Collect receivable " + self.receivable_id,
     postings: [
-      { account: cash_account, side: @finance.PostingSide::Debit, amount },
+      { account: cash_account, side: @finance.PostingSide::Debit, amount, },
       {
         account: receivable_account,
         side: @finance.PostingSide::Credit,

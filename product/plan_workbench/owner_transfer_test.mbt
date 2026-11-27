@@ -69,7 +69,10 @@ test "owner transfer rejects missing ambiguous empty and identical endpoints" {
       ("missing", "b"),
     ] {
     assert_true(
-      (try Ok(@plan_workbench.transfer_owner(source, from, dest)) catch { e => Err(e) }) is Err(_),
+      (Ok(@plan_workbench.transfer_owner(source, from, dest)) catch {
+        e => Err(e)
+      })
+      is Err(_),
     )
   }
   for id in ["a", "b"] {
@@ -77,6 +80,9 @@ test "owner transfer rejects missing ambiguous empty and identical endpoints" {
       ..source,
       owners: [..source.owners, { id, name: "Duplicate", role: "", }],
     }
-    assert_true((try Ok(@plan_workbench.transfer_owner(dup, "a", "b")) catch { e => Err(e) }) is Err(_))
+    assert_true(
+      (Ok(@plan_workbench.transfer_owner(dup, "a", "b")) catch { e => Err(e) })
+      is Err(_),
+    )
   }
 }

@@ -1,9 +1,10 @@
 ///|
 /// Compile a reviewed supplier/tender/commitment procurement cohort map.
+#derive(Debug)
 pub(all) suberror ProcurementCohortPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ProcurementCohortPlanError {
@@ -334,19 +335,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: procurement_cohort_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     ProcurementCohortPlanError::InvalidInput(message) => {
       println("procurement cohort plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     ProcurementCohortPlanError::Io(_) => {
       println("procurement cohort plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

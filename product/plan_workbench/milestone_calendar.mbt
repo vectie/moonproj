@@ -59,7 +59,7 @@ fn calendar_date(value : String, label : String) -> String raise InputError {
   if value.length() != 10 || value[4] != '-' || value[7] != '-' {
     raise Invalid(label + ": enter a target date as YYYY-MM-DD")
   }
-  let _ = @time.PlainDate::from_str(value) catch {
+  let _ : @time.PlainDate = @string.FromStr::from_str(value) catch {
     _ => raise Invalid(label + ": invalid target date " + value)
   }
   value.replace_all(old="-", new="")
@@ -78,7 +78,7 @@ fn calendar_stamp(value : String) -> String raise InputError {
       "Calendar export needs the plan's UTC revision timestamp (YYYY-MM-DDTHH:MM:SSZ)",
     )
   }
-  let _ = @time.PlainDateTime::from_str(value[0:19]) catch {
+  let _ : @time.PlainDateTime = @string.FromStr::from_str(value[0:19]) catch {
     _ => raise Invalid("Calendar export needs a valid plan revision timestamp")
   }
   value.replace_all(old="-", new="").replace_all(old=":", new="")

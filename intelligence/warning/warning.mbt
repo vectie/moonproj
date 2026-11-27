@@ -1,27 +1,31 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum WarningSeverity {
   Info
   Warning
   Critical
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum WarningState {
   Open
   Acknowledged
   Resolved
   Suppressed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct WarningEvent {
   from : WarningState
   to : WarningState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct WarningFinding {
   warning_id : String
   principal_id : String
@@ -33,27 +37,29 @@ pub(all) struct WarningFinding {
   severity : WarningSeverity
   state : WarningState
   events : Array[WarningEvent]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Source-bound warning evidence. The finding remains an authority-checked
 /// domain decision; this wrapper adds migration/source provenance so the
 /// warning can be persisted and replayed without becoming a workflow command.
+#derive(Debug, Eq)
 pub(all) struct WarningEvidence {
   finding : WarningFinding
   source_snapshot_id : String
   mapping_version : String
   evidence_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror WarningError {
   EmptyIdentifier
   InvalidState
   NotAuthorized(@foundation.AuthorityError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn WarningFinding::new(
@@ -135,8 +141,8 @@ fn WarningFinding::transition(
     error => raise WarningError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -193,7 +199,7 @@ pub fn WarningFinding::bind_evidence(
     evidence_id.trim() == "" {
     raise WarningError::EmptyIdentifier
   }
-  { finding: self, source_snapshot_id, mapping_version, evidence_id }
+  { finding: self, source_snapshot_id, mapping_version, evidence_id, }
 }
 
 ///|

@@ -1,11 +1,13 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum MilestoneTrigger {
   Time
   Progress
   Event
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum MilestoneState {
   Planned
   Eligible
@@ -13,23 +15,25 @@ pub(all) enum MilestoneState {
   Paid
   Overdue
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MilestoneEvent {
   from : MilestoneState
   to : MilestoneState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ContractMilestone {
   milestone_id : String
   commitment_id : String
   principal_id : String
   project_scope : String
-  sequence : Int
+  sequence : Int32
   node_name : String
   trigger : MilestoneTrigger
   plan_amount : @finance.Money
@@ -37,9 +41,10 @@ pub(all) struct ContractMilestone {
   actual_amount : @finance.Money
   state : MilestoneState
   events : Array[MilestoneEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror MilestoneError {
   EmptyIdentifier
   InvalidCommitment
@@ -54,13 +59,13 @@ pub(all) suberror MilestoneError {
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
   Settlement(@settlement.SettlementError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ContractMilestone::new(
   commitment : @commitment.Commitment,
   milestone_id~ : String,
-  sequence~ : Int,
+  sequence~ : Int32,
   node_name~ : String,
   trigger~ : MilestoneTrigger,
   plan_amount~ : @finance.Money,
@@ -149,8 +154,8 @@ fn ContractMilestone::transition(
     error => raise MilestoneError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -203,7 +208,7 @@ pub fn ContractMilestone::reach(
     actor_id,
     capability: "milestone:reach",
   })
-  { ..self, actual_amount, state: MilestoneState::Reached, events }
+  { ..self, actual_amount, state: MilestoneState::Reached, events, }
 }
 
 ///|

@@ -138,7 +138,7 @@ test "confirmed interpretation unlocks task preparation and audit navigation" {
         next_validation: "确认主管部门和只读试点边界",
         gate: "采购路径未知",
         source_change_id: "compute-node-wording",
-      }
+      },
     ),
   )
 }
@@ -197,7 +197,7 @@ test "policy projection decoder rejects schema drift" {
         opportunities: [],
         review_audit_ids: [],
         boundary: "review required",
-      }
+      },
     ),
   )
 }

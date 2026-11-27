@@ -1,6 +1,6 @@
 ///|
 test "product admission projection has no engineering exit-gate effect" {
-  let projection = persisted(
+  let projection = @product_in_gate_projection.persisted(
     product="moonproj",
     normalized={
       "decision": "pass",
@@ -20,7 +20,8 @@ test "product admission projection has no engineering exit-gate effect" {
   assert_eq(fields.get("decision"), Some(Json::string("pass")))
   assert_eq(fields.get("exit_gate_effect"), Some(Json::boolean(false)))
   assert_eq(fields.get("persisted"), Some(Json::boolean(true)))
-  guard unknown(product="moonproj") is Object(unknown_fields) else {
+  guard @product_in_gate_projection.unknown(product="moonproj")
+    is Object(unknown_fields) else {
     fail("unknown projection must be an object")
   }
   assert_eq(unknown_fields.get("persisted"), Some(Json::boolean(false)))

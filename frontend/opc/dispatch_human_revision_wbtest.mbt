@@ -1,5 +1,5 @@
 ///|
-fn human_revision_proj_record(id? : String = "H1") -> Json {
+fn human_revision_proj_record(id~ : String = "H1") -> Json {
   {
     "schema": "moonproj.human-revision.v1",
     "capture_scope": "immutable_human_revision",
@@ -29,7 +29,7 @@ fn human_revision_proj_record(id? : String = "H1") -> Json {
 }
 
 ///|
-fn human_revision_proj_source(id? : String = "H1") -> Json {
+fn human_revision_proj_source(id~ : String = "H1") -> Json {
   { "type": "human_revision", "revision_id": id, "original_run_id": "run-1" }
 }
 
@@ -52,8 +52,8 @@ fn human_revision_proj_model() -> Model {
 fn human_revision_proj_envelope(
   model : Model,
   source : Json,
-  candidate? : Json = human_revision_proj_record(),
-  content? : Json = Json::string("edited bytes"),
+  candidate~ : Json = human_revision_proj_record(),
+  content~ : Json = Json::string("edited bytes"),
 ) -> String {
   let json = @json.parse(
     continuation_proj_envelope(model, source, Json::null()),
@@ -61,7 +61,9 @@ fn human_revision_proj_envelope(
     _ => Json::null()
   }
   if json is Object(fields) {
-    fields["human_revisions"] = ToJson::to_json(model.dispatch_continuation.human_revisions)
+    fields["human_revisions"] = ToJson::to_json(
+      model.dispatch_continuation.human_revisions,
+    )
     fields["human_revision_candidate"] = candidate
     fields["human_revision_content"] = content
   }

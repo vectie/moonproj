@@ -46,7 +46,7 @@ fn charter_access_label(access : String) -> String {
 }
 
 ///|
-fn charter_tier_title(tier : Int) -> String {
+fn charter_tier_title(tier : Int32) -> String {
   match tier {
     0 => "Tier 0 · 创始人（最终问责）"
     1 => "Tier 1 · 协调负责人（统筹拆解）"
@@ -102,10 +102,7 @@ fn charter_inline_status_banner(
   show_refresh~ : Bool = false,
 ) -> @html.Html {
   if !state.error.is_empty() {
-    div(
-      class="charter-inline-alert",
-      attrs=@html.Attrs::build().role("alert"),
-    ) <| [
+    div(class="charter-inline-alert", attrs=@html.Attrs::build().role("alert")) <| [
       span(state.error),
       if show_refresh {
         button(
@@ -143,7 +140,10 @@ fn charter_init_inline_form(
   ) <| [
     div(class="charter-form-grid") <| [
       div(class="field") <| [
-        label(attrs=@html.Attrs::build().for_("charter-init-title"), "核心使命"),
+        label(
+          attrs=@html.Attrs::build().for_("charter-init-title"),
+          "核心使命",
+        ),
         input(
           input_type=Text,
           attrs=@html.Attrs::build().id("charter-init-title"),

@@ -298,12 +298,12 @@ async fn project_plan_project_item(
       reports.push(report)
     }
   }
-  let status_counts : Map[String, Int32] = {}
+  let status_counts : Map[String, Int32] = Map([])
   for task in tasks {
     let status = json_text(task, "status", "pending")
     status_counts.set(status, status_counts.get(status).unwrap_or(0) + 1)
   }
-  let status_count_json : Map[String, Json] = {}
+  let status_count_json : Map[String, Json] = Map([])
   for status, count in status_counts {
     status_count_json.set(status, Json::number(count.to_double()))
   }
@@ -532,7 +532,7 @@ async fn project_task_detail_response(
     Some((payload, revision)) if json_text(payload, "state", "") != "deleted" => {
       let fields = match payload {
         Object(fields) => fields
-        _ => Map::new()
+        _ => Map([])
       }
       fields.set("__revision", Json::number(revision.to_double()))
       [
@@ -1231,7 +1231,7 @@ async fn plan_task_command_request(
   }
   let changes = match plan_task_product_metadata(body, false) {
     Object(fields) => fields
-    _ => Map::new()
+    _ => Map([])
   }
   if plan_task_delivery_changes(current, body) is Object(fields) {
     for key, value in fields {

@@ -15,8 +15,8 @@ fn asset_grant(
 }
 
 ///|
-fn proposed_asset() -> Asset {
-  try! Asset::new(
+fn proposed_asset() -> @assets.Asset {
+  try! @assets.Asset::new(
     asset_id="asset-001",
     principal_id="co-001",
     project_scope="project:p-asset",
@@ -32,12 +32,12 @@ fn proposed_asset() -> Asset {
 ///|
 test "asset lifecycle depreciates to residual value and journals" {
   let capitalized = proposed_asset().transition(
-    AssetState::Capitalized,
+    @assets.AssetState::Capitalized,
     actor_id="alice",
     grant=asset_grant("asset:capitalize", 12000),
   )
   let active = capitalized.transition(
-    AssetState::Active,
+    @assets.AssetState::Active,
     actor_id="alice",
     grant=asset_grant("asset:activate", 12000),
   )
@@ -72,7 +72,7 @@ test "asset lifecycle depreciates to residual value and journals" {
 ///|
 test "asset rejects invalid residual value and depreciation state" {
   try
-    Asset::new(
+    @assets.Asset::new(
       asset_id="asset-bad",
       principal_id="co-001",
       project_scope="project:p-asset",
@@ -84,7 +84,7 @@ test "asset rejects invalid residual value and depreciation state" {
       grant=asset_grant("asset:propose", 101),
     )
   catch {
-    AssetError::InvalidResidualValue => ()
+    @assets.AssetError::InvalidResidualValue => ()
     _ => fail("wrong asset error")
   } noraise {
     _ => fail("expected asset error")
@@ -96,7 +96,7 @@ test "asset rejects invalid residual value and depreciation state" {
       grant=asset_grant("asset:depreciate", 1000),
     )
   catch {
-    AssetError::InvalidDepreciationState => ()
+    @assets.AssetError::InvalidDepreciationState => ()
     _ => fail("wrong depreciation error")
   } noraise {
     _ => fail("expected depreciation error")
@@ -107,12 +107,12 @@ test "asset rejects invalid residual value and depreciation state" {
 test "disposed asset creates balanced gain disposal journal and link" {
   let active = proposed_asset()
     .transition(
-      AssetState::Capitalized,
+      @assets.AssetState::Capitalized,
       actor_id="alice",
       grant=asset_grant("asset:capitalize", 12000),
     )
     .transition(
-      AssetState::Active,
+      @assets.AssetState::Active,
       actor_id="alice",
       grant=asset_grant("asset:activate", 12000),
     )
@@ -122,7 +122,7 @@ test "disposed asset creates balanced gain disposal journal and link" {
     grant=asset_grant("asset:depreciate", 1000),
   )
   let disposed = active.transition(
-    AssetState::Disposed,
+    @assets.AssetState::Disposed,
     actor_id="alice",
     grant=asset_grant("asset:dispose", 12000),
   )
@@ -158,17 +158,17 @@ test "disposed asset creates balanced gain disposal journal and link" {
 test "disposed asset creates balanced loss disposal journal" {
   let disposed = proposed_asset()
     .transition(
-      AssetState::Capitalized,
+      @assets.AssetState::Capitalized,
       actor_id="alice",
       grant=asset_grant("asset:capitalize", 12000),
     )
     .transition(
-      AssetState::Active,
+      @assets.AssetState::Active,
       actor_id="alice",
       grant=asset_grant("asset:activate", 12000),
     )
     .transition(
-      AssetState::Disposed,
+      @assets.AssetState::Disposed,
       actor_id="alice",
       grant=asset_grant("asset:dispose", 12000),
     )
@@ -195,7 +195,7 @@ test "disposal basis requires disposed state" {
       proceeds=@finance.Money::new(minor=100, currency="CNY"),
     )
   catch {
-    AssetError::InvalidDisposalState => ()
+    @assets.AssetError::InvalidDisposalState => ()
     _ => fail("wrong disposal error")
   } noraise {
     _ => fail("expected disposal state gate")
@@ -219,12 +219,12 @@ test "asset register projection preserves lifecycle and depreciation state" {
   )
   let asset = proposed_asset()
     .transition(
-      AssetState::Capitalized,
+      @assets.AssetState::Capitalized,
       actor_id="alice",
       grant=asset_grant("asset:capitalize", 12000),
     )
     .transition(
-      AssetState::Active,
+      @assets.AssetState::Active,
       actor_id="alice",
       grant=asset_grant("asset:activate", 12000),
     )
@@ -250,7 +250,7 @@ test "asset register projection preserves lifecycle and depreciation state" {
       ),
     )
   catch {
-    AssetError::ProjectionIdentity => ()
+    @assets.AssetError::ProjectionIdentity => ()
     _ => fail("wrong asset projection identity error")
   } noraise {
     _ => fail("expected asset projection identity error")

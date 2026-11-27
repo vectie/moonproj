@@ -1,7 +1,7 @@
 import {
+  "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/x/fs",
-  "moonbitlang/x/sys",
   "vectie/moonproj/finance",
   "vectie/moonproj/finance/assets",
   "vectie/moonproj/foundation",

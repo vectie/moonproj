@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 enum Page {
   Workspace
   Overview
@@ -21,7 +22,7 @@ enum Page {
   Finance
   Assurance
   Extensions
-} derive(Debug, Eq)
+}
 
 ///|
 struct NavItem {
@@ -204,7 +205,7 @@ enum Msg {
     String,
     String,
     String,
-    Array[String]
+    Array[String],
   )
   SelectProductInGateDecision(String)
   SelectProductInGatePrimaryValue(String)
@@ -235,7 +236,7 @@ enum Msg {
     String,
     String,
     String,
-    Bool
+    Bool,
   )
   ProductInGateFailed(String)
   RefreshPolicyRadar
@@ -476,4 +477,3 @@ fn initial_model() -> Model {
     notice: "",
   }
 }
-

@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror BankStatementPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Statement(@treasury.StatementError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise BankStatementPromotionError {
@@ -260,27 +261,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: bank_statement <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       BankStatementPromotionError::InvalidInput => {
         println("bank statement promotion failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       BankStatementPromotionError::Io(_) => {
         println("bank statement promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       BankStatementPromotionError::Money(_) => {
         println("bank statement promotion failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       BankStatementPromotionError::Statement(_) => {
         println("bank statement promotion failed: statement validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

@@ -1,19 +1,21 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct PlanTextChange {
   kind : String
   id : String
   field : String
   before : String
   after : String
-  occurrences : Int
-} derive(Debug, Eq, ToJson)
+  occurrences : Int32
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PlanTextReplacement {
   draft : Draft
   changes : Array[PlanTextChange]
-  occurrences : Int
-} derive(Debug, Eq)
+  occurrences : Int32
+}
 
 ///|
 fn replace_plan_field(
@@ -24,7 +26,7 @@ fn replace_plan_field(
   scope : String,
   query : String,
   replacement : String,
-  remaining : Array[Int],
+  remaining : Array[Int32],
   changes : Array[PlanTextChange],
 ) -> String raise InputError {
   if (scope != "all" && scope != kind) ||

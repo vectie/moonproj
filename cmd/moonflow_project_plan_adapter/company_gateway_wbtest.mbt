@@ -21,12 +21,12 @@ async test "normal CLI helper uses exact HTTP routes and only environment sessio
   )
   let server = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
   defer server.close()
-  let uri = "http://127.0.0.1:" + server.addr().port().to_string()
+  let uri = "http://127.0.0.1:" + server.addr.port().to_string()
   let paths : Array[String] = []
-  @async.with_timeout(10000, fn() {
-    @async.with_task_group(fn(group) {
-      group.spawn_bg(fn() {
-        server.run_forever(fn(request, _, conn) {
+  @async.with_timeout(10000, () => {
+    @async.with_task_group(group => {
+      group.spawn_bg(() => {
+        server.run_forever((request, _, conn) => {
           assert_eq(
             request.headers
             .get("cookie")
@@ -65,11 +65,11 @@ async test "normal CLI helper uses exact HTTP routes and only environment sessio
       group.return_immediately(())
     })
   })
-  let unsafe = [
+  let untrusted_args = [
     "--gateway", "https://example.invalid", "--task", "PT-revised", "--session-env",
     "MOONPROJ_FLOW_TEST_SESSION",
   ]
-  try company_gateway("gateway-snapshot", unsafe) catch {
+  try company_gateway("gateway-snapshot", untrusted_args) catch {
     _ => ()
   } noraise {
     _ => fail("session must not leave configured loopback gateway")

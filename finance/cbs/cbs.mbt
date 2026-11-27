@@ -1,28 +1,32 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum CbsVersionState {
   Draft
   Active
   Frozen
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CostSubject {
   subject_id : String
   code : String
   name : String
   parent_code : String
   target_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CbsVersion {
   version_id : String
   project_scope : String
   state : CbsVersionState
   subjects : Array[CostSubject]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CostSubjectLink {
   link_id : String
   source_id : String
@@ -31,18 +35,20 @@ pub(all) struct CostSubjectLink {
   subject_code : String
   principal_id : String
   amount : @finance.Money
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum CbsBudgetReservationState {
   Reserved
   Consumed
   Released
-} derive(Debug, Eq)
+}
 
 ///|
 /// A governed budget reservation tied to one explicit CBS cost link. It is a
 /// budget-control record only; cash and accounting remain separate effects.
+#derive(Debug, Eq)
 pub(all) struct CbsBudgetReservation {
   reservation_id : String
   source_id : String
@@ -52,20 +58,22 @@ pub(all) struct CbsBudgetReservation {
   principal_id : String
   amount : @finance.Money
   state : CbsBudgetReservationState
-} derive(Debug, Eq)
+}
 
 ///|
 /// Subject-scoped CBS budget ledger. The ledger is intentionally separate from
 /// the immutable subject configuration and from source-to-subject links.
+#derive(Debug, Eq)
 pub(all) struct CbsBudgetLedger {
   version_id : String
   project_scope : String
   principal_id : String
   currency : String
   reservations : Array[CbsBudgetReservation]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror CbsError {
   EmptyIdentifier
   EmptySubject
@@ -86,7 +94,7 @@ pub(all) suberror CbsError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn CbsVersion::new(
@@ -108,7 +116,7 @@ pub fn CbsVersion::new(
   ) catch {
     error => raise CbsError::NotAuthorized(error)
   }
-  { version_id, project_scope, state: CbsVersionState::Draft, subjects: [] }
+  { version_id, project_scope, state: CbsVersionState::Draft, subjects: [], }
 }
 
 ///|
@@ -184,7 +192,7 @@ pub fn CbsVersion::activate(
   ) catch {
     error => raise CbsError::NotAuthorized(error)
   }
-  { ..self, state: CbsVersionState::Active }
+  { ..self, state: CbsVersionState::Active, }
 }
 
 ///|
@@ -234,7 +242,7 @@ pub fn CbsVersion::freeze(
   ) catch {
     error => raise CbsError::NotAuthorized(error)
   }
-  { ..self, state: CbsVersionState::Frozen }
+  { ..self, state: CbsVersionState::Frozen, }
 }
 
 ///|
@@ -418,7 +426,7 @@ fn CbsBudgetLedger::transition_reservation(
   actor_id : String,
   grant : @foundation.AuthorityGrant,
 ) -> CbsBudgetLedger raise CbsError {
-  let mut found : Int? = None
+  let mut found : Int32? = None
   for index in 0..<self.reservations.length() {
     if self.reservations[index].reservation_id == reservation_id {
       found = Some(index)
@@ -444,7 +452,7 @@ fn CbsBudgetLedger::transition_reservation(
     error => raise CbsError::NotAuthorized(error)
   }
   let reservations = self.reservations.copy()
-  reservations[index] = { ..current, state: next }
+  reservations[index] = { ..current, state: next, }
   { ..self, reservations, }
 }
 

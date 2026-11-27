@@ -5,10 +5,11 @@
 /// CLI (`health`, `session`, `summary`, `receipts`, and `projections`). It is
 /// deliberately read-only and bounded; the broader authenticated company
 /// service/gateway remains a later migration gate.
+#derive(Debug)
 pub(all) suberror PostgresReadModelServerError {
   InvalidInput(String)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> PostgresReadModelServerError {
@@ -28,7 +29,7 @@ fn decode_hex(value : String) -> String raise PostgresReadModelServerError {
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -62,7 +63,7 @@ fn decode_hex(value : String) -> String raise PostgresReadModelServerError {
 }
 
 ///|
-fn parse_decimal(value : String) -> Int raise PostgresReadModelServerError {
+fn parse_decimal(value : String) -> Int32 raise PostgresReadModelServerError {
   if value.is_empty() {
     raise fail("expected integer")
   }
@@ -92,7 +93,7 @@ fn parse_decimal(value : String) -> Int raise PostgresReadModelServerError {
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresReadModelServerError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -234,7 +235,7 @@ fn path_only(path : String) -> String {
 ///|
 async fn send_json(
   conn : @http.ServerConnection,
-  status : Int,
+  status : Int32,
   payload : Json,
 ) -> Unit {
   let reason = if status == 200 {
@@ -260,7 +261,7 @@ async fn send_json(
 async fn route(
   path : String,
   query : String,
-) -> (Int, Json) raise PostgresReadModelServerError {
+) -> (Int32, Json) raise PostgresReadModelServerError {
   match path {
     "/api/session" =>
       (
@@ -304,7 +305,7 @@ async fn handle(request : @http.Request, conn : @http.ServerConnection) -> Unit 
   let path = path_only(request.path)
   let result = route(path, request.path) catch {
     error => {
-      println("read-model request failed: \{to_repr(error)}")
+      println("read-model request failed: \{Repr(error)}")
       (500, Json::object({ "error": Json::string("read-model query failed") }))
     }
   }
@@ -326,7 +327,7 @@ fn option(args : Array[String], name : String) -> String? {
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   let host = option(args, "--host").unwrap_or(
     @env.get_env_var("COMPANY_READ_MODEL_HOST").unwrap_or("127.0.0.1"),
   )
@@ -336,14 +337,14 @@ async fn main {
   let address = @socket.Addr::parse(host + ":" + port) catch {
     _ => {
       println("invalid read-model listen address")
-      @sys.exit(2)
+      @env.exit(2)
       @socket.Addr::parse("127.0.0.1:4173")
     }
   }
   let server = @http.Server(address, reuse_addr=true) catch {
     _ => {
       println("cannot start read-model server")
-      @sys.exit(1)
+      @env.exit(1)
       @http.Server(@socket.Addr::parse("127.0.0.1:4173"), reuse_addr=true) catch {
         _ => panic()
       }

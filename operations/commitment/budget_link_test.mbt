@@ -13,7 +13,7 @@ fn budget_commitment_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "commitment reserves a project budget line" {
-  let commitment = Commitment::new(
+  let commitment = @commitment.Commitment::new(
     commitment_id="commit-budget-001",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -29,7 +29,7 @@ test "commitment reserves a project budget line" {
     currency="CNY",
     allocated_minor=100000,
   )
-  let (reservation, reserved) = reserve_budget(
+  let (reservation, reserved) = @commitment.reserve_budget(
     commitment,
     budget,
     reservation_id="reservation-001",

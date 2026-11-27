@@ -155,7 +155,9 @@ test "parallel dependency map provides reusable practical diagram output" {
     fail("diagram expected")
   }
   ignore(plan_test_file("parallel-plan.svg", products_text(download, "text")))
-  ignore(plan_test_file("parallel-input.json", ToJson::to_json(full).stringify()))
+  ignore(
+    plan_test_file("parallel-input.json", ToJson::to_json(full).stringify()),
+  )
   assert_true(
     products_text(download, "text").contains("task-design -&gt; task-review"),
   )

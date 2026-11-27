@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteBackupRestoreError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> SqliteBackupRestoreError {
@@ -177,15 +178,15 @@ fn run(args : Array[String]) -> Unit raise SqliteBackupRestoreError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     SqliteBackupRestoreError::InvalidInput(message) => {
       println("company SQLite backup/restore failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     SqliteBackupRestoreError::Io(_) => {
       println("company SQLite backup/restore failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror SalesCohortError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Sales(@sales.SalesError)
   SalesRecord(@sales.SalesRecordError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise SalesCohortError {
@@ -602,31 +603,31 @@ fn run(plan_path : String, output_path : String) -> Unit raise SalesCohortError 
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: sales_cohort <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       SalesCohortError::InvalidInput => {
         println("sales cohort failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       SalesCohortError::Io(_) => {
         println("sales cohort failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       SalesCohortError::Money(_) => {
         println("sales cohort failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       SalesCohortError::Sales(_) => {
         println("sales cohort failed: sales validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       SalesCohortError::SalesRecord(_) => {
         println("sales cohort failed: sales record validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

@@ -13,7 +13,7 @@ fn sales_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "sales agreement reaches fulfillment" {
-  let agreement = SalesAgreement::new(
+  let agreement = @sales.SalesAgreement::new(
     agreement_id="sale-001",
     principal_id="co-001",
     customer_id="customer-001",
@@ -23,26 +23,26 @@ test "sales agreement reaches fulfillment" {
     grant=sales_grant("sales:create"),
   )
   let reserved = agreement.transition(
-    SalesState::Reserved,
+    @sales.SalesState::Reserved,
     actor_id="alice",
     grant=sales_grant("sales:reserve"),
   )
   let signed = reserved.transition(
-    SalesState::Signed,
+    @sales.SalesState::Signed,
     actor_id="alice",
     grant=sales_grant("sales:sign"),
   )
   let fulfilled = signed.transition(
-    SalesState::Fulfilled,
+    @sales.SalesState::Fulfilled,
     actor_id="alice",
     grant=sales_grant("sales:fulfill"),
   )
-  assert_true(fulfilled.state == SalesState::Fulfilled)
+  assert_true(fulfilled.state == @sales.SalesState::Fulfilled)
 }
 
 ///|
 test "fulfilled sales agreement opens a receivable through a separate gate" {
-  let agreement = SalesAgreement::new(
+  let agreement = @sales.SalesAgreement::new(
     agreement_id="sale-receivable-001",
     principal_id="co-001",
     customer_id="customer-001",
@@ -53,17 +53,17 @@ test "fulfilled sales agreement opens a receivable through a separate gate" {
   )
   let fulfilled = agreement
     .transition(
-      SalesState::Reserved,
+      @sales.SalesState::Reserved,
       actor_id="alice",
       grant=sales_grant("sales:reserve"),
     )
     .transition(
-      SalesState::Signed,
+      @sales.SalesState::Signed,
       actor_id="alice",
       grant=sales_grant("sales:sign"),
     )
     .transition(
-      SalesState::Fulfilled,
+      @sales.SalesState::Fulfilled,
       actor_id="alice",
       grant=sales_grant("sales:fulfill"),
     )

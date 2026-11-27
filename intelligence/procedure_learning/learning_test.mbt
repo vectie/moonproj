@@ -1,6 +1,6 @@
 ///|
-fn candidate_fixture() -> ProcedureCandidate raise {
-  ProcedureCandidate::observe(
+fn candidate_fixture() -> @procedure_learning.ProcedureCandidate raise {
+  @procedure_learning.ProcedureCandidate::observe(
     candidate_id="candidate-001",
     principal_id="opc-001",
     workflow_kind="professional-service-shadow",
@@ -35,7 +35,7 @@ test "procedure learning requires validation and independent acceptance before a
       reviewed_at_epoch: 10L,
     })
     .approve()
-  let library = ProcedureLibrary::new().adopt(
+  let library = @procedure_learning.ProcedureLibrary::new().adopt(
     candidate,
     procedure_id="procedure-market-brief-001",
   )

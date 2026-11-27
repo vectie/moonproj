@@ -1,25 +1,28 @@
 ///|
 /// A named capability at one exact company scope. Scope inheritance is
 /// deliberately not implicit: a role must contain every scope it may use.
+#derive(Debug, Eq)
 pub(all) struct Permission {
   capability : String
   scope : String
   max_amount_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// A reusable set of bounded permissions. Roles do not grant authority by
 /// themselves; an active, scoped assignment is required before a grant can be
 /// issued.
+#derive(Debug, Eq)
 pub(all) struct Role {
   role_id : String
   name : String
   permissions : Array[Permission]
-} derive(Debug, Eq)
+}
 
 ///|
 /// A role assignment binds one institutional principal to one acting identity
 /// and one exact scope. The assignment cap can only narrow role permissions.
+#derive(Debug, Eq)
 pub(all) struct RoleAssignment {
   assignment_id : String
   role_id : String
@@ -28,22 +31,24 @@ pub(all) struct RoleAssignment {
   scope : String
   max_amount_minor : Int64
   active : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 /// An exact-scope incompatibility between two capabilities. The rule prevents
 /// one actor from holding both sides through active role assignments.
+#derive(Debug, Eq)
 pub(all) struct SeparationRule {
   rule_id : String
   first_capability : String
   second_capability : String
   scope : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// A bounded, effective-dated delegation. Delegations are not role
 /// assignments and cannot widen the capability, scope, or amount ceiling
 /// declared here.
+#derive(Debug, Eq)
 pub(all) struct Delegation {
   delegation_id : String
   principal_id : String
@@ -55,20 +60,22 @@ pub(all) struct Delegation {
   not_before_epoch : Int64
   expires_at_epoch : Int64?
   active : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 /// Local RBAC directory. It is intentionally separate from authentication;
 /// callers supply an already-authenticated actor and receive a bounded
 /// `AuthorityGrant` for the domain operation they are about to perform.
+#derive(Debug, Eq)
 pub(all) struct AccessDirectory {
   roles : Array[Role]
   assignments : Array[RoleAssignment]
   separation_rules : Array[SeparationRule]
   delegations : Array[Delegation]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AccessError {
   EmptyIdentifier
   InvalidAmount
@@ -94,7 +101,7 @@ pub(all) suberror AccessError {
   WrongRequester
   PermissionDenied
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Permission::new(
@@ -108,7 +115,7 @@ pub fn Permission::new(
   if max_amount_minor < 0L {
     raise AccessError::InvalidAmount
   }
-  { capability, scope, max_amount_minor }
+  { capability, scope, max_amount_minor, }
 }
 
 ///|
@@ -116,7 +123,7 @@ pub fn Role::new(role_id~ : String, name~ : String) -> Role raise AccessError {
   if role_id.trim() == "" || name.trim() == "" {
     raise AccessError::EmptyIdentifier
   }
-  { role_id, name, permissions: [] }
+  { role_id, name, permissions: [], }
 }
 
 ///|
@@ -149,7 +156,7 @@ pub fn Role::add_permission(
 
 ///|
 pub fn AccessDirectory::empty() -> AccessDirectory {
-  { roles: [], assignments: [], separation_rules: [], delegations: [] }
+  { roles: [], assignments: [], separation_rules: [], delegations: [], }
 }
 
 ///|
@@ -256,7 +263,7 @@ pub fn AccessDirectory::revoke_delegation(
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> AccessDirectory raise AccessError {
-  let mut index : Int? = None
+  let mut index : Int32? = None
   for i in 0..<self.delegations.length() {
     if self.delegations[i].delegation_id == delegation_id {
       index = Some(i)
@@ -278,7 +285,7 @@ pub fn AccessDirectory::revoke_delegation(
     error => raise AccessError::NotAuthorized(error)
   }
   let delegations = self.delegations.copy()
-  delegations[index] = { ..delegation, active: false }
+  delegations[index] = { ..delegation, active: false, }
   { ..self, delegations, }
 }
 
@@ -528,7 +535,7 @@ pub fn AccessDirectory::revoke_role(
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> AccessDirectory raise AccessError {
-  let mut index : Int? = None
+  let mut index : Int32? = None
   for i in 0..<self.assignments.length() {
     if self.assignments[i].assignment_id == assignment_id {
       index = Some(i)
@@ -550,7 +557,7 @@ pub fn AccessDirectory::revoke_role(
     error => raise AccessError::NotAuthorized(error)
   }
   let assignments = self.assignments.copy()
-  assignments[index] = { ..assignment, active: false }
+  assignments[index] = { ..assignment, active: false, }
   { ..self, assignments, }
 }
 

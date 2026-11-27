@@ -74,10 +74,11 @@ async fn require_revised_company_binding(
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror CompanyApprovalError {
-  ServiceRejected(Int)
+  ServiceRejected(Int32)
   ServiceUnavailable
-} derive(Debug)
+}
 
 ///|
 async fn approved_service_json(
@@ -93,7 +94,7 @@ async fn approved_service_json(
     actor_signature.is_empty() {
     raise CompanyApprovalError::ServiceUnavailable
   }
-  let (response, data) = @async.with_timeout(10000, fn() {
+  let (response, data) = @async.with_timeout(10000, () => {
     @http.get(service_uri + path, headers={
       "Authorization": "Bearer " + service_token,
       "X-Moonproj-Actor": actor_id,

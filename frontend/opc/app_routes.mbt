@@ -1,7 +1,13 @@
 ///|
 fn nav_items() -> Array[NavItem] {
   [
-    { page: Workspace, group: "指挥", label: "工作空间", short_label: "工", description: "工作关系、任务应用与交付", },
+    {
+      page: Workspace,
+      group: "指挥",
+      label: "工作空间",
+      short_label: "工",
+      description: "工作关系、任务应用与交付",
+    },
     {
       page: Products,
       group: "指挥",
@@ -328,4 +334,3 @@ fn can_settle_commitment(model : Model) -> Bool {
 fn can_recognize_commitment(model : Model) -> Bool {
   model.commitment_stage == 4 && model.ledger_ready
 }
-

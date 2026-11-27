@@ -90,13 +90,17 @@ test "rebase rejects invalid input and shifted overflow atomically" {
       "0000-01-01", "10000-01-01",
     ] {
     assert_true(
-      (try Ok(@plan_workbench.rebase_milestones(source, "kickoff", date)) catch { e => Err(e) })
+      (Ok(@plan_workbench.rebase_milestones(source, "kickoff", date)) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
   for anchor in ["missing", "", "later"] {
     assert_true(
-      (try Ok(@plan_workbench.rebase_milestones(source, anchor, "2028-03-02")) catch { e => Err(e) })
+      (Ok(@plan_workbench.rebase_milestones(source, anchor, "2028-03-02")) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
@@ -108,7 +112,9 @@ test "rebase rejects invalid input and shifted overflow atomically" {
     ],
   }
   assert_true(
-    (try Ok(@plan_workbench.rebase_milestones(invalid, "kickoff", "2028-03-02")) catch { e => Err(e) })
+    (Ok(@plan_workbench.rebase_milestones(invalid, "kickoff", "2028-03-02")) catch {
+      e => Err(e)
+    })
     is Err(@plan_workbench.Invalid(message)) &&
     message.contains("review"),
   )
@@ -117,23 +123,33 @@ test "rebase rejects invalid input and shifted overflow atomically" {
     milestones: [source.milestones[0], source.milestones[0]],
   }
   assert_true(
-    (try Ok(@plan_workbench.rebase_milestones(duplicate, "kickoff", "2028-03-02")) catch { e => Err(e) })
+    (Ok(@plan_workbench.rebase_milestones(duplicate, "kickoff", "2028-03-02")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_true(
-    (try Ok(@plan_workbench.rebase_milestones(
-      { ..source, milestones: [], },
-      "kickoff",
-      "2028-03-02",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.rebase_milestones(
+        { ..source, milestones: [], },
+        "kickoff",
+        "2028-03-02",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_true(
-    (try Ok(@plan_workbench.rebase_milestones(
-      { ..source, milestones: Array::make(41, source.milestones[0]), },
-      "kickoff",
-      "2028-03-02",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.rebase_milestones(
+        { ..source, milestones: Array::make(41, source.milestones[0]), },
+        "kickoff",
+        "2028-03-02",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   for
@@ -150,7 +166,9 @@ test "rebase rejects invalid input and shifted overflow atomically" {
     }
     let before = ToJson::to_json(edge).stringify()
     assert_true(
-      (try Ok(@plan_workbench.rebase_milestones(edge, "kickoff", new_date)) catch { e => Err(e) })
+      (Ok(@plan_workbench.rebase_milestones(edge, "kickoff", new_date)) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
     assert_eq(ToJson::to_json(edge).stringify(), before)

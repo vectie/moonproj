@@ -5,7 +5,7 @@
 struct InvestmentExcelSource {
   import_row : SourceRow
   rows : Map[String, Array[SourceRow]]
-  coverage : Map[String, Int]
+  coverage : Map[String, Int32]
 }
 
 ///|
@@ -18,7 +18,7 @@ fn investment_excel_tables() -> Array[String] {
 
 ///|
 async fn investment_excel_context() -> Map[String, Array[SourceRow]] raise CompanyServiceError {
-  let rows : Map[String, Array[SourceRow]] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
   for table in investment_excel_tables() {
     rows.set(table, raw_source_rows(table, 5000))
   }
@@ -28,8 +28,8 @@ async fn investment_excel_context() -> Map[String, Array[SourceRow]] raise Compa
 ///|
 fn investment_excel_coverage(
   rows : Map[String, Array[SourceRow]],
-) -> Map[String, Int] {
-  let coverage : Map[String, Int] = {}
+) -> Map[String, Int32] {
+  let coverage : Map[String, Int32] = Map([])
   for table in investment_excel_tables() {
     coverage.set(table, rows.get_or_default(table, []).length())
   }
@@ -37,7 +37,10 @@ fn investment_excel_coverage(
 }
 
 ///|
-fn investment_excel_envelope(data : Json, coverage : Map[String, Int]) -> Json {
+fn investment_excel_envelope(
+  data : Json,
+  coverage : Map[String, Int32],
+) -> Json {
   Json::object({
     "success": Json::boolean(true),
     "code": Json::number(0),
@@ -52,7 +55,7 @@ fn investment_excel_envelope(data : Json, coverage : Map[String, Int]) -> Json {
 }
 
 ///|
-fn investment_import_missing_response() -> (Int, Json) {
+fn investment_import_missing_response() -> (Int32, Json) {
   (
     404,
     Json::object({
@@ -250,7 +253,7 @@ async fn investment_imports_response(
 ///|
 async fn investment_import_detail_response(
   import_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let source = investment_excel_source(import_id)
   let source = match source {
     Some(value) => value
@@ -344,7 +347,7 @@ fn investment_bridge_module_plan(module_name : String) -> Json {
 ///|
 async fn investment_import_bridge_plan_response(
   import_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let source = investment_excel_source(import_id)
   let source = match source {
     Some(value) => value
@@ -352,7 +355,7 @@ async fn investment_import_bridge_plan_response(
   }
   let payload = source.import_row.payload
   let sheets = investment_excel_sheet_data(source.rows, import_id)
-  let module_counts : Map[String, Int] = {}
+  let module_counts : Map[String, Int32] = Map([])
   let module_rows : Array[Json] = []
   let mut mapped = 0
   for sheet in sheets {
@@ -383,7 +386,7 @@ async fn investment_import_bridge_plan_response(
     }
     module_rows.push(Json::object(item_fields))
   }
-  let module_json : Map[String, Json] = {}
+  let module_json : Map[String, Json] = Map([])
   for module_name, count in module_counts {
     module_json.set(module_name, Json::number(count.to_double()))
   }
@@ -428,7 +431,7 @@ async fn investment_import_bridge_plan_response(
 ///|
 async fn investment_index_upsert_preview_response(
   import_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let source = investment_excel_source(import_id)
   let source = match source {
     Some(value) => value
@@ -500,7 +503,7 @@ fn investment_index_upsert_spec(
 async fn investment_index_upsert_candidate(
   import_id : String,
   body : Json,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let dry_run = match json_field(body, "dryRun") {
     Some(False) => false
     _ => true
@@ -590,7 +593,7 @@ fn investment_plan_line_import_spec(
 async fn investment_plan_line_import_candidate(
   import_id : String,
   body : Json,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let dry_run = match json_field(body, "dryRun") {
     Some(False) => false
     _ => true
@@ -692,7 +695,7 @@ fn investment_subject_mappings_spec(
 async fn investment_subject_mappings_candidate(
   project_id : String,
   body : Json,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let dry_run = match json_field(body, "dryRun") {
     Some(False) => false
     _ => true
@@ -772,7 +775,7 @@ fn investment_plan_line_update_spec(
 async fn investment_plan_line_update_candidate(
   line_id : String,
   body : Json,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let dry_run = match json_field(body, "dryRun") {
     Some(False) => false
     _ => true
@@ -871,7 +874,7 @@ fn investment_excel_upload_spec(
 }
 
 ///|
-fn investment_excel_upload_candidate(project_id : String) -> (Int, Json) {
+fn investment_excel_upload_candidate(project_id : String) -> (Int32, Json) {
   (
     409,
     Json::object({
@@ -900,14 +903,14 @@ fn investment_excel_upload_candidate(project_id : String) -> (Int, Json) {
 ///|
 async fn investment_profit_table_response(
   import_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let source = investment_excel_source(import_id)
   let source = match source {
     Some(value) => value
     None => return investment_import_missing_response()
   }
   let payload = source.import_row.payload
-  let row_cells : Map[String, Map[String, Json]] = {}
+  let row_cells : Map[String, Map[String, Json]] = Map([])
   let row_order : Array[String] = []
   for row in source.rows.get_or_default("tzsy_profit_table", []) {
     let value = row.payload
@@ -940,7 +943,7 @@ async fn investment_profit_table_response(
   let columns : Array[String] = []
   for row_key in row_order {
     let cells = row_cells.get_or_default(row_key, {})
-    let cell_fields : Map[String, Json] = {}
+    let cell_fields : Map[String, Json] = Map([])
     for column, cell in cells {
       cell_fields.set(column, cell)
       if !columns.contains(column) {
@@ -991,7 +994,7 @@ async fn investment_profit_table_response(
 ///|
 async fn investment_plan_line_preview_response(
   import_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let source = investment_excel_source(import_id)
   let source = match source {
     Some(value) => value
@@ -1051,7 +1054,7 @@ async fn investment_plan_line_preview_response(
 ///|
 async fn investment_profit_cockpit_response(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(project_id) {
     raise reject(422, "invalid project_id")
   }
@@ -1073,7 +1076,7 @@ async fn investment_profit_cockpit_response(
         }),
       )
   }
-  let import_ids : Map[String, Bool] = {}
+  let import_ids : Map[String, Bool] = Map([])
   let mut first_import = ""
   for row in rows.get_or_default("tzsy_excel_import", []) {
     if report_text(row.payload, "proj_guid", "") == project_id {
@@ -1084,7 +1087,7 @@ async fn investment_profit_cockpit_response(
       }
     }
   }
-  let values : Map[String, Json] = {}
+  let values : Map[String, Json] = Map([])
   for row in rows.get_or_default("tzsy_profit_table", []) {
     let payload = row.payload
     if import_ids.contains(report_text(payload, "import_guid", "")) &&
@@ -1112,7 +1115,7 @@ async fn investment_profit_cockpit_response(
       }),
     )
   }
-  let value_json : Map[String, Json] = {}
+  let value_json : Map[String, Json] = Map([])
   for key, value in values {
     value_json.set(key, value)
   }
@@ -1136,7 +1139,7 @@ async fn investment_profit_cockpit_response(
 ///|
 async fn investment_subject_mappings_response(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(project_id) {
     raise reject(422, "invalid project_id")
   }
@@ -1154,7 +1157,7 @@ async fn investment_subject_mappings_response(
         }),
       )
   }
-  let groups : Map[String, Array[Json]] = {}
+  let groups : Map[String, Array[Json]] = Map([])
   for row in rows.get_or_default("tzsy_subject_mapping", []) {
     let payload = row.payload
     if report_text(payload, "proj_guid", "") == project_id {
@@ -1171,7 +1174,7 @@ async fn investment_subject_mappings_response(
       groups.set(category, values)
     }
   }
-  let group_object : Map[String, Json] = {}
+  let group_object : Map[String, Json] = Map([])
   for category, values in groups {
     group_object.set(category, Json::array(values))
   }
@@ -1263,7 +1266,7 @@ async fn investment_plan_lines_response(
       report_text(right, "moduleCode", ""),
     )
   })
-  let by_module : Map[String, Json] = {}
+  let by_module : Map[String, Json] = Map([])
   let amount_total = lines.fold(init=0.0, fn(total, line) {
     total + report_amount(line, "planAmount")
   })

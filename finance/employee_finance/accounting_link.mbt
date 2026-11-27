@@ -66,8 +66,8 @@ pub fn EmployeeAdvance::to_offset_accounting_event(
     entry_id: "advance/" + self.advance_id + "/offset/" + offset_id,
     description: "Offset employee advance " + self.advance_id,
     postings: [
-      { account: expense_account, side: @finance.PostingSide::Debit, amount },
-      { account: advance_account, side: @finance.PostingSide::Credit, amount },
+      { account: expense_account, side: @finance.PostingSide::Debit, amount, },
+      { account: advance_account, side: @finance.PostingSide::Credit, amount, },
     ],
   }
   @accounting.AccountingEvent::new(

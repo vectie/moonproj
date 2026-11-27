@@ -43,7 +43,7 @@ fn import_template_spec(
 }
 
 ///|
-fn import_batch_gate(biz_type : String) -> (Int, Json) {
+fn import_batch_gate(biz_type : String) -> (Int32, Json) {
   (
     409,
     Json::object({
@@ -89,7 +89,7 @@ fn sales_customer_delete_spec(
 }
 
 ///|
-fn sales_customer_delete_gate(customer_guid : String) -> (Int, Json) {
+fn sales_customer_delete_gate(customer_guid : String) -> (Int32, Json) {
   (
     409,
     Json::object({
@@ -135,7 +135,7 @@ fn auth_lifecycle_spec(
 }
 
 ///|
-fn auth_lifecycle_gate(action : String) -> (Int, Json) {
+fn auth_lifecycle_gate(action : String) -> (Int32, Json) {
   (
     409,
     Json::object({

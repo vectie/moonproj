@@ -158,7 +158,7 @@ fn plan_task_offer_apply(
 fn plan_task_offer_payloads(
   task_id : String,
   current : Json,
-  revision : Int,
+  revision : Int32,
   request : Json,
   actor : String,
   key : String,
@@ -206,7 +206,7 @@ fn plan_task_offer_payloads(
 fn plan_task_offer_sql(
   task_id : String,
   current : Json,
-  revision : Int,
+  revision : Int32,
   request : Json,
   actor : String,
   key : String,
@@ -247,7 +247,7 @@ fn plan_task_offer_sql(
 // the established pending/unexecuted planning boundary and one task revision.
 fn plan_task_offer_guarded_sql(
   task_id : String,
-  revision : Int,
+  revision : Int32,
   request : Json,
   actor : String,
   key : String,
@@ -283,7 +283,7 @@ async fn plan_task_offer_update_command(
   body : Json,
   actor : String,
   key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let id = match aggregate_id {
     Some(value) if valid_identifier(value) => value
     _ => raise reject(422, "task_id is required")

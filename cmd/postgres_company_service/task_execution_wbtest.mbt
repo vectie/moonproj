@@ -114,7 +114,7 @@ test "task execution rejects cross-command result and terminal state regression"
     "state": "completed",
   }
   assert_true(
-    (try Ok(plan_task_execution_merge(current, foreign)) catch { e => Err(e) })
+    (Ok(plan_task_execution_merge(current, foreign)) catch { e => Err(e) })
     is Err(_),
   )
 }
@@ -311,18 +311,16 @@ test "stale task update or Accept never acknowledges an unapplied command" {
     "changes": { "status": "done" },
   }
   assert_true(
-    (try Ok(plan_task_applied_command(None, update)) catch { e => Err(e) })
+    (Ok(plan_task_applied_command(None, update)) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try
-      Ok(
-        plan_task_applied_command(
-          Some({ "request": { "command_type": "dispatch" } }),
-          update,
-        ),
-      )
-    catch {
+    (Ok(
+      plan_task_applied_command(
+        Some({ "request": { "command_type": "dispatch" } }),
+        update,
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),

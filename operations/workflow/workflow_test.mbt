@@ -13,15 +13,15 @@ fn workflow_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "weighted workflow advances and approves" {
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="expense-approval",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 2 },
-      { step_id: "finance", capability: "expense:pay", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 2, },
+      { step_id: "finance", capability: "expense:pay", required_weight: 1, },
     ],
   )
-  let instance = start_process(
+  let instance = @workflow.start_process(
     definition,
     instance_id="wf-001",
     principal_id="co-001",
@@ -31,49 +31,49 @@ test "weighted workflow advances and approves" {
   )
   let approved_manager = instance.decide(
     step_id="manager",
-    decision=Decision::Approve,
+    decision=@workflow.Decision::Approve,
     weight=2,
     actor_id="alice",
     grant=workflow_grant("expense:approve"),
   )
   let approved_finance = approved_manager.decide(
     step_id="finance",
-    decision=Decision::Approve,
+    decision=@workflow.Decision::Approve,
     weight=1,
     actor_id="alice",
     grant=workflow_grant("expense:pay"),
   )
-  assert_true(approved_finance.status == ProcessStatus::Approved)
+  assert_true(approved_finance.status == @workflow.ProcessStatus::Approved)
   assert_eq(approved_finance.actions.length(), 2)
 }
 
 ///|
 test "workflow rejects duplicate action and wrong step" {
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="contract-approval",
     process_key="contract-approval",
     steps=[
-      { step_id: "review", capability: "contract:approve", required_weight: 1 },
+      { step_id: "review", capability: "contract:approve", required_weight: 1, },
     ],
   )
-  let instance = start_process(
+  let instance = @workflow.start_process(
     definition,
     instance_id="wf-002",
     principal_id="co-001",
     subject_id="contract:ct-001",
     actor_id="alice",
-    grant={ ..workflow_grant("workflow:start"), scope: "contract:ct-001" },
+    grant={ ..workflow_grant("workflow:start"), scope: "contract:ct-001", },
   )
   try
     instance.decide(
       step_id="other",
-      decision=Decision::Approve,
+      decision=@workflow.Decision::Approve,
       weight=1,
       actor_id="alice",
-      grant={ ..workflow_grant("contract:approve"), scope: "contract:ct-001" },
+      grant={ ..workflow_grant("contract:approve"), scope: "contract:ct-001", },
     )
   catch {
-    WorkflowError::WrongStep => ()
+    @workflow.WorkflowError::WrongStep => ()
     _ => fail("wrong workflow error")
   } noraise {
     _ => fail("expected workflow error")
@@ -82,11 +82,11 @@ test "workflow rejects duplicate action and wrong step" {
 
 ///|
 test "workflow assignment is separate from authority and references a step" {
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="assignment-definition",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   )
   let assignment = definition.assign_step(
@@ -122,11 +122,11 @@ test "workflow assignment projection preserves source identity" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="assignment-projection-definition",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   )
   let assignment = definition.assign_step(
@@ -168,11 +168,11 @@ test "workflow assignment projection preserves source identity" {
 
 ///|
 test "attached workflow assignments enforce the decision actor" {
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="assignment-enforced-definition",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   )
   let assignment = definition.assign_step(
@@ -194,7 +194,7 @@ test "attached workflow assignments enforce the decision actor" {
     },
   )
   let assigned_definition = definition.attach_assignment(assignment)
-  let instance = start_process(
+  let instance = @workflow.start_process(
     assigned_definition,
     instance_id="wf-assignment-enforced",
     principal_id="co-001",
@@ -205,35 +205,35 @@ test "attached workflow assignments enforce the decision actor" {
   try
     instance.decide(
       step_id="manager",
-      decision=Decision::Approve,
+      decision=@workflow.Decision::Approve,
       weight=1,
       actor_id="bob",
-      grant={ ..workflow_grant("expense:approve"), actor_id: "bob" },
+      grant={ ..workflow_grant("expense:approve"), actor_id: "bob", },
     )
   catch {
-    WorkflowError::NotAssigned => ()
+    @workflow.WorkflowError::NotAssigned => ()
     _ => fail("wrong workflow assignment error")
   } noraise {
     _ => fail("expected workflow assignment enforcement")
   }
   let approved = instance.decide(
     step_id="manager",
-    decision=Decision::Approve,
+    decision=@workflow.Decision::Approve,
     weight=1,
     actor_id="alice",
     grant=workflow_grant("expense:approve"),
   )
-  assert_true(approved.status == ProcessStatus::Approved)
+  assert_true(approved.status == @workflow.ProcessStatus::Approved)
   assert_eq(approved.assignments.length(), 1)
 }
 
 ///|
 test "workflow delegated decisions require an attached assignment and retain delegation evidence" {
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="delegated-assignment-definition",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   )
   let assignment = definition.assign_step(
@@ -279,7 +279,7 @@ test "workflow delegated decisions require an attached assignment and retain del
       active: true,
     },
   )
-  let instance = start_process(
+  let instance = @workflow.start_process(
     definition,
     instance_id="wf-delegated-001",
     principal_id="co-001",
@@ -290,7 +290,7 @@ test "workflow delegated decisions require an attached assignment and retain del
   try
     instance.decide_delegated(
       step_id="manager",
-      decision=Decision::Approve,
+      decision=@workflow.Decision::Approve,
       weight=1,
       actor_id="delegate-001",
       delegation_id="workflow-delegation-001",
@@ -298,22 +298,23 @@ test "workflow delegated decisions require an attached assignment and retain del
       directory~,
     )
   catch {
-    WorkflowError::Delegation(@access.AccessError::DelegationNotYetEffective) =>
-      ()
+    @workflow.WorkflowError::Delegation(
+      @access.AccessError::DelegationNotYetEffective,
+    ) => ()
     _ => fail("wrong workflow delegation window error")
   } noraise {
     _ => fail("expected workflow delegation window")
   }
   let approved = instance.decide_delegated(
     step_id="manager",
-    decision=Decision::Approve,
+    decision=@workflow.Decision::Approve,
     weight=1,
     actor_id="delegate-001",
     delegation_id="workflow-delegation-001",
     at_epoch=100L,
     directory~,
   )
-  assert_true(approved.status == ProcessStatus::Approved)
+  assert_true(approved.status == @workflow.ProcessStatus::Approved)
   match approved.actions[0].delegation_id {
     Some(value) => assert_eq(value, "workflow-delegation-001")
     None => fail("missing delegation evidence")
@@ -352,7 +353,7 @@ test "workflow delegated decisions require an attached assignment and retain del
       active: true,
     },
   )
-  let second_instance = start_process(
+  let second_instance = @workflow.start_process(
     definition,
     instance_id="wf-delegated-002",
     principal_id="co-001",
@@ -363,7 +364,7 @@ test "workflow delegated decisions require an attached assignment and retain del
   try
     second_instance.decide_delegated(
       step_id="manager",
-      decision=Decision::Approve,
+      decision=@workflow.Decision::Approve,
       weight=1,
       actor_id="delegate-001",
       delegation_id="workflow-delegation-001",
@@ -371,7 +372,8 @@ test "workflow delegated decisions require an attached assignment and retain del
       directory=revoked_directory,
     )
   catch {
-    WorkflowError::Delegation(@access.AccessError::InactiveDelegation) => ()
+    @workflow.WorkflowError::Delegation(@access.AccessError::InactiveDelegation) =>
+      ()
     _ => fail("wrong revoked workflow delegation error")
   } noraise {
     _ => fail("expected revoked workflow delegation")
@@ -380,11 +382,11 @@ test "workflow delegated decisions require an attached assignment and retain del
 
 ///|
 test "workflow SLA records due and overdue evidence without escalation authority" {
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="sla-definition",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   ).add_sla_policy(
     {
@@ -406,7 +408,7 @@ test "workflow SLA records due and overdue evidence without escalation authority
       active: true,
     },
   )
-  let instance = start_process(
+  let instance = @workflow.start_process(
     definition,
     instance_id="wf-sla-001",
     principal_id="co-001",
@@ -419,7 +421,7 @@ test "workflow SLA records due and overdue evidence without escalation authority
     started_at_epoch=1000L,
     observed_at_epoch=1099L,
   )
-  assert_true(due.state == WorkflowSlaState::Due)
+  assert_true(due.state == @workflow.WorkflowSlaState::Due)
   let observed = instance.record_sla_evidence(due, actor_id="alice", grant={
     grant_id: "sla-observe",
     principal_id: "co-001",
@@ -434,7 +436,7 @@ test "workflow SLA records due and overdue evidence without escalation authority
     started_at_epoch=1000L,
     observed_at_epoch=1100L,
   )
-  assert_true(overdue.state == WorkflowSlaState::Overdue)
+  assert_true(overdue.state == @workflow.WorkflowSlaState::Overdue)
   let observed = observed.record_sla_evidence(overdue, actor_id="alice", grant={
     grant_id: "sla-observe-2",
     principal_id: "co-001",
@@ -444,7 +446,7 @@ test "workflow SLA records due and overdue evidence without escalation authority
     max_amount_minor: 0,
     active: true,
   })
-  assert_true(observed.status == ProcessStatus::Pending)
+  assert_true(observed.status == @workflow.ProcessStatus::Pending)
   assert_eq(observed.actions.length(), 0)
   assert_eq(observed.sla_evidence.length(), 2)
   assert_true(!observed.sla_evidence[1].authority_granted)
@@ -476,11 +478,11 @@ test "workflow SLA records due and overdue evidence without escalation authority
 
 ///|
 test "workflow assignment attachment validates identity and remains non-authorizing" {
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="assignment-identity-definition",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   )
   let assignment = definition.assign_step(
@@ -501,15 +503,15 @@ test "workflow assignment attachment validates identity and remains non-authoriz
       active: true,
     },
   )
-  let other_definition = ProcessDefinition::new(
+  let other_definition = @workflow.ProcessDefinition::new(
     process_id="other-assignment-definition",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   )
   try other_definition.attach_assignment(assignment) catch {
-    WorkflowError::AssignmentProcessMismatch => ()
+    @workflow.WorkflowError::AssignmentProcessMismatch => ()
     _ => fail("wrong assignment identity error")
   } noraise {
     _ => fail("expected assignment process mismatch")
@@ -521,12 +523,12 @@ test "workflow assignment attachment validates identity and remains non-authoriz
   assert_true(!evidence.grants_authority)
   assert_true(!evidence.approves_instance)
   try attached.assignment_attachment(assignment_id="missing-assignment") catch {
-    WorkflowError::UnknownAssignment => ()
+    @workflow.WorkflowError::UnknownAssignment => ()
     _ => fail("wrong missing assignment error")
   } noraise {
     _ => fail("expected missing assignment error")
   }
-  let instance = start_process(
+  let instance = @workflow.start_process(
     attached,
     instance_id="wf-assignment-authority-boundary",
     principal_id="co-001",
@@ -537,13 +539,13 @@ test "workflow assignment attachment validates identity and remains non-authoriz
   try
     instance.decide(
       step_id="manager",
-      decision=Decision::Approve,
+      decision=@workflow.Decision::Approve,
       weight=1,
       actor_id="alice",
       grant=workflow_grant("workflow:assignment:add"),
     )
   catch {
-    WorkflowError::NotAuthorized(_) => ()
+    @workflow.WorkflowError::NotAuthorized(_) => ()
     _ => fail("assignment unexpectedly authorized approval")
   } noraise {
     _ => fail("expected decision authority check")
@@ -560,11 +562,11 @@ test "workflow definitions and decisions persist approval evidence" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let definition = ProcessDefinition::new(
+  let definition = @workflow.ProcessDefinition::new(
     process_id="expense-definition-projection",
     process_key="expense-approval",
     steps=[
-      { step_id: "manager", capability: "expense:approve", required_weight: 1 },
+      { step_id: "manager", capability: "expense:approve", required_weight: 1, },
     ],
   )
   let definition_projection = @store.AggregateProjection::new(
@@ -575,7 +577,7 @@ test "workflow definitions and decisions persist approval evidence" {
   let definition_projection = definition.append_projection(
     definition_projection,
   )
-  let instance = start_process(
+  let instance = @workflow.start_process(
     definition,
     instance_id="wf-projection",
     principal_id="co-001",
@@ -584,7 +586,7 @@ test "workflow definitions and decisions persist approval evidence" {
     grant=workflow_grant("workflow:start"),
   ).decide(
     step_id="manager",
-    decision=Decision::Approve,
+    decision=@workflow.Decision::Approve,
     weight=1,
     actor_id="alice",
     grant=workflow_grant("expense:approve"),

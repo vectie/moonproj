@@ -51,7 +51,7 @@ fn plan_task_with_product_metadata(
 ) -> Json raise CompanyServiceError {
   let fields = match request {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   match plan_task_product_metadata(body, create_mode) {
     Object(metadata) =>
@@ -481,7 +481,7 @@ fn delivery_task_report_request(
   // Preserve legacy request equality by omitting absent product metadata.
   let fields = match request {
     Object(fields) => fields
-    _ => Map::new()
+    _ => Map([])
   }
   match plan_task_product_public(product_snapshot) {
     String(id) => fields.set("product_id", Json::string(id))

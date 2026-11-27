@@ -1,9 +1,10 @@
 ///|
+#derive(Debug)
 pub(all) suberror ModelEvaluationPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Model(@model.ModelError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise ModelEvaluationPromotionError {
@@ -63,7 +64,7 @@ fn optional_string(
 fn required_int(
   obj : Map[String, Json],
   key : String,
-) -> Int raise ModelEvaluationPromotionError {
+) -> Int32 raise ModelEvaluationPromotionError {
   match required(obj, key) {
     Number(value, ..) if value == value.trunc() => value.to_int()
     _ => raise ModelEvaluationPromotionError::InvalidInput
@@ -338,25 +339,25 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println(
       "usage: investment_model_eval <investment-promotion.json> <receipt.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       ModelEvaluationPromotionError::InvalidInput => {
         println("investment model evaluation failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ModelEvaluationPromotionError::Io(_) => {
         println("investment model evaluation failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ModelEvaluationPromotionError::Model(_) => {
         println("investment model evaluation failed: model validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

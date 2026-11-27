@@ -5,7 +5,7 @@ fn extension_capability(
   circuit : @product.OperatingCircuit,
   system : @product.CompanySystem,
 ) -> @product.Capability {
-  { id, label, circuit, system }
+  { id, label, circuit, system, }
 }
 
 ///|

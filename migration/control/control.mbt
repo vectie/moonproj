@@ -2,28 +2,31 @@
 /// A source-side opening control total. Values are minor units or exact row
 /// counts, depending on the named domain/dimension; the extractor decides the
 /// unit and records it in the metric identifier.
+#derive(Debug, Eq)
 pub(all) struct ControlTotal {
   metric_id : String
   domain : String
   dimension : String
   value : Int64
   tolerance : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct OpeningControlSet {
   source_snapshot_id : String
   controls : Array[ControlTotal]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ControlError {
   EmptyIdentifier
   NegativeValue
   NegativeTolerance
   DuplicateMetric
   Shadow(@shadow.ShadowError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn OpeningControlSet::new(
@@ -32,7 +35,7 @@ pub fn OpeningControlSet::new(
   if source_snapshot_id.trim() == "" {
     raise ControlError::EmptyIdentifier
   }
-  { source_snapshot_id, controls: [] }
+  { source_snapshot_id, controls: [], }
 }
 
 ///|

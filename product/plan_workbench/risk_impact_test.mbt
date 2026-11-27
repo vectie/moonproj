@@ -157,12 +157,19 @@ test "stale risk links and invalid dependency graphs reject without partial outp
       },
     ] {
     assert_true(
-      (try Ok(@plan_workbench.risk_impact_report(bad, "supplier", "Release")) catch { e => Err(e) })
+      (Ok(@plan_workbench.risk_impact_report(bad, "supplier", "Release")) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
-  assert_true((try Ok(@plan_workbench.risk_impact(d, "removed")) catch { e => Err(e) }) is Err(_))
-  assert_true((try Ok(@plan_workbench.risk_impact(d, "")) catch { e => Err(e) }) is Err(_))
+  assert_true(
+    (Ok(@plan_workbench.risk_impact(d, "removed")) catch { e => Err(e) })
+    is Err(_),
+  )
+  assert_true(
+    (Ok(@plan_workbench.risk_impact(d, "")) catch { e => Err(e) }) is Err(_),
+  )
   assert_eq(d, impact_draft())
 }
 
@@ -191,6 +198,9 @@ test "bounded large risk scope exposes cost overflow instead of wrapping" {
   )
   let too_many = { ..large, tasks: [..tasks, { ..tasks[0], id: "t100", }], }
   assert_true(
-    (try Ok(@plan_workbench.risk_impact(too_many, "supplier")) catch { e => Err(e) }) is Err(_),
+    (Ok(@plan_workbench.risk_impact(too_many, "supplier")) catch {
+      e => Err(e)
+    })
+    is Err(_),
   )
 }

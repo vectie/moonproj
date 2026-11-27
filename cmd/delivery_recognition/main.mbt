@@ -1,4 +1,5 @@
 ///|
+#derive(Debug)
 pub(all) suberror RecognitionPromotionError {
   InvalidInput
   Quarantined(String)
@@ -6,7 +7,7 @@ pub(all) suberror RecognitionPromotionError {
   Io(@fs.IOError)
   Delivery(@delivery.DeliveryError)
   Money(@finance.MoneyError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise RecognitionPromotionError {
@@ -332,35 +333,35 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: delivery_recognition <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       RecognitionPromotionError::Quarantined(source) => {
         println("delivery recognition refused quarantined item: " + source)
-        @sys.exit(1)
+        @env.exit(1)
       }
       RecognitionPromotionError::NoAcceptedItems => {
         println("delivery recognition found no reviewed accepted items")
-        @sys.exit(1)
+        @env.exit(1)
       }
       RecognitionPromotionError::InvalidInput => {
         println("delivery recognition failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       RecognitionPromotionError::Io(_) => {
         println("delivery recognition failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       RecognitionPromotionError::Delivery(_) => {
         println("delivery recognition failed: domain validation error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       RecognitionPromotionError::Money(_) => {
         println("delivery recognition failed: invalid money")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

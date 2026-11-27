@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror ControlPromotionError {
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Control(@control.ControlError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise ControlPromotionError {
@@ -110,7 +111,7 @@ fn run(
     let value = required_int64(control_obj, "value")
     let tolerance = required_int64(control_obj, "tolerance")
     let unit = required_string(control_obj, "unit")
-    controls = controls.add({ metric_id, domain, dimension, value, tolerance }) catch {
+    controls = controls.add({ metric_id, domain, dimension, value, tolerance, }) catch {
       error => raise ControlPromotionError::Control(error)
     }
     accepted.push(
@@ -170,27 +171,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: opening_control <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       ControlPromotionError::Quarantined(source) => {
         println("opening-control refused quarantined item: " + source)
-        @sys.exit(1)
+        @env.exit(1)
       }
       ControlPromotionError::InvalidInput => {
         println("opening-control failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ControlPromotionError::Io(_) => {
         println("opening-control failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ControlPromotionError::Control(_) => {
         println("opening-control failed: control invariant")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

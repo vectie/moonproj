@@ -1,5 +1,6 @@
 ///|
 /// Portable authoring content only. Row IDs are template-local references.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Template {
   format : String
   notes : String
@@ -10,11 +11,11 @@ pub(all) struct Template {
   tasks : Array[Task]
   milestones : Array[Milestone]
   risks : Array[Risk]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 fn template_ids(ids : Array[String], label : String) -> Unit raise InputError {
-  let seen : Map[String, Bool] = {}
+  let seen : Map[String, Bool] = Map([])
   for id in ids {
     if id.trim().is_empty() || seen.contains(id) {
       raise Invalid(label + ": IDs must be nonempty and unique: " + id)
@@ -197,15 +198,14 @@ pub fn export_template(d : Draft) -> String raise InputError {
   }
   template_validate(t)
   let portable = ToJson::to_json(
-      template_remap(
-        t,
-        template_map(t.owners.map(v => v.id), "owner-"),
-        template_map(t.tasks.map(v => v.id), "task-"),
-        template_map(t.milestones.map(v => v.id), "milestone-"),
-        template_map(t.risks.map(v => v.id), "risk-"),
-      ),
-    )
-    .stringify(indent=2)
+    template_remap(
+      t,
+      template_map(t.owners.map(v => v.id), "owner-"),
+      template_map(t.tasks.map(v => v.id), "task-"),
+      template_map(t.milestones.map(v => v.id), "milestone-"),
+      template_map(t.risks.map(v => v.id), "risk-"),
+    ),
+  ).stringify(indent=2)
   if portable.length() > 1000000 {
     raise Invalid("Template exceeds 1,000,000 text code units")
   }

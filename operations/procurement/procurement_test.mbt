@@ -12,8 +12,8 @@ fn procurement_grant(capability : String) -> @foundation.AuthorityGrant {
 }
 
 ///|
-fn active_supplier() -> Supplier raise SupplierError {
-  let supplier = Supplier::new(
+fn active_supplier() -> @procurement.Supplier raise @procurement.SupplierError {
+  let supplier = @procurement.Supplier::new(
     supplier_id="supplier-001",
     principal_id="co-001",
     scope="project:p-001",
@@ -24,7 +24,7 @@ fn active_supplier() -> Supplier raise SupplierError {
     grant=procurement_grant("supplier:create"),
   ).submit_review(actor_id="alice", grant=procurement_grant("supplier:submit"))
   supplier.review(
-    evaluation=SupplierEvaluation::Qualified,
+    evaluation=@procurement.SupplierEvaluation::Qualified,
     actor_id="alice",
     grant=procurement_grant("supplier:review"),
   )
@@ -33,7 +33,7 @@ fn active_supplier() -> Supplier raise SupplierError {
 ///|
 test "supplier qualification gates tender award" {
   let supplier = active_supplier()
-  let tender = TenderPlan::new(
+  let tender = @procurement.TenderPlan::new(
       tender_id="tender-001",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -52,14 +52,14 @@ test "supplier qualification gates tender award" {
       grant=procurement_grant("tender:bid"),
     )
     .award(supplier, actor_id="alice", grant=procurement_grant("tender:award"))
-  assert_true(tender.state == TenderState::Awarded)
+  assert_true(tender.state == @procurement.TenderState::Awarded)
   assert_true(tender.awarded_supplier_id == Some("supplier-001"))
   assert_eq(tender.awarded_amount.unwrap().minor, 480000L)
 }
 
 ///|
 test "tender rejects an unqualified supplier" {
-  let supplier = Supplier::new(
+  let supplier = @procurement.Supplier::new(
     supplier_id="supplier-002",
     principal_id="co-001",
     scope="project:p-001",
@@ -69,7 +69,7 @@ test "tender rejects an unqualified supplier" {
     actor_id="alice",
     grant=procurement_grant("supplier:create"),
   )
-  let tender = TenderPlan::new(
+  let tender = @procurement.TenderPlan::new(
       tender_id="tender-002",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -89,7 +89,7 @@ test "tender rejects an unqualified supplier" {
       grant=procurement_grant("tender:bid"),
     )
   catch {
-    TenderError::SupplierNotEligible => ()
+    @procurement.TenderError::SupplierNotEligible => ()
     _ => fail("wrong tender error")
   } noraise {
     _ => fail("expected tender error")
@@ -113,7 +113,7 @@ test "supplier and tender state persist as revisioned projections" {
     aggregate_id="supplier-001",
   )
   let supplier_projection = supplier.append_projection(supplier_projection)
-  let tender = TenderPlan::new(
+  let tender = @procurement.TenderPlan::new(
       tender_id="tender-projection",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -155,17 +155,17 @@ test "supplier void preserves an explicit lifecycle event" {
     actor_id="alice",
     grant=procurement_grant("supplier:void"),
   )
-  assert_true(voided.state == SupplierState::Voided)
+  assert_true(voided.state == @procurement.SupplierState::Voided)
   assert_eq(voided.events.length(), supplier.events.length() + 1)
   let event = voided.events[voided.events.length() - 1]
   assert_eq(event.capability, "supplier:void")
-  assert_true(event.to == SupplierState::Voided)
+  assert_true(event.to == @procurement.SupplierState::Voided)
 }
 
 ///|
 test "awarded tender creates a commitment through two authority gates" {
   let supplier = active_supplier()
-  let tender = TenderPlan::new(
+  let tender = @procurement.TenderPlan::new(
       tender_id="tender-commitment",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -198,7 +198,7 @@ test "awarded tender creates a commitment through two authority gates" {
 ///|
 test "unawarded tender cannot create a commitment" {
   let supplier = active_supplier()
-  let tender = TenderPlan::new(
+  let tender = @procurement.TenderPlan::new(
     tender_id="tender-no-award",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -216,7 +216,7 @@ test "unawarded tender cannot create a commitment" {
       commitment_grant=procurement_grant("commitment:create"),
     )
   catch {
-    TenderError::InvalidState => ()
+    @procurement.TenderError::InvalidState => ()
     _ => fail("wrong tender error")
   } noraise {
     _ => fail("expected award gate")

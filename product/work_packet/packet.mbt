@@ -1,5 +1,6 @@
 ///|
 /// Portable editable task text, not a saved company task or a draft-store backup.
+#derive(Debug, Eq)
 pub(all) struct Packet {
   title : String
   acceptance : String
@@ -7,12 +8,13 @@ pub(all) struct Packet {
   observed_problem : String
   begin_date : String
   end_date : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror PacketError {
   Invalid(String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn field(fields : Map[String, Json], key : String) -> String raise PacketError {

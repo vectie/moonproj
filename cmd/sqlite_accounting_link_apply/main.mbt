@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteAccountingLinkApplyError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct Item {
@@ -132,9 +133,9 @@ fn load_receipt(path : String) -> Receipt raise SqliteAccountingLinkApplyError {
     events.push(event_id)
     sources.push(source_key)
     journals.push(journal_id)
-    items.push({ event_id, source_type, source_id, journal_id, principal_id })
+    items.push({ event_id, source_type, source_id, journal_id, principal_id, })
   }
-  { source_snapshot_id: snapshot, mapping_version: mapping, items }
+  { source_snapshot_id: snapshot, mapping_version: mapping, items, }
 }
 
 ///|
@@ -150,7 +151,7 @@ fn decode_hex(value : String) -> String raise SqliteAccountingLinkApplyError {
     raise fail("invalid SQLite hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -201,7 +202,7 @@ fn parse_rows(path : String) -> Array[Row] raise SqliteAccountingLinkApplyError 
 }
 
 ///|
-fn row_sort(left : Row, right : Row) -> Int {
+fn row_sort(left : Row, right : Row) -> Int32 {
   left.event_id.lexical_compare(right.event_id)
 }
 
@@ -288,7 +289,7 @@ fn write_plan(
 ) -> Unit raise SqliteAccountingLinkApplyError {
   let before = parse_rows(before_path)
   let baseline_hash = hash_rows(before)
-  let existing : Map[String, Bool] = {}
+  let existing : Map[String, Bool] = Map([])
   for row in before {
     existing.set(row.event_id, true)
   }
@@ -368,7 +369,7 @@ fn write_plan(
 }
 
 ///|
-fn parse_int(value : String) -> Int raise SqliteAccountingLinkApplyError {
+fn parse_int(value : String) -> Int32 raise SqliteAccountingLinkApplyError {
   let source = value.trim().to_owned()
   if source.is_empty() {
     raise fail("expected integer")
@@ -388,8 +389,8 @@ fn report(
   work_dir : String,
   after_path : String,
   integrity : String,
-  link_count : Int,
-  receipt_count : Int,
+  link_count : Int32,
+  receipt_count : Int32,
   receipt_inserted : Bool,
   database : String,
   output_path : String,
@@ -457,15 +458,15 @@ fn run(args : Array[String]) -> Unit raise SqliteAccountingLinkApplyError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     SqliteAccountingLinkApplyError::InvalidInput(message) => {
       println("company SQLite accounting-link apply failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     SqliteAccountingLinkApplyError::Io(_) => {
       println("company SQLite accounting-link apply failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

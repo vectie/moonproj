@@ -83,7 +83,7 @@ fn company_command_transaction_sql(body : String) -> String {
 ///|
 fn company_command_parse_response(
   output : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let marker = "MOONPROJ_COMMAND_RESPONSE:"
   let frames : Array[String] = []
   for line in output.split("\n") {
@@ -318,7 +318,7 @@ async fn company_profile_create_command(
   body : Json,
   actor_id : String,
   key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let request = company_profile_create_request(body, actor_id, key)
   let response = try {
     let output = run_sql(company_profile_create_sql(request, key))
@@ -332,7 +332,7 @@ async fn company_profile_create_command(
       let fields = match
         company_profile_response(json_field(canonical, "result")) {
         Object(fields) => fields
-        _ => Map::new()
+        _ => Map([])
       }
       fields.set("command", canonical)
       fields.set("idempotent_replay", true)

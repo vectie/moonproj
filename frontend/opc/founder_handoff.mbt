@@ -17,6 +17,7 @@ extern "js" fn founder_download_packet(content : String) -> Bool =
   #| (content) => { try { const url = URL.createObjectURL(new Blob([content], { type: "text/markdown;charset=utf-8" })); const link = document.createElement("a"); link.href = url; link.download = "moonproj-founder-work.md"; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 10000); return true } catch (_) { return false } }
 
 ///|
+#derive(Debug, Eq, FromJson)
 struct LegacyFounderDraft {
   kind : String
   title : String
@@ -27,7 +28,7 @@ struct LegacyFounderDraft {
   owner_id : String
   begin_date : String
   end_date : String
-} derive(Debug, Eq, FromJson)
+}
 
 ///|
 fn founder_legacy_draft(text : String) -> LegacyFounderDraft? {
@@ -154,6 +155,7 @@ fn founder_after_draft_restore(
 }
 
 ///|
+#derive(Debug, Eq)
 struct FounderPacketContext {
   status : String
   task_id : String
@@ -165,7 +167,7 @@ struct FounderPacketContext {
   owner_id : String
   begin_date : String
   end_date : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn founder_packet_context(model : Model) -> FounderPacketContext? {

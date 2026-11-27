@@ -12,8 +12,8 @@ fn accepted_result_test_field(value : Json, key : String, item : Json) -> Json {
 fn accepted_result_test_data(
   root : String,
   bytes : Bytes,
-  revision_id? : String = "H1",
-  report_id? : String = "report-T",
+  revision_id~ : String = "H1",
+  report_id~ : String = "report-T",
 ) -> Json {
   let (original, captured, _) = human_revision_test_fixture(root~, bytes~)
   let revision = accepted_result_test_field(
@@ -196,17 +196,15 @@ async test "accepted human result rejects wrong source report receipts manifest 
       ("revision", Json::number(2147483648)),
     ] {
     assert_true(
-      (try
-        Ok(
-          accepted_human_result_projection(
-            accepted_result_test_field(
-              data,
-              "task",
-              accepted_result_test_field(task, key, value),
-            ),
+      (Ok(
+        accepted_human_result_projection(
+          accepted_result_test_field(
+            data,
+            "task",
+            accepted_result_test_field(task, key, value),
           ),
-        )
-      catch {
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -222,17 +220,15 @@ async test "accepted human result rejects wrong source report receipts manifest 
       ("task_id", Json::string("another")),
     ] {
     assert_true(
-      (try
-        Ok(
-          accepted_human_result_projection(
-            accepted_result_test_field(
-              data,
-              "reports",
-              Json::array([accepted_result_test_field(report, key, value)]),
-            ),
+      (Ok(
+        accepted_human_result_projection(
+          accepted_result_test_field(
+            data,
+            "reports",
+            Json::array([accepted_result_test_field(report, key, value)]),
           ),
-        )
-      catch {
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -240,16 +236,14 @@ async test "accepted human result rejects wrong source report receipts manifest 
     )
   }
   assert_true(
-    (try
-      Ok(
-        accepted_human_result_projection(
-          accepted_result_test_field(data, "commitment", {
-            "task_id": "T",
-            "receipts": [],
-          }),
-        ),
-      )
-    catch {
+    (Ok(
+      accepted_human_result_projection(
+        accepted_result_test_field(data, "commitment", {
+          "task_id": "T",
+          "receipts": [],
+        }),
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -262,8 +256,7 @@ async test "accepted human result rejects wrong source report receipts manifest 
     create_mode=TruncateExisting,
   )
   assert_true(
-    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
-    is Err(_),
+    (Ok(accepted_human_result_projection(data)) catch { e => Err(e) }) is Err(_),
   )
   accepted_result_test_store(data, bytes)
   @fs.write_file(
@@ -272,19 +265,16 @@ async test "accepted human result rejects wrong source report receipts manifest 
     create_mode=TruncateExisting,
   )
   assert_true(
-    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
-    is Err(_),
+    (Ok(accepted_human_result_projection(data)) catch { e => Err(e) }) is Err(_),
   )
   @fs.remove(directory + "/content.txt")
   assert_true(
-    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
-    is Err(_),
+    (Ok(accepted_human_result_projection(data)) catch { e => Err(e) }) is Err(_),
   )
   @fs.write_file(root + "/outside.txt", bytes, create_mode=CreateNew)
   @fs.symlink(target=root + "/outside.txt", directory + "/content.txt")
   assert_true(
-    (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
-    is Err(_),
+    (Ok(accepted_human_result_projection(data)) catch { e => Err(e) }) is Err(_),
   )
 }
 
@@ -301,7 +291,7 @@ async test "accepted human result portability rejects NUL invalid UTF8 and over 
     let data = accepted_result_test_data(root, bytes)
     accepted_result_test_store(data, bytes)
     assert_true(
-      (try Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
+      (Ok(accepted_human_result_projection(data)) catch { e => Err(e) })
       is Err(_),
     )
   }
@@ -349,21 +339,19 @@ async test "accepted human result preserves accepted unattached attribution and 
     "C1:event/result",
   )
   assert_true(
-    (try
-      Ok(
-        accepted_human_result_projection(
+    (Ok(
+      accepted_human_result_projection(
+        accepted_result_test_field(
+          revised,
+          "task",
           accepted_result_test_field(
-            revised,
-            "task",
-            accepted_result_test_field(
-              revised_task,
-              "continuations",
-              Json::array([{ "command_id": "C1", "artifact_refs": [] }]),
-            ),
+            revised_task,
+            "continuations",
+            Json::array([{ "command_id": "C1", "artifact_refs": [] }]),
           ),
         ),
-      )
-    catch {
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),

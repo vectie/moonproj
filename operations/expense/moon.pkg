@@ -4,7 +4,6 @@ import {
   "vectie/moonproj/finance/employee_finance",
   "vectie/moonproj/foundation",
   "vectie/moonproj/persistence/store",
-  "moonbitlang/core/json",
 }
 
 import {

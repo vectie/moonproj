@@ -189,7 +189,10 @@ test "invalid extraction rejects without altering source and fresh edits regener
       ([], "missing"),
     ] {
     assert_true(
-      (try Ok(@plan_workbench.extract_phase(d, tasks, milestone)) catch { e => Err(e) }) is Err(_),
+      (Ok(@plan_workbench.extract_phase(d, tasks, milestone)) catch {
+        e => Err(e)
+      })
+      is Err(_),
     )
   }
   let empty = {
@@ -197,7 +200,10 @@ test "invalid extraction rejects without altering source and fresh edits regener
     milestones: [..d.milestones, { ..d.milestones[0], id: "empty", }],
   }
   assert_true(
-    (try Ok(@plan_workbench.extract_phase(empty, [], "empty")) catch { e => Err(e) }) is Err(_),
+    (Ok(@plan_workbench.extract_phase(empty, [], "empty")) catch {
+      e => Err(e)
+    })
+    is Err(_),
   )
   for
     broken in [
@@ -207,7 +213,10 @@ test "invalid extraction rejects without altering source and fresh edits regener
       { ..d, notes: "x".repeat(1000001), },
     ] {
     assert_true(
-      (try Ok(@plan_workbench.extract_phase(broken, ["research"], "")) catch { e => Err(e) }) is Err(_),
+      (Ok(@plan_workbench.extract_phase(broken, ["research"], "")) catch {
+        e => Err(e)
+      })
+      is Err(_),
     )
   }
   let old = @plan_workbench.extract_phase(d, ["review"], "")

@@ -13,7 +13,7 @@ fn delivery_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "progress report requires evidence and acceptance" {
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
       report_id="progress-001",
       project_id="p-001",
       principal_id="co-001",
@@ -26,13 +26,13 @@ test "progress report requires evidence and acceptance" {
     )
     .submit(actor_id="alice", grant=delivery_grant("delivery:progress:submit"))
     .accept(actor_id="alice", grant=delivery_grant("delivery:progress:accept"))
-  assert_true(report.state == ProgressState::Accepted)
+  assert_true(report.state == @delivery.ProgressState::Accepted)
   assert_eq(report.progress_bps, 4500L)
 }
 
 ///|
 test "deliverable supports remediation before acceptance" {
-  let deliverable = Deliverable::new(
+  let deliverable = @delivery.Deliverable::new(
       deliverable_id="deliverable-001",
       project_id="p-001",
       principal_id="co-001",
@@ -50,13 +50,13 @@ test "deliverable supports remediation before acceptance" {
       actor_id="alice",
       grant=delivery_grant("delivery:deliverable:reject"),
     )
-  assert_true(deliverable.state == DeliverableState::Rejected)
+  assert_true(deliverable.state == @delivery.DeliverableState::Rejected)
 }
 
 ///|
 test "progress report rejects missing evidence" {
   try
-    ProgressReport::new(
+    @delivery.ProgressReport::new(
       report_id="progress-002",
       project_id="p-001",
       principal_id="co-001",
@@ -68,7 +68,7 @@ test "progress report rejects missing evidence" {
       grant=delivery_grant("delivery:progress:create"),
     )
   catch {
-    DeliveryError::MissingEvidence => ()
+    @delivery.DeliveryError::MissingEvidence => ()
     _ => fail("wrong delivery error")
   } noraise {
     _ => fail("expected delivery error")
@@ -77,7 +77,7 @@ test "progress report rejects missing evidence" {
 
 ///|
 test "accepted progress builds a recognition link without posting" {
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
       report_id="progress-recognition",
       project_id="p-001",
       principal_id="co-001",
@@ -117,7 +117,7 @@ fn recognition_grant() -> @foundation.AuthorityGrant {
 
 ///|
 test "reviewed delivery recognition persists without posting or cash release" {
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
       report_id="progress-reviewed-recognition",
       project_id="p-001",
       principal_id="co-001",
@@ -172,7 +172,7 @@ test "reviewed delivery recognition persists without posting or cash release" {
 
 ///|
 test "delivery recognition requires matching acceptance evidence and authority" {
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
       report_id="progress-recognition-guard",
       project_id="p-001",
       principal_id="co-001",
@@ -197,7 +197,7 @@ test "delivery recognition requires matching acceptance evidence and authority" 
       grant=recognition_grant(),
     )
   catch {
-    DeliveryError::AcceptanceMismatch => ()
+    @delivery.DeliveryError::AcceptanceMismatch => ()
     _ => fail("wrong acceptance evidence error")
   } noraise {
     _ => fail("expected acceptance evidence guard")
@@ -214,7 +214,7 @@ test "delivery recognition requires matching acceptance evidence and authority" 
       grant=delivery_grant("delivery:progress:accept"),
     )
   catch {
-    DeliveryError::NotAuthorized(_) => ()
+    @delivery.DeliveryError::NotAuthorized(_) => ()
     _ => fail("wrong recognition authority error")
   } noraise {
     _ => fail("expected recognition authority guard")
@@ -223,7 +223,7 @@ test "delivery recognition requires matching acceptance evidence and authority" 
 
 ///|
 test "delivery recognition link is appendable and source-identifiable" {
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
       report_id="progress-recognition-record",
       project_id="p-001",
       principal_id="co-001",
@@ -264,7 +264,7 @@ test "delivery recognition link is appendable and source-identifiable" {
 
 ///|
 test "unaccepted progress cannot build a recognition link" {
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
     report_id="progress-unaccepted-recognition",
     project_id="p-001",
     principal_id="co-001",
@@ -283,7 +283,7 @@ test "unaccepted progress cannot build a recognition link" {
       revenue_account="revenue",
     )
   catch {
-    DeliveryError::InvalidState => ()
+    @delivery.DeliveryError::InvalidState => ()
     _ => fail("wrong delivery error")
   } noraise {
     _ => fail("expected delivery recognition gate")
@@ -292,7 +292,7 @@ test "unaccepted progress cannot build a recognition link" {
 
 ///|
 test "accepted progress supplies the cost forecast progress input" {
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
       report_id="progress-cost-forecast",
       project_id="p-001",
       principal_id="co-001",
@@ -325,7 +325,7 @@ test "accepted progress and deliverables persist evidence projections" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let report = ProgressReport::new(
+  let report = @delivery.ProgressReport::new(
       report_id="progress-projection",
       project_id="p-001",
       principal_id="co-001",
@@ -344,7 +344,7 @@ test "accepted progress and deliverables persist evidence projections" {
     aggregate_id="progress-projection",
   )
   let report_projection = report.append_projection(report_projection)
-  let deliverable = Deliverable::new(
+  let deliverable = @delivery.Deliverable::new(
       deliverable_id="deliverable-projection",
       project_id="p-001",
       principal_id="co-001",

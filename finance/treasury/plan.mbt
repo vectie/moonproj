@@ -1,18 +1,21 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum CashPlanDirection {
   Inflow
   Outflow
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum CashPlanState {
   Planned
   Confirmed
   Actualized
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CashPlan {
   plan_id : String
   principal_id : String
@@ -23,17 +26,19 @@ pub(all) struct CashPlan {
   planned_amount : @finance.Money
   actual_amount : @finance.Money
   state : CashPlanState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum DispatchState {
   Pending
   Approved
   Executed
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct FundDispatch {
   dispatch_id : String
   principal_id : String
@@ -42,9 +47,10 @@ pub(all) struct FundDispatch {
   amount : @finance.Money
   reason : String
   state : DispatchState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror TreasuryPlanError {
   EmptyIdentifier
   InvalidAmount
@@ -53,7 +59,7 @@ pub(all) suberror TreasuryPlanError {
   SameProject
   OverActualization
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn CashPlan::new(
@@ -122,7 +128,7 @@ pub fn CashPlan::confirm(
   ) catch {
     error => raise TreasuryPlanError::NotAuthorized(error)
   }
-  { ..self, state: CashPlanState::Confirmed }
+  { ..self, state: CashPlanState::Confirmed, }
 }
 
 ///|
@@ -154,7 +160,7 @@ pub fn CashPlan::actualize(
   ) catch {
     error => raise TreasuryPlanError::NotAuthorized(error)
   }
-  { ..self, actual_amount, state: CashPlanState::Actualized }
+  { ..self, actual_amount, state: CashPlanState::Actualized, }
 }
 
 ///|
@@ -221,7 +227,7 @@ pub fn FundDispatch::approve(
   ) catch {
     error => raise TreasuryPlanError::NotAuthorized(error)
   }
-  { ..self, state: DispatchState::Approved }
+  { ..self, state: DispatchState::Approved, }
 }
 
 ///|
@@ -243,5 +249,5 @@ pub fn FundDispatch::execute(
   ) catch {
     error => raise TreasuryPlanError::NotAuthorized(error)
   }
-  { ..self, state: DispatchState::Executed }
+  { ..self, state: DispatchState::Executed, }
 }

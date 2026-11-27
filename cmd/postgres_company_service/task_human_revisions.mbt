@@ -41,7 +41,7 @@ fn plan_task_human_revision_validate(
   let id = json_text(revision, "revision_id", "")
   if id.is_empty() ||
     id.length() > 128 ||
-    !id.iter().all(c => c is ('a'..='z' | 'A'..='Z' | '0'..='9' | '_' | '-')) ||
+    !id.iter().all(c => c is ('a'..<='z' | 'A'..<='Z' | '0'..<='9' | '_' | '-')) ||
     json_text(revision, "schema", "") != "moonproj.human-revision.v1" ||
     json_text(revision, "capture_scope", "") != "immutable_human_revision" ||
     json_text(revision, "author_type", "") != "human" ||
@@ -106,7 +106,7 @@ fn plan_task_human_revision_validate(
   for value in [content, base] {
     let digest = json_text(value, "sha256", "")
     if digest.length() != 64 ||
-      !digest.iter().all(c => c is ('0'..='9' | 'a'..='f')) {
+      !digest.iter().all(c => c is ('0'..<='9' | 'a'..<='f')) {
       raise reject(422, "human revision requires lowercase SHA-256 digests")
     }
   }
@@ -151,7 +151,7 @@ fn plan_task_human_revision_apply(
   }
   let fields = match task {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields.set("human_revisions", Json::array(items))
   Json::object(fields)

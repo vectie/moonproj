@@ -314,7 +314,11 @@ fn today_update(
               ..model,
               today: {
                 ..state,
-                tasks: if model.page == Workspace { state.tasks } else { [] },
+                tasks: if model.page == Workspace {
+                  state.tasks
+                } else {
+                  []
+                },
                 work_state: if read_state == "ready" {
                   "invalid"
                 } else {

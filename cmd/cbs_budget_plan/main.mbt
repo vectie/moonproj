@@ -8,10 +8,11 @@ struct Subject {
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror CbsBudgetPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> CbsBudgetPlanError {
@@ -107,7 +108,7 @@ fn integer(value : Json, default : Int64) -> Int64 {
 }
 
 ///|
-fn power10(digits : Int) -> Int64 {
+fn power10(digits : Int32) -> Int64 {
   let mut result : Int64 = 1
   for _ in 0..<digits {
     result *= 10
@@ -294,7 +295,7 @@ fn run(
     raise fail("subject_by_cost_code must be a non-empty object")
   }
   let subjects : Array[Subject] = []
-  let subjects_by_source : Map[String, Subject] = {}
+  let subjects_by_source : Map[String, Subject] = Map([])
   for source_code, raw_value in raw_subjects {
     let raw = object(raw_value, "subject mapping")
     let subject = Subject::{
@@ -416,21 +417,21 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 5 {
     println(
       "usage: cbs_budget_plan <export> <cbs_mapping.json> <budget_mapping.json> <output.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3], args[4]) catch {
     CbsBudgetPlanError::InvalidInput(message) => {
       println("CBS budget plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     CbsBudgetPlanError::Io(_) => {
       println("CBS budget plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

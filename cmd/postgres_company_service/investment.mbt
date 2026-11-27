@@ -35,7 +35,7 @@ fn investment_dimension_rows() -> Array[Json] {
 }
 
 ///|
-fn investment_envelope(data : Json, coverage : Map[String, Int]) -> Json {
+fn investment_envelope(data : Json, coverage : Map[String, Int32]) -> Json {
   let missing : Array[Json] = []
   for table, count in coverage {
     if count == 0 {
@@ -187,7 +187,7 @@ async fn investment_indices_response(
       None => true
     })
   })
-  let groups : Map[String, Array[Json]] = {}
+  let groups : Map[String, Array[Json]] = Map([])
   for code in ["key_point", "tax", "financing", "investment", "carry_over"] {
     groups.set(code, [])
   }
@@ -276,7 +276,7 @@ async fn investment_profit_summary_response(
       json_text(payload, "state", "active") != "deleted"
     },
   )
-  let values : Map[String, Double] = {}
+  let values : Map[String, Double] = Map([])
   for payload in rows {
     values.set(
       report_text(payload, "full_code", ""),
@@ -430,7 +430,7 @@ async fn investment_sensitivity_response(
 ///|
 async fn investment_profit_actual_response(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   investment_actual_response_native(project_id)
 }
 
@@ -441,7 +441,7 @@ async fn investment_profit_actual_response(
 async fn investment_profit_actual_v2_response(
   project_id : String,
   plan_version : String?,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(project_id) {
     raise reject(422, "invalid project_id")
   }
@@ -454,8 +454,8 @@ async fn investment_profit_actual_v2_response(
     "cb_change_apply", "cb_contract", "cb_expense_split", "cb_plan_version", "cb_r_master",
     "cb_subject_dict", "ep_project", "sale_revenue", "vcb_expense",
   ]
-  let rows : Map[String, Array[SourceRow]] = {}
-  let coverage : Map[String, Int] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
+  let coverage : Map[String, Int32] = Map([])
   for table in tables {
     let values = raw_source_rows(table, 5000)
     rows.set(table, values)
@@ -517,7 +517,7 @@ async fn investment_profit_actual_v2_response(
       report_text(row.payload, "proj_guid", "") == project_id &&
       !report_text(row.payload, "r_code", "").is_empty()
     })
-  let expenses : Map[String, Json] = {}
+  let expenses : Map[String, Json] = Map([])
   for row in rows.get_or_default("vcb_expense", []) {
     let id = report_text(row.payload, "expense_guid", "")
     if !id.is_empty() {
@@ -531,7 +531,7 @@ async fn investment_profit_actual_v2_response(
       json_field(row.payload, "deleted_at") is None &&
       report_text(row.payload, "proj_guid", "") == project_id
     })
-  let r_names : Map[String, String] = {}
+  let r_names : Map[String, String] = Map([])
   for row in rows.get_or_default("cb_r_master", []) {
     if json_field(row.payload, "deleted_at") is None {
       let code = report_text(row.payload, "r_code", "")
@@ -540,13 +540,13 @@ async fn investment_profit_actual_v2_response(
       }
     }
   }
-  let group_leaves : Map[String, Array[Json]] = {}
-  let group_r : Map[String, String] = {}
-  let group_l2_code : Map[String, String] = {}
-  let group_l2 : Map[String, String] = {}
-  let group_totals : Map[String, Map[String, Double]] = {}
+  let group_leaves : Map[String, Array[Json]] = Map([])
+  let group_r : Map[String, String] = Map([])
+  let group_l2_code : Map[String, String] = Map([])
+  let group_l2 : Map[String, String] = Map([])
+  let group_totals : Map[String, Map[String, Double]] = Map([])
   let r_order : Array[String] = []
-  let r_totals : Map[String, Map[String, Double]] = {}
+  let r_totals : Map[String, Map[String, Double]] = Map([])
   fn add_total(target : Map[String, Double], key : String, value : Double) {
     target.set(key, target.get_or_default(key, 0.0) + value)
   }

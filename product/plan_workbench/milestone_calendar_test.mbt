@@ -142,10 +142,14 @@ test "calendar export rejects incomplete calendar inputs atomically" {
       "", "2026-2-01", "2026-02-29", "2026-04-31", "2026-13-01", "2026-01-00", "2026-01-01\nBEGIN:VEVENT",
     ] {
     assert_true(
-      (try Ok(@plan_workbench.export_milestone_calendar(
-        { ..draft, milestones: [{ ..draft.milestones[0], date, }], },
-        "Demo",
-      )) catch { e => Err(e) })
+      (Ok(
+        @plan_workbench.export_milestone_calendar(
+          { ..draft, milestones: [{ ..draft.milestones[0], date, }], },
+          "Demo",
+        ),
+      ) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
@@ -154,10 +158,14 @@ test "calendar export rejects incomplete calendar inputs atomically" {
       "", "2026-10-08T00:00:00+00:00", "2026-02-29T00:00:00Z", "2026-10-08T25:00:00Z",
     ] {
     assert_true(
-      (try Ok(@plan_workbench.export_milestone_calendar(
-        { ..draft, prepared_at, },
-        "Demo",
-      )) catch { e => Err(e) })
+      (Ok(
+        @plan_workbench.export_milestone_calendar(
+          { ..draft, prepared_at, },
+          "Demo",
+        ),
+      ) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
@@ -182,7 +190,9 @@ test "calendar export rejects incomplete calendar inputs atomically" {
       },
     ] {
     assert_true(
-      (try Ok(@plan_workbench.export_milestone_calendar(invalid, "Demo")) catch { e => Err(e) })
+      (Ok(@plan_workbench.export_milestone_calendar(invalid, "Demo")) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }

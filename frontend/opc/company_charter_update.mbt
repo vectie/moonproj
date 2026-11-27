@@ -14,7 +14,7 @@ fn charter_toggle_critical_task(
     copied.push(trimmed)
     copied
   }
-  { ..charter, critical_task_ids: next_ids }
+  { ..charter, critical_task_ids: next_ids, }
 }
 
 ///|
@@ -24,7 +24,7 @@ fn charter_add_role(
 ) -> CompanyCharter {
   let next_roles = charter.roles.copy()
   next_roles.push(role)
-  { ..charter, roles: next_roles }
+  { ..charter, roles: next_roles, }
 }
 
 ///|
@@ -34,7 +34,7 @@ fn charter_add_evolution(
 ) -> CompanyCharter {
   let next_log = charter.evolution_log.copy()
   next_log.push(entry)
-  { ..charter, evolution_log: next_log }
+  { ..charter, evolution_log: next_log, }
 }
 
 ///|
@@ -44,11 +44,11 @@ fn charter_add_resource(
 ) -> CompanyCharter {
   let next_resources = charter.resources.copy()
   next_resources.push(resource)
-  { ..charter, resources: next_resources }
+  { ..charter, resources: next_resources, }
 }
 
 ///|
-fn charter_load(emit : @rabbita.Emit[Msg], request : Int) -> Cmd {
+fn charter_load(emit : @rabbita.Emit[Msg], request : Int32) -> Cmd {
   @cmd.custom_cmd(scheduler => {
     charter_fetch("/api/company/charter", "GET", "", "", (status, body) => {
       scheduler.add(emit(CharterAction(Loaded(request, status, body))))
@@ -59,9 +59,9 @@ fn charter_load(emit : @rabbita.Emit[Msg], request : Int) -> Cmd {
 ///|
 fn charter_save(
   emit : @rabbita.Emit[Msg],
-  request : Int,
+  request : Int32,
   charter : CompanyCharter,
-  expected_revision : Int?,
+  expected_revision : Int32?,
 ) -> Cmd {
   let key = "charter-" + dispatch_command_nonce()
   let body = charter_encode_payload(charter, expected_revision).stringify()
@@ -73,7 +73,7 @@ fn charter_save(
 }
 
 ///|
-fn charter_parse_tier(value : String) -> Int {
+fn charter_parse_tier(value : String) -> Int32 {
   match value.trim().to_owned() {
     "0" => 0
     "1" => 1
@@ -191,7 +191,9 @@ fn charter_update(
               ..state,
               status: "error",
               error: if detail.is_empty() {
-                "公司章程读取失败（状态码 " + status.to_string() + "），请重试。"
+                "公司章程读取失败（状态码 " +
+                status.to_string() +
+                "），请重试。"
               } else {
                 "公司章程读取失败：" + detail
               },
@@ -287,7 +289,9 @@ fn charter_update(
               ..state,
               saving: false,
               error: if detail.is_empty() {
-                "保存公司章程失败（状态码 " + status.to_string() + "）。"
+                "保存公司章程失败（状态码 " +
+                status.to_string() +
+                "）。"
               } else {
                 "保存公司章程失败：" + detail
               },
@@ -311,11 +315,11 @@ fn charter_update(
       )
     InputInit(field, value) => {
       let next = match field {
-        "title" => { ..state, init_title: value }
-        "north_star" => { ..state, init_north_star: value }
+        "title" => { ..state, init_title: value, }
+        "north_star" => { ..state, init_north_star: value, }
         _ => state
       }
-      (none, { ..model, charter: next })
+      (none, { ..model, charter: next, })
     }
     InitializeDefault => {
       if state.saving {
@@ -351,7 +355,10 @@ fn charter_update(
           none,
           {
             ..model,
-            charter: { ..state, error: "请先填写公司核心使命标题。" },
+            charter: {
+              ..state,
+              error: "请先填写公司核心使命标题。",
+            },
           },
         )
       }
@@ -415,22 +422,26 @@ fn charter_update(
       )
     InputRole(field, value) => {
       let next = match field {
-        "name" => { ..state, role_name: value }
-        "tier" => { ..state, role_tier: charter_parse_tier(value) }
+        "name" => { ..state, role_name: value, }
+        "tier" => { ..state, role_tier: charter_parse_tier(value), }
         "kind" =>
           {
             ..state,
-            role_kind: if value == "human" { "human" } else { "agent" },
+            role_kind: if value == "human" {
+              "human"
+            } else {
+              "agent"
+            },
           }
-        "reports_to" => { ..state, role_reports_to: value }
-        "mission" => { ..state, role_mission: value }
-        "powers" => { ..state, role_powers: value }
-        "limits" => { ..state, role_limits: value }
-        "skill_ref" => { ..state, role_skill_ref: value }
-        "model" => { ..state, role_model: value }
+        "reports_to" => { ..state, role_reports_to: value, }
+        "mission" => { ..state, role_mission: value, }
+        "powers" => { ..state, role_powers: value, }
+        "limits" => { ..state, role_limits: value, }
+        "skill_ref" => { ..state, role_skill_ref: value, }
+        "model" => { ..state, role_model: value, }
         _ => state
       }
-      (none, { ..model, charter: next })
+      (none, { ..model, charter: next, })
     }
     SubmitRole => {
       if state.saving {
@@ -444,21 +455,21 @@ fn charter_update(
               none,
               {
                 ..model,
-                charter: { ..state, error: "请填写角色名称。" },
+                charter: { ..state, error: "请填写角色名称。", },
               },
             )
           }
-          let id = charter_slug(
-            name,
-            "role",
-            current.roles.map(r => r.id),
-          )
+          let id = charter_slug(name, "role", current.roles.map(r => r.id))
           let role : CharterRole = {
             id,
             name,
             tier: state.role_tier,
             reports_to: state.role_reports_to.trim().to_owned(),
-            kind: if state.role_kind == "human" { "human" } else { "agent" },
+            kind: if state.role_kind == "human" {
+              "human"
+            } else {
+              "agent"
+            },
             mission: state.role_mission.trim().to_owned(),
             powers: charter_split_items(state.role_powers),
             limits: charter_split_items(state.role_limits),
@@ -504,14 +515,18 @@ fn charter_update(
         "target" =>
           {
             ..state,
-            evo_target: if value == "company" { "company" } else { "agent" },
+            evo_target: if value == "company" {
+              "company"
+            } else {
+              "agent"
+            },
           }
-        "target_id" => { ..state, evo_target_id: value }
-        "change" => { ..state, evo_change: value }
-        "evidence" => { ..state, evo_evidence: value }
+        "target_id" => { ..state, evo_target_id: value, }
+        "change" => { ..state, evo_change: value, }
+        "evidence" => { ..state, evo_evidence: value, }
         _ => state
       }
-      (none, { ..model, charter: next })
+      (none, { ..model, charter: next, })
     }
     SubmitEvo => {
       if state.saving {
@@ -525,7 +540,10 @@ fn charter_update(
               none,
               {
                 ..model,
-                charter: { ..state, error: "请填写本次演化升级的具体变更内容。" },
+                charter: {
+                  ..state,
+                  error: "请填写本次演化升级的具体变更内容。",
+                },
               },
             )
           }
@@ -579,7 +597,7 @@ fn charter_update(
       )
     InputResource(field, value) => {
       let next = match field {
-        "name" => { ..state, resource_name: value }
+        "name" => { ..state, resource_name: value, }
         "kind" =>
           {
             ..state,
@@ -591,8 +609,8 @@ fn charter_update(
               "tool"
             },
           }
-        "uri" => { ..state, resource_uri: value }
-        "desk_url" => { ..state, resource_desk_url: value }
+        "uri" => { ..state, resource_uri: value, }
+        "desk_url" => { ..state, resource_desk_url: value, }
         "access" =>
           {
             ..state,
@@ -604,11 +622,11 @@ fn charter_update(
               "read_only"
             },
           }
-        "owner_role" => { ..state, resource_owner_role: value }
-        "notes" => { ..state, resource_notes: value }
+        "owner_role" => { ..state, resource_owner_role: value, }
+        "notes" => { ..state, resource_notes: value, }
         _ => state
       }
-      (none, { ..model, charter: next })
+      (none, { ..model, charter: next, })
     }
     SubmitResource => {
       if state.saving {
@@ -622,15 +640,11 @@ fn charter_update(
               none,
               {
                 ..model,
-                charter: { ..state, error: "请填写资源名称。" },
+                charter: { ..state, error: "请填写资源名称。", },
               },
             )
           }
-          let id = charter_slug(
-            name,
-            "res",
-            current.resources.map(r => r.id),
-          )
+          let id = charter_slug(name, "res", current.resources.map(r => r.id))
           let resource : CharterResource = {
             id,
             name,

@@ -38,7 +38,7 @@ fn adversarial_product_body_without(key : String) -> Json {
 }
 
 ///|
-fn product_in_gate_rejection_status(body : Json) -> Int {
+fn product_in_gate_rejection_status(body : Json) -> Int32 {
   try normalize_product_in_gate_request(body) catch {
     CompanyServiceError::CommandRejected(status, _) => status
     CompanyServiceError::InvalidInput(_) => 500
@@ -49,7 +49,7 @@ fn product_in_gate_rejection_status(body : Json) -> Int {
 }
 
 ///|
-fn adversarial_receipts(prefix : String, count : Int) -> Array[Json] {
+fn adversarial_receipts(prefix : String, count : Int32) -> Array[Json] {
   let result : Array[Json] = []
   for index in 0..<count {
     result.push(Json::string(prefix + index.to_string()))
@@ -59,9 +59,9 @@ fn adversarial_receipts(prefix : String, count : Int) -> Array[Json] {
 
 ///|
 fn adversarial_pass_body(
-  problem_count : Int,
-  level4_count : Int,
-  level5_count : Int,
+  problem_count : Int32,
+  level4_count : Int32,
+  level5_count : Int32,
 ) -> Json {
   let body = adversarial_product_in_gate_body("pass")
   match body {

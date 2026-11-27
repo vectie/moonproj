@@ -1,11 +1,12 @@
 ///|
+#derive(Debug, Eq)
 struct RetainerSmoke {
   retainer_id : String
   cycle_price_minor : Int64
-  completed_cycles : Int
+  completed_cycles : Int32
   collected_minor : Int64
   active : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 fn RetainerSmoke::new(
@@ -49,15 +50,15 @@ fn RetainerSmoke::cancel(
   if !self.active {
     raise InvalidRetainerState
   }
-  { ..self, active: false }
+  { ..self, active: false, }
 }
 
 ///|
 fn require_quote_gate(
   price_minor~ : Int64,
   modeled_cost_minor~ : Int64,
-  founder_minutes~ : Int,
-  capacity_minutes~ : Int,
+  founder_minutes~ : Int32,
+  capacity_minutes~ : Int32,
   minimum_margin_bps~ : Int64,
 ) -> Int64 raise SmokeError {
   if founder_minutes > capacity_minutes {

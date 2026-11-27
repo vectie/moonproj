@@ -1,6 +1,6 @@
 ///|
 struct ResearchImportState {
-  generation : Int
+  generation : Int32
   open : Bool
   loading : Bool
   brief : @research_handoff.Brief?
@@ -10,14 +10,14 @@ struct ResearchImportState {
 ///|
 enum ResearchImportMsg {
   Choose
-  Loaded(Int, String, String, String)
+  Loaded(Int32, String, String, String)
   Close
   Prepare
   ExportDraft(String)
 }
 
 ///|
-fn empty_research_import(generation : Int) -> ResearchImportState {
+fn empty_research_import(generation : Int32) -> ResearchImportState {
   { generation, open: false, loading: false, brief: None, notice: "", }
 }
 

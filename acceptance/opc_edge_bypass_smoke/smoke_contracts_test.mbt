@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 suberror SmokeError {
   InvalidArtifact
   InvalidReceipt
@@ -7,9 +8,10 @@ suberror SmokeError {
   CapacityExceeded
   InvalidRetainerState
   InvalidCollectionState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct SmokeArtifact {
   artifact_id : String
   schema : String
@@ -18,9 +20,10 @@ struct SmokeArtifact {
   evidence : Array[String]
   rendered_markdown : String
   content_digest : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct SandboxProviderReceipt {
   receipt_id : String
   provider : String
@@ -28,7 +31,7 @@ struct SandboxProviderReceipt {
   amount_minor : Int64
   status : String
   sandbox : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 fn smoke_authority(

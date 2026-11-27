@@ -41,7 +41,7 @@ fn performed_commitment() -> @commitment.Commitment {
 
 ///|
 test "settlement releases a performed commitment and journals payment" {
-  let settlement = Settlement::request(
+  let settlement = @settlement.Settlement::request(
     performed_commitment(),
     settlement_id="settlement-001",
     amount=@finance.Money::new(minor=50000, currency="CNY"),
@@ -49,17 +49,17 @@ test "settlement releases a performed commitment and journals payment" {
     grant=settlement_grant("settlement:request"),
   )
   let approved = settlement.transition(
-    SettlementState::Approved,
+    @settlement.SettlementState::Approved,
     actor_id="alice",
     grant=settlement_grant("settlement:approve"),
   )
   let released = approved.transition(
-    SettlementState::Released,
+    @settlement.SettlementState::Released,
     actor_id="alice",
     grant=settlement_grant("settlement:release"),
   )
   let journal = released.to_journal(payable_account="2202", cash_account="1002")
-  assert_true(released.state == SettlementState::Released)
+  assert_true(released.state == @settlement.SettlementState::Released)
   assert_eq(journal.postings.length(), 2)
   @finance.validate_journal(journal)
 }
@@ -67,7 +67,7 @@ test "settlement releases a performed commitment and journals payment" {
 ///|
 test "settlement cannot exceed the commitment" {
   try
-    Settlement::request(
+    @settlement.Settlement::request(
       performed_commitment(),
       settlement_id="settlement-002",
       amount=@finance.Money::new(minor=50001, currency="CNY"),
@@ -75,7 +75,7 @@ test "settlement cannot exceed the commitment" {
       grant=settlement_grant("settlement:request"),
     )
   catch {
-    SettlementError::AmountExceedsCommitment => ()
+    @settlement.SettlementError::AmountExceedsCommitment => ()
     _ => fail("wrong settlement error")
   } noraise {
     _ => fail("expected settlement error")
@@ -84,7 +84,7 @@ test "settlement cannot exceed the commitment" {
 
 ///|
 test "released settlement creates an appendable accounting event link" {
-  let released = Settlement::request(
+  let released = @settlement.Settlement::request(
       performed_commitment(),
       settlement_id="settlement-accounting",
       amount=@finance.Money::new(minor=50000, currency="CNY"),
@@ -92,12 +92,12 @@ test "released settlement creates an appendable accounting event link" {
       grant=settlement_grant("settlement:request"),
     )
     .transition(
-      SettlementState::Approved,
+      @settlement.SettlementState::Approved,
       actor_id="alice",
       grant=settlement_grant("settlement:approve"),
     )
     .transition(
-      SettlementState::Released,
+      @settlement.SettlementState::Released,
       actor_id="alice",
       grant=settlement_grant("settlement:release"),
     )
@@ -127,7 +127,7 @@ test "settlement snapshots persist released payment state" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let requested = Settlement::request(
+  let requested = @settlement.Settlement::request(
     performed_commitment(),
     settlement_id="settlement-projection",
     amount=@finance.Money::new(minor=50000, currency="CNY"),
@@ -142,12 +142,12 @@ test "settlement snapshots persist released payment state" {
   let projection = requested.append_projection(projection)
   let released = requested
     .transition(
-      SettlementState::Approved,
+      @settlement.SettlementState::Approved,
       actor_id="alice",
       grant=settlement_grant("settlement:approve"),
     )
     .transition(
-      SettlementState::Released,
+      @settlement.SettlementState::Released,
       actor_id="alice",
       grant=settlement_grant("settlement:release"),
     )

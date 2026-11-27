@@ -104,15 +104,13 @@ test "report pins explicit completed C1 snapshot and never the later same-sessio
   )
   assert_eq(json_text(plan_task_delivery_source(later), "command_id", ""), "C2")
   assert_true(
-    (try
-      Ok(
-        delivery_task_report_request(
-          continuation_test_report_body(source~),
-          "actor",
-          later,
-        ),
-      )
-    catch {
+    (Ok(
+      delivery_task_report_request(
+        continuation_test_report_body(source~),
+        "actor",
+        later,
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -134,15 +132,13 @@ test "report pins explicit completed C1 snapshot and never the later same-sessio
     "C1",
   )
   assert_true(
-    (try
-      Ok(
-        delivery_task_report_request(
-          continuation_test_report_body(source=plan_task_delivery_source(later)),
-          "actor",
-          request,
-        ),
-      )
-    catch {
+    (Ok(
+      delivery_task_report_request(
+        continuation_test_report_body(source=plan_task_delivery_source(later)),
+        "actor",
+        request,
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -156,15 +152,13 @@ test "report rejects omitted forged nonselected source and accepted task" {
     continuation_test_body(),
   )
   assert_true(
-    (try
-      Ok(
-        delivery_task_report_request(
-          continuation_test_report_body(),
-          "actor",
-          task,
-        ),
-      )
-    catch {
+    (Ok(
+      delivery_task_report_request(
+        continuation_test_report_body(),
+        "actor",
+        task,
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -175,30 +169,26 @@ test "report rejects omitted forged nonselected source and accepted task" {
     "C2",
   )
   assert_true(
-    (try
-      Ok(
-        delivery_task_report_request(
-          continuation_test_report_body(source=forged),
-          "actor",
-          task,
-        ),
-      )
-    catch {
+    (Ok(
+      delivery_task_report_request(
+        continuation_test_report_body(source=forged),
+        "actor",
+        task,
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
   )
   let source = plan_task_delivery_source(task)
   assert_true(
-    (try
-      Ok(
-        delivery_task_report_request(
-          continuation_test_report_body(source~),
-          "actor",
-          continuation_test_changed(task, "state", "done"),
-        ),
-      )
-    catch {
+    (Ok(
+      delivery_task_report_request(
+        continuation_test_report_body(source~),
+        "actor",
+        continuation_test_changed(task, "state", "done"),
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -208,15 +198,13 @@ test "report rejects omitted forged nonselected source and accepted task" {
     continuation_test_body(select=false),
   )
   assert_true(
-    (try
-      Ok(
-        delivery_task_report_request(
-          continuation_test_report_body(source~),
-          "actor",
-          not_selected,
-        ),
-      )
-    catch {
+    (Ok(
+      delivery_task_report_request(
+        continuation_test_report_body(source~),
+        "actor",
+        not_selected,
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -339,15 +327,13 @@ test "Accept binds only the displayed persisted report and selected source with 
     plan_task_original_source(json_field(original, "execution").unwrap()),
   )
   assert_true(
-    (try
-      Ok(
-        plan_task_acceptance_binding(
-          explicitly_original,
-          { "status": "done" },
-          Json::null(),
-        ),
-      )
-    catch {
+    (Ok(
+      plan_task_acceptance_binding(
+        explicitly_original,
+        { "status": "done" },
+        Json::null(),
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -387,7 +373,7 @@ test "Accept binds only the displayed persisted report and selected source with 
   assert_eq(json_text(binding, "accepted_report_id", ""), "report-1")
   assert_eq(json_field(binding, "accepted_delivery_source"), Some(source))
   assert_true(
-    (try Ok(plan_task_acceptance_binding(task, { "status": "done" }, report)) catch {
+    (Ok(plan_task_acceptance_binding(task, { "status": "done" }, report)) catch {
       e => Err(e)
     })
     is Err(_),
@@ -404,15 +390,13 @@ test "Accept binds only the displayed persisted report and selected source with 
         ),
       ] : Array[(String, Json)]) {
     assert_true(
-      (try
-        Ok(
-          plan_task_acceptance_binding(
-            task,
-            body,
-            continuation_test_changed(report, key, value),
-          ),
-        )
-      catch {
+      (Ok(
+        plan_task_acceptance_binding(
+          task,
+          body,
+          continuation_test_changed(report, key, value),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -435,7 +419,7 @@ test "Accept binds only the displayed persisted report and selected source with 
     "command_id": "C2",
   })
   assert_true(
-    (try Ok(plan_task_acceptance_binding(changed, body, report)) catch {
+    (Ok(plan_task_acceptance_binding(changed, body, report)) catch {
       e => Err(e)
     })
     is Err(_),
@@ -466,7 +450,7 @@ test "Accept binds only the displayed persisted report and selected source with 
   )
   ignore(plan_task_applied_command(Some({ "request": request }), request))
   assert_true(
-    (try Ok(plan_task_applied_command(None, request)) catch { e => Err(e) })
+    (Ok(plan_task_applied_command(None, request)) catch { e => Err(e) })
     is Err(_),
   )
 }

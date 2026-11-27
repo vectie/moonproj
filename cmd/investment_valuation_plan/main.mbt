@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror InvestmentValuationPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> InvestmentValuationPlanError {
@@ -337,21 +338,21 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: investment_valuation_plan <performance-plan.json> <mapping.json> <output.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     InvestmentValuationPlanError::InvalidInput(message) => {
       println("investment valuation plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     InvestmentValuationPlanError::Io(_) => {
       println("investment valuation plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

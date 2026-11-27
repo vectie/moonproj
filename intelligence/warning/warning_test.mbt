@@ -20,7 +20,7 @@ test "cost forecast warning is deterministic and resolvable" {
     actual=@finance.Money::new(minor=60000, currency="CNY"),
     progress_bps=5000L,
   )
-  let warning = warning_for_cost_forecast(
+  let warning = @warning.warning_for_cost_forecast(
     warning_id="warning-001",
     principal_id="co-001",
     forecast,
@@ -30,8 +30,8 @@ test "cost forecast warning is deterministic and resolvable" {
   let resolved = warning
     .acknowledge(actor_id="alice", grant=warning_grant("warning:acknowledge"))
     .resolve(actor_id="alice", grant=warning_grant("warning:resolve"))
-  assert_true(resolved.state == WarningState::Resolved)
-  assert_true(resolved.severity == WarningSeverity::Critical)
+  assert_true(resolved.state == @warning.WarningState::Resolved)
+  assert_true(resolved.severity == @warning.WarningSeverity::Critical)
   let evidence = resolved.bind_evidence(
     source_snapshot_id="erp-snapshot:warning-001",
     mapping_version="warning-map-v1",
@@ -73,7 +73,7 @@ test "warning rule stays silent for an on-target forecast" {
     progress_bps=0L,
   )
   assert_true(
-    warning_for_cost_forecast(
+    @warning.warning_for_cost_forecast(
       warning_id="warning-002",
       principal_id="co-001",
       forecast,

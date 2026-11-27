@@ -47,7 +47,7 @@ fn report_share_text(
   body : Json,
   key : String,
   fallback : String,
-  max_length : Int,
+  max_length : Int32,
 ) -> String raise CompanyServiceError {
   let value = match json_field(body, key) {
     Some(String(text)) => text
@@ -71,7 +71,9 @@ async fn report_share_now() -> String raise CompanyServiceError {
 }
 
 ///|
-async fn report_share_expiry(days : Int?) -> String? raise CompanyServiceError {
+async fn report_share_expiry(
+  days : Int32?,
+) -> String? raise CompanyServiceError {
   match days {
     None => None
     Some(value) => {
@@ -88,7 +90,7 @@ async fn report_share_expiry(days : Int?) -> String? raise CompanyServiceError {
 }
 
 ///|
-fn report_share_days(body : Json) -> Int? {
+fn report_share_days(body : Json) -> Int32? {
   match json_field(body, "expiresInDays") {
     None => Some(7)
     Some(Null) => None
@@ -127,11 +129,11 @@ fn report_share_token(
 }
 
 ///|
-async fn report_share_projection_payloads() -> Array[(String, Json, Int)] raise CompanyServiceError {
+async fn report_share_projection_payloads() -> Array[(String, Json, Int32)] raise CompanyServiceError {
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'report_share' ORDER BY aggregate_id, revision LIMIT 4000",
   )
-  let latest : Map[String, (Json, Int)] = {}
+  let latest : Map[String, (Json, Int32)] = Map([])
   for line_view in output.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
@@ -143,7 +145,7 @@ async fn report_share_projection_payloads() -> Array[(String, Json, Int)] raise 
       latest.set(token, (payload, parse_decimal(row[1])))
     }
   }
-  let result : Array[(String, Json, Int)] = []
+  let result : Array[(String, Json, Int32)] = []
   for token, pair in latest {
     result.push((token, pair.0, pair.1))
   }
@@ -153,7 +155,7 @@ async fn report_share_projection_payloads() -> Array[(String, Json, Int)] raise 
 ///|
 async fn report_share_latest_projection(
   token : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'report_share' AND aggregate_id = " +
     @postgres.sql_literal(token) +
@@ -253,7 +255,7 @@ async fn report_share_list_response(
 ///|
 async fn report_share_public_payload(
   token : String,
-) -> (Int, Json, Json, Int)? raise CompanyServiceError {
+) -> (Int32, Json, Json, Int32)? raise CompanyServiceError {
   if !report_share_token_valid(token) {
     return None
   }
@@ -286,7 +288,7 @@ async fn report_share_public_payload(
 async fn report_share_bump_access(
   token : String,
   payload : Json,
-  revision : Int,
+  revision : Int32,
 ) -> Unit raise CompanyServiceError {
   let now = report_share_now()
   let fields = match payload {
@@ -343,7 +345,7 @@ async fn report_share_data_for_key(
 ///|
 async fn report_share_meta_response(
   token : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   match report_share_public_payload(token) {
     None =>
       (
@@ -407,7 +409,7 @@ async fn report_share_meta_response(
 ///|
 async fn report_share_data_response(
   token : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   match report_share_public_payload(token) {
     None =>
       (
@@ -479,7 +481,7 @@ fn report_share_command_spec(
 fn report_share_copy_fields(value : Json) -> Map[String, Json] {
   match value {
     Object(fields) => {
-      let result : Map[String, Json] = {}
+      let result : Map[String, Json] = Map([])
       fields.each((key, item) => result.set(key, item))
       result
     }
@@ -513,7 +515,7 @@ async fn report_share_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

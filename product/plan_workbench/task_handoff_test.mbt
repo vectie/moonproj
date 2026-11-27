@@ -46,7 +46,7 @@ test "task handoff preserves authored context and a stable exact source referenc
     handoff.source_reference
     .strip_prefix("MoonProj plan task (local snapshot): ")
     .unwrap()
-    .to_string(),
+    .to_owned(),
   )
   assert_eq(reference, {
     "project_id": d.project_id,
@@ -98,7 +98,10 @@ test "task handoff shows incomplete and ambiguous planning links without guessin
 test "task handoff rejects absent or ambiguous selected identity and missing snapshot identity" {
   let base = update_table_draft()
   for id in ["", "missing"] {
-    assert_true((try Ok(@plan_workbench.task_handoff(base, id)) catch { e => Err(e) }) is Err(_))
+    assert_true(
+      (Ok(@plan_workbench.task_handoff(base, id)) catch { e => Err(e) })
+      is Err(_),
+    )
   }
   for
     d in [
@@ -106,6 +109,9 @@ test "task handoff rejects absent or ambiguous selected identity and missing sna
       { ..base, project_id: "", },
       { ..base, tasks: [base.tasks[1], base.tasks[1]], },
     ] {
-    assert_true((try Ok(@plan_workbench.task_handoff(d, "T2")) catch { e => Err(e) }) is Err(_))
+    assert_true(
+      (Ok(@plan_workbench.task_handoff(d, "T2")) catch { e => Err(e) })
+      is Err(_),
+    )
   }
 }

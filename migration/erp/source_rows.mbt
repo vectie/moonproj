@@ -3,6 +3,7 @@
 /// yet have a target-owned state machine. These records normalize identity and
 /// numeric fields without claiming that the source state is already accepted
 /// by the company product.
+#derive(Debug, Eq)
 pub(all) struct LegacyTaskRow {
   task_guid : String
   proj_guid : String
@@ -18,10 +19,11 @@ pub(all) struct LegacyTaskRow {
   progress_bps : Int64
   owner_guid : String?
   status : String
-  sort_order : Int
-} derive(Debug, Eq)
+  sort_order : Int32
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyTaskReportRow {
   report_guid : String
   task_guid : String
@@ -29,9 +31,10 @@ pub(all) struct LegacyTaskReportRow {
   progress_bps : Int64
   summary : String?
   operator_guid : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyPaymentPlanRow {
   plan_guid : String
   contract_guid : String
@@ -42,15 +45,16 @@ pub(all) struct LegacyPaymentPlanRow {
   currency : String
   approval_state : String
   handler_guid : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyPaymentApplicationRow {
   apply_guid : String
   apply_code : String
   contract_guid : String
   plan_guid : String?
-  apply_class : Int
+  apply_class : Int32
   apply_type_code : String?
   apply_state : String
   pay_state : String
@@ -62,11 +66,12 @@ pub(all) struct LegacyPaymentApplicationRow {
   amount_bz_minor : Int64
   proj_guid : String?
   proj_type : String?
-  contract_class : Int?
+  contract_class : Int32?
   bu_guid : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyWorkflowDefinitionRow {
   process_guid : String
   process_key : String
@@ -75,37 +80,41 @@ pub(all) struct LegacyWorkflowDefinitionRow {
   active : Bool
   mandatory : Bool
   bu_guid : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyWorkflowStepRow {
   step_guid : String
   process_guid : String
   step_key : String
-  step_order : Int
-  step_type : Int
+  step_order : Int32
+  step_type : Int32
   step_name : String
-  threshold : Int
-  remind_days : Int?
-  warn_days : Int?
-} derive(Debug, Eq)
+  threshold : Int32
+  remind_days : Int32?
+  warn_days : Int32?
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyWorkflowAssigneeRow {
   assignee_guid : String
   step_guid : String
   user_guid : String?
-  weight : Int
-} derive(Debug, Eq)
+  weight : Int32
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyLifecycleStageRow {
   stage_code : String
   stage_name : String
-  stage_order : Int
-} derive(Debug, Eq)
+  stage_order : Int32
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyLifecycleInstanceRow {
   instance_id : String
   proj_guid : String
@@ -116,22 +125,24 @@ pub(all) struct LegacyLifecycleInstanceRow {
   actual_end : String?
   status : String
   progress_bps : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyInvestmentVersionRow {
   version_guid : String
   proj_guid : String
   bu_guid : String
   version_name : String
-  version_no : Int
+  version_no : Int32
   current : Bool
   created_by : String
   created_at : String
   remark : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyInvestmentIndexRow {
   index_guid : String
   version_guid : String
@@ -143,10 +154,11 @@ pub(all) struct LegacyInvestmentIndexRow {
   unit : String?
   value_repr : String?
   remark : String?
-  sort_order : Int
-} derive(Debug, Eq)
+  sort_order : Int32
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyLoanOffsetRow {
   offset_guid : String
   loan_guid : String
@@ -155,19 +167,21 @@ pub(all) struct LegacyLoanOffsetRow {
   related_expense_guid : String?
   remark : String?
   operator_guid : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyParameterRow {
   parameter_id : String
   parameter_name : String
   parameter_code : String
   parameter_value : String
-  display_order : Int
+  display_order : Int32
   enabled : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyProceedingRow {
   proceeding_guid : String
   proceeding_code : String
@@ -176,12 +190,13 @@ pub(all) struct LegacyProceedingRow {
   apply_dept_guid : String?
   cost_code : String?
   enabled : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 /// A credential-safe user row. Password hashes and authentication secrets are
 /// intentionally excluded; credential migration requires a separate security
 /// approval path.
+#derive(Debug, Eq)
 pub(all) struct LegacyUserRow {
   user_id : String
   user_code : String
@@ -191,11 +206,12 @@ pub(all) struct LegacyUserRow {
   bu_guid : String?
   dept_guid : String?
   enabled : Bool
-  fail_login_count : Int
+  fail_login_count : Int32
   last_login_time : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct LegacyAuditRow {
   log_id : String
   user_id : String?
@@ -204,7 +220,7 @@ pub(all) struct LegacyAuditRow {
   target_id : String?
   ip : String?
   created_at : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn optional_string_json(value : String?) -> Json {
@@ -215,7 +231,7 @@ fn optional_string_json(value : String?) -> Json {
 }
 
 ///|
-fn int_json(value : Int) -> Json {
+fn int_json(value : Int32) -> Json {
   Json::number(value.to_double(), repr=value.to_string())
 }
 
@@ -243,7 +259,7 @@ fn typed_source_record(
   table_name~ : String,
   record_type~ : String,
   record_id~ : String,
-  schema_version~ : Int,
+  schema_version~ : Int32,
   payload~ : Json,
 ) -> @store.StoredRecord raise ErpImportError {
   if table_name.trim() == "" ||
@@ -263,7 +279,7 @@ fn typed_source_record(
 ///|
 pub fn task_record(
   row : LegacyTaskRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   validate_progress(row.progress_bps)
   typed_source_record(
@@ -294,7 +310,7 @@ pub fn task_record(
 ///|
 pub fn task_report_record(
   row : LegacyTaskReportRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   validate_progress(row.progress_bps)
   typed_source_record(
@@ -316,7 +332,7 @@ pub fn task_report_record(
 ///|
 pub fn payment_plan_record(
   row : LegacyPaymentPlanRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   validate_nonnegative(row.amount_minor)
   typed_source_record(
@@ -341,7 +357,7 @@ pub fn payment_plan_record(
 ///|
 pub fn payment_application_record(
   row : LegacyPaymentApplicationRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   validate_nonnegative(row.amount_minor)
   validate_nonnegative(row.amount_bz_minor)
@@ -379,7 +395,7 @@ pub fn payment_application_record(
 ///|
 pub fn workflow_definition_record(
   row : LegacyWorkflowDefinitionRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="wf_process_def",
@@ -401,7 +417,7 @@ pub fn workflow_definition_record(
 ///|
 pub fn workflow_step_record(
   row : LegacyWorkflowStepRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="wf_step_def",
@@ -431,7 +447,7 @@ pub fn workflow_step_record(
 ///|
 pub fn workflow_assignee_record(
   row : LegacyWorkflowAssigneeRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="wf_step_assignee",
@@ -450,7 +466,7 @@ pub fn workflow_assignee_record(
 ///|
 pub fn lifecycle_stage_record(
   row : LegacyLifecycleStageRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="proj_lifecycle_stage",
@@ -468,7 +484,7 @@ pub fn lifecycle_stage_record(
 ///|
 pub fn lifecycle_instance_record(
   row : LegacyLifecycleInstanceRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   validate_progress(row.progress_bps)
   typed_source_record(
@@ -493,7 +509,7 @@ pub fn lifecycle_instance_record(
 ///|
 pub fn investment_version_record(
   row : LegacyInvestmentVersionRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="tzsy_version",
@@ -517,7 +533,7 @@ pub fn investment_version_record(
 ///|
 pub fn investment_index_record(
   row : LegacyInvestmentIndexRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="tzsy_plan_index",
@@ -543,7 +559,7 @@ pub fn investment_index_record(
 ///|
 pub fn loan_offset_record(
   row : LegacyLoanOffsetRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   validate_nonnegative(row.amount_minor)
   typed_source_record(
@@ -566,7 +582,7 @@ pub fn loan_offset_record(
 ///|
 pub fn parameter_record(
   row : LegacyParameterRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="my_biz_param_option",
@@ -587,7 +603,7 @@ pub fn parameter_record(
 ///|
 pub fn proceeding_record(
   row : LegacyProceedingRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="vys_proceeding",
@@ -609,7 +625,7 @@ pub fn proceeding_record(
 ///|
 pub fn user_record(
   row : LegacyUserRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="sys_user",
@@ -634,7 +650,7 @@ pub fn user_record(
 ///|
 pub fn audit_record(
   row : LegacyAuditRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   typed_source_record(
     table_name="audit_log",

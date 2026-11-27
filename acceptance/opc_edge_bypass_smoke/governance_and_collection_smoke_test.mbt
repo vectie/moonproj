@@ -12,21 +12,23 @@ fn approve_with_actor_separation(
 }
 
 ///|
+#derive(Debug, Eq)
 enum CollectionSmokeState {
   Due
   Overdue
   Disputed
   WrittenOff
   Recovered
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CollectionSmoke {
   receivable_id : String
   amount_minor : Int64
   recovered_minor : Int64
   state : CollectionSmokeState
-} derive(Debug, Eq)
+}
 
 ///|
 fn CollectionSmoke::new(
@@ -36,7 +38,7 @@ fn CollectionSmoke::new(
   if receivable_id.trim().is_empty() || amount_minor <= 0 {
     raise InvalidCollectionState
   }
-  { receivable_id, amount_minor, recovered_minor: 0L, state: Due }
+  { receivable_id, amount_minor, recovered_minor: 0L, state: Due, }
 }
 
 ///|
@@ -46,7 +48,7 @@ fn CollectionSmoke::mark_overdue(
   if self.state != Due {
     raise InvalidCollectionState
   }
-  { ..self, state: Overdue }
+  { ..self, state: Overdue, }
 }
 
 ///|
@@ -56,7 +58,7 @@ fn CollectionSmoke::dispute(
   if self.state != Overdue {
     raise InvalidCollectionState
   }
-  { ..self, state: Disputed }
+  { ..self, state: Disputed, }
 }
 
 ///|
@@ -66,7 +68,7 @@ fn CollectionSmoke::write_off(
   if self.state != Disputed {
     raise InvalidCollectionState
   }
-  { ..self, state: WrittenOff }
+  { ..self, state: WrittenOff, }
 }
 
 ///|
@@ -79,7 +81,7 @@ fn CollectionSmoke::recover(
     amount_minor > self.amount_minor {
     raise InvalidCollectionState
   }
-  { ..self, recovered_minor: amount_minor, state: Recovered }
+  { ..self, recovered_minor: amount_minor, state: Recovered, }
 }
 
 ///|

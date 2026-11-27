@@ -1,7 +1,7 @@
 ///|
 fn dispatch_context_test_json(
-  coverage? : String = "complete",
-  artifact_state? : String = "available",
+  coverage~ : String = "complete",
+  artifact_state~ : String = "available",
 ) -> Json {
   Json::object({
     "schema": ToJson::to_json("moonproj.product-context.v1"),
@@ -9,17 +9,19 @@ fn dispatch_context_test_json(
     "product_name": ToJson::to_json("Captured product A"),
     "coverage": ToJson::to_json(coverage),
     "issues": ToJson::to_json(["Declared extraction scope"]),
-    "context_path": ToJson::to_json(".moonproj/input/run-1/product-context.json"),
+    "context_path": ToJson::to_json(
+      ".moonproj/input/run-1/product-context.json",
+    ),
     "sha256": ToJson::to_json("captured-context-hash"),
-    "size_bytes": ToJson::to_json((4096)),
+    "size_bytes": ToJson::to_json(4096),
     "prd": Json::object({
       "document_id": ToJson::to_json("prd-a"),
       "source_sha256": ToJson::to_json("captured-source-hash"),
-      "source_size_bytes": ToJson::to_json((8192)),
+      "source_size_bytes": ToJson::to_json(8192),
       "version": ToJson::to_json("v-before-retag"),
       "coverage": ToJson::to_json(coverage),
       "text_sha256": ToJson::to_json("captured-text-hash"),
-      "text_size_bytes": ToJson::to_json((1024)),
+      "text_size_bytes": ToJson::to_json(1024),
       "extraction_version": ToJson::to_json("visible-body-v1"),
       "limitations": ToJson::to_json(["Tables retain text only"]),
       "text": ToJson::to_json("PRIVATE_PRD_TEXT_MUST_NOT_RENDER"),
@@ -136,7 +138,7 @@ test "malformed optional context never rejects otherwise valid task and executio
       dispatch_context_test_replace(
         dispatch_context_test_json(),
         "coverage",
-        ToJson::to_json((3)),
+        ToJson::to_json(3),
       ),
       dispatch_context_test_replace(
         dispatch_context_test_json(),

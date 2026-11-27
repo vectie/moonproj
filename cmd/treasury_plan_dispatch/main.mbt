@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror TreasuryPlanPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   TreasuryPlan(@treasury.TreasuryPlanError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise TreasuryPlanPromotionError {
@@ -363,27 +364,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: treasury_plan_dispatch <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       TreasuryPlanPromotionError::InvalidInput => {
         println("treasury plan promotion failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TreasuryPlanPromotionError::Io(_) => {
         println("treasury plan promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TreasuryPlanPromotionError::Money(_) => {
         println("treasury plan promotion failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TreasuryPlanPromotionError::TreasuryPlan(_) => {
         println("treasury plan promotion failed: treasury lifecycle validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

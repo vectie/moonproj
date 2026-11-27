@@ -1,6 +1,7 @@
 ///|
 /// The first verified channel is a signed customer webhook. It is intentionally
 /// narrow: one configured customer identity, one signing key, inbound only.
+#derive(Debug, Eq)
 pub(all) struct VerifiedWebhookChannel {
   channel_id : String
   principal_id : String
@@ -8,9 +9,10 @@ pub(all) struct VerifiedWebhookChannel {
   signing_key_id : String
   allowed_clock_skew_seconds : Int64
   active : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct SignedCustomerEnvelope {
   message_id : String
   channel_id : String
@@ -20,15 +22,17 @@ pub(all) struct SignedCustomerEnvelope {
   content_type : String
   body : String
   signature : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ChannelReplayRegistry {
   message_ids : Array[String]
   nonces : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct VerifiedCustomerReceipt {
   receipt_id : String
   principal_id : String
@@ -42,9 +46,10 @@ pub(all) struct VerifiedCustomerReceipt {
   signature_verified : Bool
   replay_checked : Bool
   company_authority_granted : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror CustomerChannelError {
   Invalid(String)
   InactiveChannel
@@ -53,9 +58,9 @@ pub(all) suberror CustomerChannelError {
   StaleMessage
   ReplayDetected
   SignatureMismatch
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ChannelReplayRegistry::new() -> ChannelReplayRegistry {
-  { message_ids: [], nonces: [] }
+  { message_ids: [], nonces: [], }
 }

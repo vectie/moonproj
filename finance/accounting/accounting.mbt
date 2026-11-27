@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum AccountKind {
   Asset
   Liability
   Equity
   Revenue
   Expense
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Account {
   account_id : String
   account_code : String
@@ -15,28 +17,32 @@ pub(all) struct Account {
   kind : AccountKind
   currency : String
   active : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ChartOfAccounts {
   accounts : Array[Account]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum PeriodState {
   Open
   SoftClosed
   Closed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AccountingPeriod {
   period_id : String
   label : String
   state : PeriodState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AccountingBook {
   book_id : String
   principal_id : String
@@ -44,9 +50,10 @@ pub(all) struct AccountingBook {
   chart : ChartOfAccounts
   periods : Array[AccountingPeriod]
   ledger : @finance.Ledger
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AccountingError {
   EmptyIdentifier
   InvalidCurrency
@@ -61,7 +68,7 @@ pub(all) suberror AccountingError {
   Reconciliation(@reconciliation.ReconciliationError)
   NotAuthorized(@foundation.AuthorityError)
   Ledger(@finance.LedgerError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Account::new(
@@ -77,12 +84,12 @@ pub fn Account::new(
   if currency.length() != 3 {
     raise AccountingError::InvalidCurrency
   }
-  { account_id, account_code, name, kind, currency, active: true }
+  { account_id, account_code, name, kind, currency, active: true, }
 }
 
 ///|
 pub fn ChartOfAccounts::empty() -> ChartOfAccounts {
-  { accounts: [] }
+  { accounts: [], }
 }
 
 ///|
@@ -123,7 +130,7 @@ pub fn AccountingPeriod::new(
   ) catch {
     error => raise AccountingError::NotAuthorized(error)
   }
-  { period_id, label, state: PeriodState::Open }
+  { period_id, label, state: PeriodState::Open, }
 }
 
 ///|
@@ -298,7 +305,7 @@ fn AccountingBook::change_period(
   let periods = self.periods.copy()
   for i in 0..<periods.length() {
     if periods[i].period_id == period_id {
-      periods[i] = { ..periods[i], state: to }
+      periods[i] = { ..periods[i], state: to, }
     }
   }
   { ..self, periods, }

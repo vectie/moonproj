@@ -1,25 +1,29 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum Decision {
   Approve
   Reject
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ProcessStatus {
   Pending
   Approved
   Rejected
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ApprovalStep {
   step_id : String
   capability : String
-  required_weight : Int
-} derive(Debug, Eq)
+  required_weight : Int32
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct WorkflowAssignment {
   assignment_id : String
   process_id : String
@@ -27,13 +31,14 @@ pub(all) struct WorkflowAssignment {
   assignee_id : String
   principal_id : String
   scope : String
-  weight : Int
-} derive(Debug, Eq)
+  weight : Int32
+}
 
 ///|
 /// Evidence that an assignment is attached to a process definition. The
 /// attachment changes which actors are eligible for a configured step; it
 /// never creates authority and it never records an approval decision.
+#derive(Debug, Eq)
 pub(all) struct WorkflowAssignmentAttachment {
   attachment_id : String
   assignment_id : String
@@ -41,9 +46,10 @@ pub(all) struct WorkflowAssignmentAttachment {
   step_id : String
   grants_authority : Bool
   approves_instance : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct WorkflowSlaPolicy {
   policy_id : String
   process_id : String
@@ -51,17 +57,19 @@ pub(all) struct WorkflowSlaPolicy {
   due_after_seconds : Int64
   escalation_actor_id : String
   scope : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum WorkflowSlaState {
   Due
   Overdue
-} derive(Debug, Eq)
+}
 
 ///|
 /// Observation-only escalation evidence. It never grants the escalation
 /// target authority and never changes workflow approval state.
+#derive(Debug, Eq)
 pub(all) struct WorkflowEscalationEvidence {
   escalation_id : String
   instance_id : String
@@ -74,27 +82,30 @@ pub(all) struct WorkflowEscalationEvidence {
   notification_requested : Bool
   authority_granted : Bool
   approves_instance : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ProcessDefinition {
   process_id : String
   process_key : String
   steps : Array[ApprovalStep]
   assignments : Array[WorkflowAssignment]
   sla_policies : Array[WorkflowSlaPolicy]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ApprovalAction {
   step_id : String
   actor_id : String
   decision : Decision
-  weight : Int
+  weight : Int32
   delegation_id : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ProcessInstance {
   instance_id : String
   process_key : String
@@ -104,12 +115,13 @@ pub(all) struct ProcessInstance {
   assignments : Array[WorkflowAssignment]
   sla_policies : Array[WorkflowSlaPolicy]
   sla_evidence : Array[WorkflowEscalationEvidence]
-  current_step : Int
+  current_step : Int32
   status : ProcessStatus
   actions : Array[ApprovalAction]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror WorkflowError {
   EmptyIdentifier
   EmptyStep
@@ -135,7 +147,7 @@ pub(all) suberror WorkflowError {
   Projection(@store.ProjectionError)
   Delegation(@access.AccessError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ProcessDefinition::new(
@@ -164,7 +176,7 @@ pub fn ProcessDefinition::new(
       }
     }
   }
-  { process_id, process_key, steps, assignments: [], sla_policies: [] }
+  { process_id, process_key, steps, assignments: [], sla_policies: [], }
 }
 
 ///|
@@ -178,7 +190,7 @@ pub fn ProcessDefinition::assign_step(
   assignee_id~ : String,
   principal_id~ : String,
   scope~ : String,
-  weight~ : Int,
+  weight~ : Int32,
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> WorkflowAssignment raise WorkflowError {
@@ -500,7 +512,7 @@ pub fn ProcessInstance::record_sla_evidence(
 }
 
 ///|
-fn weight_for_step(instance : ProcessInstance, step_id : String) -> Int {
+fn weight_for_step(instance : ProcessInstance, step_id : String) -> Int32 {
   let mut total = 0
   for action in instance.actions {
     if action.step_id == step_id && action.decision == Decision::Approve {
@@ -529,7 +541,7 @@ fn assignment_weights(
   instance : ProcessInstance,
   step_id : String,
   actor_id : String,
-) -> (Bool, Int) {
+) -> (Bool, Int32) {
   let mut has_assignments = false
   let mut actor_weight = 0
   for assignment in instance.assignments {
@@ -548,7 +560,7 @@ pub fn ProcessInstance::decide(
   self : ProcessInstance,
   step_id~ : String,
   decision~ : Decision,
-  weight~ : Int,
+  weight~ : Int32,
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> ProcessInstance raise WorkflowError {
@@ -571,7 +583,7 @@ pub fn ProcessInstance::decide_delegated(
   self : ProcessInstance,
   step_id~ : String,
   decision~ : Decision,
-  weight~ : Int,
+  weight~ : Int32,
   actor_id~ : String,
   delegation_id~ : String,
   at_epoch~ : Int64,
@@ -603,7 +615,7 @@ fn ProcessInstance::decide_with_source(
   self : ProcessInstance,
   step_id~ : String,
   decision~ : Decision,
-  weight~ : Int,
+  weight~ : Int32,
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
   delegation_id~ : String?,
@@ -642,17 +654,17 @@ fn ProcessInstance::decide_with_source(
     error => raise WorkflowError::NotAuthorized(error)
   }
   let actions = self.actions.copy()
-  actions.push({ step_id, actor_id, decision, weight, delegation_id })
+  actions.push({ step_id, actor_id, decision, weight, delegation_id, })
   match decision {
-    Decision::Reject => { ..self, status: ProcessStatus::Rejected, actions }
+    Decision::Reject => { ..self, status: ProcessStatus::Rejected, actions, }
     Decision::Approve => {
       let total = weight_for_step({ ..self, actions, }, step_id)
       if total < step.required_weight {
         { ..self, actions, }
       } else if self.current_step + 1 >= self.steps.length() {
-        { ..self, status: ProcessStatus::Approved, actions }
+        { ..self, status: ProcessStatus::Approved, actions, }
       } else {
-        { ..self, current_step: self.current_step + 1, actions }
+        { ..self, current_step: self.current_step + 1, actions, }
       }
     }
   }

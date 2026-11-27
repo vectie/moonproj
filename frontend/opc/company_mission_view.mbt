@@ -37,7 +37,8 @@ fn workspace_mission_spine_view(
 ) -> @html.Html {
   let state = model.charter
   match state.charter {
-    None => charter_empty_or_error_panel(emit, state, "公司使命与阶段脊柱")
+    None =>
+      charter_empty_or_error_panel(emit, state, "公司使命与阶段脊柱")
     Some(charter) => {
       let achieved_pct = charter_achieved_pct(charter)
       let active_stage = charter_active_stage(charter)
@@ -179,7 +180,11 @@ fn workspace_mission_spine_view(
 }
 
 ///|
-fn founder_focus_reason(model : Model, job : TodayTask, stage : String) -> String {
+fn founder_focus_reason(
+  model : Model,
+  job : TodayTask,
+  stage : String,
+) -> String {
   match stage {
     "waiting_approval" => "等待创始人确认"
     "review" => "待核对交付"

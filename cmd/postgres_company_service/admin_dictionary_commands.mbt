@@ -57,7 +57,7 @@ fn admin_dict_sensitive(group_name : String, code : String) -> Bool {
 }
 
 ///|
-fn admin_dict_display_order(body : Json) -> Int raise CompanyServiceError {
+fn admin_dict_display_order(body : Json) -> Int32 raise CompanyServiceError {
   match admin_dict_field(body, "displayOrder", "display_order") {
     None | Some(Null) => 0
     Some(Number(value, ..)) if value == value.trunc() && value >= 0.0 =>
@@ -80,7 +80,7 @@ fn admin_dict_enabled(body : Json) -> Bool? {
 ///|
 async fn admin_dict_latest_projection(
   guid : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'admin_dict_option' AND aggregate_id = " +
     @postgres.sql_literal(guid) +
@@ -168,7 +168,7 @@ async fn admin_dict_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

@@ -2,6 +2,7 @@
 /// A durable link between an operational source event and its validated journal
 /// projection. The journal remains immutable; the link makes reconciliation and
 /// replay visible without making source aggregates depend on the ledger.
+#derive(Debug, Eq)
 pub(all) struct AccountingEvent {
   event_id : String
   principal_id : String
@@ -9,14 +10,16 @@ pub(all) struct AccountingEvent {
   source_id : String
   event_type : String
   journal : @finance.JournalEntry
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AccountingEventLog {
   events : Array[AccountingEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AccountingEventError {
   EmptyIdentifier
   DuplicateEvent
@@ -24,7 +27,7 @@ pub(all) suberror AccountingEventError {
   Journal(@finance.LedgerError)
   Store(@store.StoreError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn AccountingEvent::new(
@@ -45,12 +48,12 @@ pub fn AccountingEvent::new(
   @finance.validate_journal(journal) catch {
     error => raise AccountingEventError::Journal(error)
   }
-  { event_id, principal_id, source_type, source_id, event_type, journal }
+  { event_id, principal_id, source_type, source_id, event_type, journal, }
 }
 
 ///|
 pub fn AccountingEventLog::empty() -> AccountingEventLog {
-  { events: [] }
+  { events: [], }
 }
 
 ///|

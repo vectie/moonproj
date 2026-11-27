@@ -62,7 +62,7 @@ fn products_inventory_estimate(group : @work_inventory.WorkGroup) -> String {
 }
 
 ///|
-fn products_inventory_range(low : Int?, high : Int?) -> String {
+fn products_inventory_range(low : Int32?, high : Int32?) -> String {
   match (low, high) {
     (Some(low), Some(high)) =>
       "估计 " + low.to_string() + "–" + high.to_string() + " 工程人日"

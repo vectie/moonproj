@@ -1,31 +1,34 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum Trend {
   Rising
   Falling
   Flat
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AnalysisReport {
   instrument : String
-  sample_size : Int
+  sample_size : Int32
   first_close_minor : Int64
   last_close_minor : Int64
   trend : Trend
   moving_average_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AnalysisError {
   EmptyInstrument
   EmptySeries
   InvalidWindow
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn moving_average(
   closes : Array[Int64],
-  window : Int,
+  window : Int32,
 ) -> Int64 raise AnalysisError {
   if closes.length() == 0 {
     raise AnalysisError::EmptySeries

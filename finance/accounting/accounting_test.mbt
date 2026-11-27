@@ -13,7 +13,7 @@ fn accounting_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "accounting book validates accounts and closes periods" {
-  let book = AccountingBook::new(
+  let book = @accounting.AccountingBook::new(
       book_id="book-001",
       principal_id="co-001",
       scope="company:co-001",
@@ -21,22 +21,22 @@ test "accounting book validates accounts and closes periods" {
       grant=accounting_grant("accounting:book:create"),
     )
     .add_account(
-      Account::new(
+      @accounting.Account::new(
         account_id="cash",
         account_code="1002",
         name="Cash",
-        kind=AccountKind::Asset,
+        kind=@accounting.AccountKind::Asset,
         currency="CNY",
       ),
       actor_id="alice",
       grant=accounting_grant("accounting:account:add"),
     )
     .add_account(
-      Account::new(
+      @accounting.Account::new(
         account_id="payable",
         account_code="2202",
         name="Payable",
-        kind=AccountKind::Liability,
+        kind=@accounting.AccountKind::Liability,
         currency="CNY",
       ),
       actor_id="alice",
@@ -53,8 +53,8 @@ test "accounting book validates accounts and closes periods" {
     entry_id: "entry-001",
     description: "settlement",
     postings: [
-      { account: "2202", side: @finance.PostingSide::Debit, amount },
-      { account: "1002", side: @finance.PostingSide::Credit, amount },
+      { account: "2202", side: @finance.PostingSide::Debit, amount, },
+      { account: "1002", side: @finance.PostingSide::Credit, amount, },
     ],
   }
   let book = book
@@ -75,12 +75,12 @@ test "accounting book validates accounts and closes periods" {
       grant=accounting_grant("accounting:period:close"),
     )
   assert_eq(book.ledger.length(), 1)
-  assert_true(book.periods[0].state == PeriodState::Closed)
+  assert_true(book.periods[0].state == @accounting.PeriodState::Closed)
 }
 
 ///|
 test "accounting book rejects an unknown account" {
-  let book = AccountingBook::new(
+  let book = @accounting.AccountingBook::new(
     book_id="book-002",
     principal_id="co-001",
     scope="company:co-001",
@@ -97,8 +97,8 @@ test "accounting book rejects an unknown account" {
     entry_id: "entry-unknown",
     description: "unknown account",
     postings: [
-      { account: "9999", side: @finance.PostingSide::Debit, amount },
-      { account: "1002", side: @finance.PostingSide::Credit, amount },
+      { account: "9999", side: @finance.PostingSide::Debit, amount, },
+      { account: "1002", side: @finance.PostingSide::Credit, amount, },
     ],
   }
   try
@@ -109,7 +109,7 @@ test "accounting book rejects an unknown account" {
       grant=accounting_grant("accounting:post"),
     )
   catch {
-    AccountingError::MissingAccount => ()
+    @accounting.AccountingError::MissingAccount => ()
     _ => fail("wrong accounting error")
   } noraise {
     _ => fail("expected accounting error")
@@ -118,7 +118,7 @@ test "accounting book rejects an unknown account" {
 
 ///|
 test "closed accounting period rejects posting" {
-  let book = AccountingBook::new(
+  let book = @accounting.AccountingBook::new(
       book_id="book-003",
       principal_id="co-001",
       scope="company:co-001",
@@ -140,7 +140,7 @@ test "closed accounting period rejects posting" {
   let entry : @finance.JournalEntry = {
     entry_id: "entry-closed",
     description: "closed period",
-    postings: [{ account: "1002", side: @finance.PostingSide::Debit, amount }],
+    postings: [{ account: "1002", side: @finance.PostingSide::Debit, amount, }],
   }
   try
     book.post(
@@ -150,7 +150,7 @@ test "closed accounting period rejects posting" {
       grant=accounting_grant("accounting:post"),
     )
   catch {
-    AccountingError::PeriodNotOpen => ()
+    @accounting.AccountingError::PeriodNotOpen => ()
     _ => fail("wrong accounting error")
   } noraise {
     _ => fail("expected accounting error")
@@ -159,7 +159,7 @@ test "closed accounting period rejects posting" {
 
 ///|
 test "reconciled close requires balanced control reports" {
-  let book = AccountingBook::new(
+  let book = @accounting.AccountingBook::new(
       book_id="book-004",
       principal_id="co-001",
       scope="company:co-001",
@@ -179,7 +179,7 @@ test "reconciled close requires balanced control reports" {
     )
   let amount = @finance.Money::new(minor=100, currency="CNY")
   let balanced = @reconciliation.ReconciliationReport::new(scope="payable", lines=[
-    { reference_id: "payable-001", expected: amount, actual: amount },
+    { reference_id: "payable-001", expected: amount, actual: amount, },
   ])
   let closed = book.close_reconciled(
     period_id="2026-07",
@@ -187,7 +187,7 @@ test "reconciled close requires balanced control reports" {
     actor_id="alice",
     grant=accounting_grant("accounting:period:close"),
   )
-  assert_true(closed.periods[0].state == PeriodState::Closed)
+  assert_true(closed.periods[0].state == @accounting.PeriodState::Closed)
   let unbalanced = @reconciliation.ReconciliationReport::new(
     scope="receivable",
     lines=[
@@ -206,8 +206,8 @@ test "reconciled close requires balanced control reports" {
       grant=accounting_grant("accounting:period:close"),
     )
   catch {
-    AccountingError::Reconciliation(
-      @reconciliation.ReconciliationError::Unbalanced(-10)
+    @accounting.AccountingError::Reconciliation(
+      @reconciliation.ReconciliationError::Unbalanced(-10),
     ) => ()
     _ => fail("wrong accounting error")
   } noraise {

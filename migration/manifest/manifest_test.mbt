@@ -13,7 +13,7 @@ fn manifest_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "migration manifest validates, applies, and rolls back" {
-  let manifest = MigrationManifest::new(
+  let manifest = @manifest.MigrationManifest::new(
       run_id="run-001",
       source_snapshot_id="erp-snapshot-001",
       principal_id="co-001",
@@ -26,7 +26,7 @@ test "migration manifest validates, applies, and rolls back" {
         source_id: "p-001",
         target_type: "project",
         target_id: Some("p-001"),
-        disposition: MigrationDisposition::Imported,
+        disposition: @manifest.MigrationDisposition::Imported,
         reason: "mapped by stable identifier",
       },
       actor_id="migration",
@@ -38,7 +38,7 @@ test "migration manifest validates, applies, and rolls back" {
         source_id: "cost-001",
         target_type: "cost",
         target_id: None,
-        disposition: MigrationDisposition::Quarantined,
+        disposition: @manifest.MigrationDisposition::Quarantined,
         reason: "currency missing",
       },
       actor_id="migration",
@@ -53,26 +53,26 @@ test "migration manifest validates, applies, and rolls back" {
       actor_id="migration",
       grant=manifest_grant("migration:run:rollback"),
     )
-  assert_true(manifest.state == MigrationRunState::RolledBack)
-  assert_eq(manifest.count(MigrationDisposition::Imported), 1)
-  assert_eq(manifest.count(MigrationDisposition::Quarantined), 1)
+  assert_true(manifest.state == @manifest.MigrationRunState::RolledBack)
+  assert_eq(manifest.count(@manifest.MigrationDisposition::Imported), 1)
+  assert_eq(manifest.count(@manifest.MigrationDisposition::Quarantined), 1)
 }
 
 ///|
 test "migration manifest rejects duplicate source identity" {
-  let manifest = MigrationManifest::new(
+  let manifest = @manifest.MigrationManifest::new(
     run_id="run-002",
     source_snapshot_id="erp-snapshot-001",
     principal_id="co-001",
     actor_id="migration",
     grant=manifest_grant("migration:run:create"),
   )
-  let item : MigrationItem = {
+  let item : @manifest.MigrationItem = {
     source_type: "ep_project",
     source_id: "p-001",
     target_type: "project",
     target_id: Some("p-001"),
-    disposition: MigrationDisposition::Imported,
+    disposition: @manifest.MigrationDisposition::Imported,
     reason: "mapped",
   }
   let manifest = manifest.add_item(
@@ -87,7 +87,7 @@ test "migration manifest rejects duplicate source identity" {
       grant=manifest_grant("migration:item:add"),
     )
   catch {
-    ManifestError::DuplicateSource => ()
+    @manifest.ManifestError::DuplicateSource => ()
     _ => fail("wrong manifest error")
   } noraise {
     _ => fail("expected manifest error")
@@ -97,7 +97,7 @@ test "migration manifest rejects duplicate source identity" {
 ///|
 test "migration manifest requires quarantine reasons" {
   try
-    MigrationManifest::new(
+    @manifest.MigrationManifest::new(
       run_id="run-003",
       source_snapshot_id="erp-snapshot-001",
       principal_id="co-001",
@@ -109,14 +109,14 @@ test "migration manifest requires quarantine reasons" {
         source_id: "invoice-003",
         target_type: "invoice",
         target_id: None,
-        disposition: MigrationDisposition::Quarantined,
+        disposition: @manifest.MigrationDisposition::Quarantined,
         reason: "",
       },
       actor_id="migration",
       grant=manifest_grant("migration:item:add"),
     )
   catch {
-    ManifestError::QuarantineReasonRequired => ()
+    @manifest.ManifestError::QuarantineReasonRequired => ()
     _ => fail("wrong manifest error")
   } noraise {
     _ => fail("expected manifest error")
@@ -125,7 +125,7 @@ test "migration manifest requires quarantine reasons" {
 
 ///|
 test "validated manifest applies matching envelopes atomically" {
-  let manifest = MigrationManifest::new(
+  let manifest = @manifest.MigrationManifest::new(
       run_id="run-004",
       source_snapshot_id="erp-snapshot-001",
       principal_id="co-001",
@@ -138,7 +138,7 @@ test "validated manifest applies matching envelopes atomically" {
         source_id: "p-004",
         target_type: "legacy/project",
         target_id: Some("p-004"),
-        disposition: MigrationDisposition::Imported,
+        disposition: @manifest.MigrationDisposition::Imported,
         reason: "stable identity",
       },
       actor_id="migration",
@@ -169,13 +169,13 @@ test "validated manifest applies matching envelopes atomically" {
     actor_id="migration",
     grant=manifest_grant("migration:run:apply"),
   )
-  assert_true(applied.state == MigrationRunState::Applied)
+  assert_true(applied.state == @manifest.MigrationRunState::Applied)
   assert_eq(store.count_type(record_type="legacy/project"), 1)
 }
 
 ///|
 test "manifest rejects a target mismatch without changing the store" {
-  let manifest = MigrationManifest::new(
+  let manifest = @manifest.MigrationManifest::new(
       run_id="run-005",
       source_snapshot_id="erp-snapshot-001",
       principal_id="co-001",
@@ -188,7 +188,7 @@ test "manifest rejects a target mismatch without changing the store" {
         source_id: "p-005",
         target_type: "legacy/project",
         target_id: Some("p-005"),
-        disposition: MigrationDisposition::Imported,
+        disposition: @manifest.MigrationDisposition::Imported,
         reason: "stable identity",
       },
       actor_id="migration",
@@ -221,7 +221,7 @@ test "manifest rejects a target mismatch without changing the store" {
       grant=manifest_grant("migration:run:apply"),
     )
   catch {
-    ManifestError::RecordTargetMismatch => ()
+    @manifest.ManifestError::RecordTargetMismatch => ()
     _ => fail("wrong manifest error")
   } noraise {
     _ => fail("expected target mismatch")

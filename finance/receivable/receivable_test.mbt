@@ -13,7 +13,7 @@ fn receivable_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "receivable tracks partial and complete collection" {
-  let receivable = Receivable::open(
+  let receivable = @receivable.Receivable::open(
     receivable_id="ar-001",
     source_id="sale-001",
     principal_id="co-001",
@@ -33,13 +33,13 @@ test "receivable tracks partial and complete collection" {
     grant=receivable_grant("receivable:collect"),
   )
   assert_eq(partial.outstanding_minor(), 50000)
-  assert_true(collected.state == ReceivableState::Collected)
+  assert_true(collected.state == @receivable.ReceivableState::Collected)
   assert_eq(collected.outstanding_minor(), 0)
 }
 
 ///|
 test "receivable rejects over-collection" {
-  let receivable = Receivable::open(
+  let receivable = @receivable.Receivable::open(
     receivable_id="ar-002",
     source_id="sale-002",
     principal_id="co-001",
@@ -55,7 +55,7 @@ test "receivable rejects over-collection" {
       grant=receivable_grant("receivable:collect"),
     )
   catch {
-    ReceivableError::OverCollection => ()
+    @receivable.ReceivableError::OverCollection => ()
     _ => fail("wrong receivable error")
   } noraise {
     _ => fail("expected receivable error")
@@ -64,7 +64,7 @@ test "receivable rejects over-collection" {
 
 ///|
 test "receivable opening creates a source accounting event" {
-  let receivable = Receivable::open(
+  let receivable = @receivable.Receivable::open(
     receivable_id="ar-accounting",
     source_id="sale-001",
     principal_id="co-001",
@@ -85,7 +85,7 @@ test "receivable opening creates a source accounting event" {
 
 ///|
 test "receivable collection creates a separate cash settlement event" {
-  let receivable = Receivable::open(
+  let receivable = @receivable.Receivable::open(
     receivable_id="ar-collection-accounting",
     source_id="sale-collection",
     principal_id="co-001",
@@ -116,7 +116,7 @@ test "receivable collection creates a separate cash settlement event" {
       receivable_account="1122",
     )
   catch {
-    ReceivableError::OverCollection => ()
+    @receivable.ReceivableError::OverCollection => ()
     _ => fail("wrong collection event error")
   } noraise {
     _ => fail("expected collection event error")
@@ -133,7 +133,7 @@ test "receivable collection persists an immutable projection" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let receivable = Receivable::open(
+  let receivable = @receivable.Receivable::open(
     receivable_id="ar-projection",
     source_id="sale-projection",
     principal_id="co-001",

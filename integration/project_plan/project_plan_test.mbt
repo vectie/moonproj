@@ -150,7 +150,7 @@ test "project plan rejects dependency order that the domain plan cannot satisfy"
     )
   catch {
     @project_plan.ProjectPlanCapabilityError::Plan(
-      @project.PlanError::MissingDependency
+      @project.PlanError::MissingDependency,
     ) => ()
     _ => fail("expected the ProjectPlan dependency invariant")
   } noraise {

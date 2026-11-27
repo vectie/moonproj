@@ -1,5 +1,6 @@
 ///|
 /// A read-only, typed difference. Identity is never inferred from a row label.
+#derive(Debug, Eq, ToJson)
 pub(all) struct PlanChange {
   kind : String
   id : String
@@ -8,14 +9,15 @@ pub(all) struct PlanChange {
   before : String
   after : String
   delta : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct PlanComparison {
   before_header : String
   after_header : String
   changes : Array[PlanChange]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 fn comparison_value(value : Json) -> String {
@@ -81,7 +83,7 @@ fn comparison_add(
   field : String,
   before : String,
   after : String,
-  delta? : String = "",
+  delta~ : String = "",
 ) -> Unit {
   if before != after || delta.has_prefix("Unavailable") {
     changes.push({

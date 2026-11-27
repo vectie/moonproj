@@ -18,7 +18,7 @@ fn source(bytes : Bytes) -> String {
 }
 
 ///|
-fn note(filename? : String = "result.md") -> @client_delivery.Note {
+fn note(filename~ : String = "result.md") -> @client_delivery.Note {
   {
     title: "客户交付",
     summary: "已完成约定简报。",
@@ -28,12 +28,12 @@ fn note(filename? : String = "result.md") -> @client_delivery.Note {
 }
 
 ///|
-fn u16(bytes : Bytes, at : Int) -> Int {
+fn u16(bytes : Bytes, at : Int32) -> Int32 {
   bytes[at].to_int() | (bytes[at + 1].to_int() << 8)
 }
 
 ///|
-fn u32(bytes : Bytes, at : Int) -> Int {
+fn u32(bytes : Bytes, at : Int32) -> Int32 {
   u16(bytes, at) | (u16(bytes, at + 2) << 16)
 }
 

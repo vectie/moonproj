@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror InvestmentValuationError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Investment(@domain.InvestmentError)
   Portfolio(@portfolio.PortfolioError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise InvestmentValuationError {
@@ -207,7 +208,7 @@ fn run(
     let price_minor = required_int64(item, "price_minor")
     let quote_currency = required_string(item, "currency")
     let quote_price = money(price_minor, quote_currency)
-    let quote : @portfolio.MarketQuote = { instrument, price: quote_price }
+    let quote : @portfolio.MarketQuote = { instrument, price: quote_price, }
     quotes.push(quote)
   }
 
@@ -328,35 +329,35 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: investment_valuation <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       InvestmentValuationError::InvalidInput => {
         println("investment valuation failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvestmentValuationError::Io(_) => {
         println("investment valuation failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvestmentValuationError::Money(_) => {
         println("investment valuation failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvestmentValuationError::Investment(error) => {
         println(
-          "investment valuation failed: mandate validation: \{to_repr(error)}",
+          "investment valuation failed: mandate validation: \{Repr(error)}",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvestmentValuationError::Portfolio(error) => {
         println(
-          "investment valuation failed: portfolio validation: \{to_repr(error)}",
+          "investment valuation failed: portfolio validation: \{Repr(error)}",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

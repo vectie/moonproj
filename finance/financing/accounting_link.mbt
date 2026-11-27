@@ -27,8 +27,12 @@ pub fn FinancingFacility::to_draw_event(
     entry_id: "financing/" + draw_id + "/draw",
     description: "Draw financing facility " + self.facility_id,
     postings: [
-      { account: cash_account, side: @finance.PostingSide::Debit, amount },
-      { account: liability_account, side: @finance.PostingSide::Credit, amount },
+      { account: cash_account, side: @finance.PostingSide::Debit, amount, },
+      {
+        account: liability_account,
+        side: @finance.PostingSide::Credit,
+        amount,
+      },
     ],
   }
   @accounting.AccountingEvent::new(
@@ -73,8 +77,8 @@ pub fn FinancingFacility::to_repayment_event(
     entry_id: "financing/" + repayment_id + "/repayment",
     description: "Repay financing facility " + self.facility_id,
     postings: [
-      { account: liability_account, side: @finance.PostingSide::Debit, amount },
-      { account: cash_account, side: @finance.PostingSide::Credit, amount },
+      { account: liability_account, side: @finance.PostingSide::Debit, amount, },
+      { account: cash_account, side: @finance.PostingSide::Credit, amount, },
     ],
   }
   @accounting.AccountingEvent::new(

@@ -154,16 +154,24 @@ test "risk register rejects malformed records and references atomically" {
     risks: [original.risks[0], original.risks[0]],
   }
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(
-      duplicate_risks, "id,summary\nrisk,Changed", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_risk_table(
+        duplicate_risks, "id,summary\nrisk,Changed", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let padded = { ..original, risks: [{ ..original.risks[0], id: " risk ", }], }
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(
-      padded, "id,summary\nrisk,Changed", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_risk_table(
+        padded, "id,summary\nrisk,Changed", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let duplicate_tasks = {
@@ -171,9 +179,13 @@ test "risk register rejects malformed records and references atomically" {
     tasks: [original.tasks[0], original.tasks[0]],
   }
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(
-      duplicate_tasks, "id,tasks\nrisk,T1", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_risk_table(
+        duplicate_tasks, "id,tasks\nrisk,T1", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let duplicate_names = {
@@ -181,9 +193,13 @@ test "risk register rejects malformed records and references atomically" {
     owners: [..original.owners, { id: "other", name: "Sam", role: "other", }],
   }
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(
-      duplicate_names, "id,owner\nrisk,Sam", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_risk_table(
+        duplicate_names, "id,owner\nrisk,Sam", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_eq(
@@ -200,9 +216,13 @@ test "risk register rejects malformed records and references atomically" {
     ],
   }
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(
-      duplicate_owner_ids, "id,owner\nrisk,Other", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_risk_table(
+        duplicate_owner_ids, "id,owner\nrisk,Other", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }
@@ -225,22 +245,32 @@ test "risk register bounded tables retain existing rows at capacity" {
     100,
   )
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(
-      full, "id,summary,severity,owner\nnew,New,low,alex", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_risk_table(
+        full, "id,summary,severity,owner\nnew,New,low,alex", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let too_many = { ..full, risks: [..rows, { ..d.risks[0], id: "extra", }], }
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(
-      d,
-      @plan_workbench.export_risk_table(too_many),
-      false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_risk_table(
+        d,
+        @plan_workbench.export_risk_table(too_many),
+        false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_true(
-    (try Ok(@plan_workbench.preview_risk_table(d, "x".repeat(1000001), false)) catch { e => Err(e) })
+    (Ok(@plan_workbench.preview_risk_table(d, "x".repeat(1000001), false)) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }
@@ -269,6 +299,9 @@ test "risk register edits project through the existing native request wire contr
     @plan_workbench.field(risks[0], "related_task_ids"),
     ToJson::to_json(["T1", "T3"]),
   )
-  assert_eq(@plan_workbench.field(risks[2], "related_task_ids"), ToJson::to_json(([] : Array[String])))
+  assert_eq(
+    @plan_workbench.field(risks[2], "related_task_ids"),
+    ToJson::to_json(([] : Array[String])),
+  )
   assert_eq(@plan_workbench.text(request, "plan_request_id"), original.key)
 }

@@ -1,19 +1,22 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum AttentionSeverity {
   Informational
   Normal
   Urgent
   Critical
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum AttentionStatus {
   Open
   Acknowledged
   Resolved
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AttentionItem {
   attention_id : String
   dedupe_key : String
@@ -31,24 +34,26 @@ pub(all) struct AttentionItem {
   status : AttentionStatus
   created_at_epoch : Int64
   updated_at_epoch : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AttentionInbox {
-  revision : Int
+  revision : Int32
   items : Array[AttentionItem]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AttentionError {
   Invalid(String)
   NotFound(String)
   AlreadyResolved
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn AttentionInbox::new() -> AttentionInbox {
-  { revision: 0, items: [] }
+  { revision: 0, items: [], }
 }
 
 ///|
@@ -82,11 +87,11 @@ pub fn AttentionInbox::upsert(
         attention_id: current.attention_id,
         created_at_epoch: current.created_at_epoch,
       }
-      return { revision: self.revision + 1, items }
+      return { revision: self.revision + 1, items, }
     }
   }
   items.push(item)
-  { revision: self.revision + 1, items }
+  { revision: self.revision + 1, items, }
 }
 
 ///|
@@ -106,7 +111,7 @@ pub fn AttentionInbox::acknowledge(
         status: Acknowledged,
         updated_at_epoch: at_epoch,
       }
-      return { revision: self.revision + 1, items }
+      return { revision: self.revision + 1, items, }
     }
   }
   raise NotFound(attention_id)
@@ -141,7 +146,7 @@ pub fn AttentionInbox::resolve(
         evidence,
         updated_at_epoch: at_epoch,
       }
-      return { revision: self.revision + 1, items }
+      return { revision: self.revision + 1, items, }
     }
   }
   raise NotFound(attention_id)

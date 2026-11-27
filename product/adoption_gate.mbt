@@ -1,12 +1,14 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ProductInGateDecision {
   Unknown
   Experiment
   Pass
   Park
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct WorkflowAdoptionEvidence {
   principal_id : String
   product_id : String
@@ -15,20 +17,22 @@ pub(all) struct WorkflowAdoptionEvidence {
   product_in_gate_receipt : String
   accepted_customer_evidence : Array[String]
   owner_id : String
-  adoption_count : Int
-  successful_completions : Int
+  adoption_count : Int32
+  successful_completions : Int32
   reviewed_at_epoch : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TransactionalPack {
   pack : ExtensionPack
   price_currency : String
   price_minor : Int64
   transaction_provider : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TransactionalPackActivationReceipt {
   receipt_id : String
   principal_id : String
@@ -39,15 +43,17 @@ pub(all) struct TransactionalPackActivationReceipt {
   payment_receipt : String
   activated_by : String
   activated_at_epoch : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum AutonomousExpansion {
   AutonomousStaffing
   AgentMarketplace
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AutonomousExpansionReview {
   review_id : String
   principal_id : String
@@ -59,9 +65,10 @@ pub(all) struct AutonomousExpansionReview {
   risk_evidence : Array[String]
   approved : Bool
   reviewed_at_epoch : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AutonomousExpansionGateReceipt {
   receipt_id : String
   feature : AutonomousExpansion
@@ -71,9 +78,10 @@ pub(all) struct AutonomousExpansionGateReceipt {
   review_id : String
   enabled : Bool
   company_authority_granted : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ProductAdoptionError {
   Invalid(String)
   ProductInGatePassRequired
@@ -84,7 +92,7 @@ pub(all) suberror ProductAdoptionError {
   IndependentReviewRequired
   ExpansionReviewRejected
   Catalog(ProductCatalogError)
-} derive(Debug, Eq)
+}
 
 ///|
 fn nonempty_unique(values : Array[String]) -> Bool {

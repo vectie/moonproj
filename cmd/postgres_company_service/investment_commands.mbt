@@ -39,7 +39,7 @@ async fn investment_projection_payloads(
 async fn investment_latest_projection(
   aggregate_type : String,
   aggregate_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
     @postgres.sql_literal(aggregate_type) +
@@ -61,8 +61,8 @@ async fn investment_latest_projection(
 ///|
 fn investment_command_envelope(
   data : Json,
-  coverage : Map[String, Int],
-  command_count : Int,
+  coverage : Map[String, Int32],
+  command_count : Int32,
 ) -> Json {
   let missing : Array[Json] = []
   for table, count in coverage {
@@ -224,7 +224,7 @@ async fn investment_index_payloads(
 ///|
 async fn investment_max_version_no(
   project_id : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let mut maximum = 0
   for row in raw_source_rows("tzsy_version", 1000) {
     if report_text(row.payload, "proj_guid", "") == project_id {
@@ -307,7 +307,7 @@ fn investment_command_spec(
 
 ///|
 fn investment_copy_fields(payload : Json) -> Map[String, Json] {
-  let result : Map[String, Json] = {}
+  let result : Map[String, Json] = Map([])
   match payload {
     Object(values) => values.each((key, value) => result.set(key, value))
     _ => ()
@@ -323,7 +323,7 @@ async fn investment_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if ![
       "version_create", "version_activate", "version_delete", "index_create", "index_update",
       "index_delete",
@@ -500,7 +500,7 @@ async fn investment_command(
     if json_text(current, "state", "active") == "deleted" {
       raise reject(409, "investment index is already deleted")
     }
-    let changes : Map[String, Json] = {}
+    let changes : Map[String, Json] = Map([])
     if command_type == "index_update" {
       match json_field(body, "indexValue") {
         Some(value) => changes.set("index_value", value)

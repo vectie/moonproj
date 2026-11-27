@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror ExpenseAdvanceCohortError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Advance(@employee_finance.AdvanceError)
   Expense(@expense.ExpenseError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise ExpenseAdvanceCohortError {
@@ -368,31 +369,31 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: expense_advance_cohort <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       ExpenseAdvanceCohortError::InvalidInput => {
         println("expense/advance cohort failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ExpenseAdvanceCohortError::Io(_) => {
         println("expense/advance cohort failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ExpenseAdvanceCohortError::Money(_) => {
         println("expense/advance cohort failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ExpenseAdvanceCohortError::Advance(_) => {
         println("expense/advance cohort failed: advance validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ExpenseAdvanceCohortError::Expense(_) => {
         println("expense/advance cohort failed: expense validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

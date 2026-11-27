@@ -13,7 +13,7 @@ fn model_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "investment model preserves versioned index evidence" {
-  let version = ModelVersion::new(
+  let version = @model.ModelVersion::new(
     version_id="version-001",
     project_id="p-001",
     principal_id="co-001",
@@ -26,8 +26,8 @@ test "investment model preserves versioned index evidence" {
     actor_id="alice",
     grant=model_grant("investment:model:version:create"),
   )
-  let model = InvestmentModel::new(version).add_index(
-    ModelIndex::new(
+  let model = @model.InvestmentModel::new(version).add_index(
+    @model.ModelIndex::new(
       index_id="index-001",
       version_id="version-001",
       project_id="p-001",
@@ -50,7 +50,7 @@ test "investment model preserves versioned index evidence" {
   }
   try
     model.add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="index-002",
         version_id="version-001",
         project_id="p-001",
@@ -67,7 +67,7 @@ test "investment model preserves versioned index evidence" {
       grant=model_grant("investment:model:index:add"),
     )
   catch {
-    ModelError::DuplicateIndex => ()
+    @model.ModelError::DuplicateIndex => ()
     _ => fail("wrong duplicate index error")
   } noraise {
     _ => fail("expected duplicate index error")
@@ -76,7 +76,7 @@ test "investment model preserves versioned index evidence" {
 
 ///|
 test "investment model projection is identity-bound" {
-  let version = ModelVersion::new(
+  let version = @model.ModelVersion::new(
     version_id="version-projection",
     project_id="p-001",
     principal_id="co-001",
@@ -89,7 +89,7 @@ test "investment model projection is identity-bound" {
     actor_id="alice",
     grant=model_grant("investment:model:version:create"),
   )
-  let model = InvestmentModel::new(version)
+  let model = @model.InvestmentModel::new(version)
   let store = @store.RecordStore::new(@schema.SchemaState::initial()).migrate(
     @schema.MigrationStep::new(
       version=1,
@@ -114,7 +114,7 @@ test "investment model projection is identity-bound" {
       ),
     )
   catch {
-    ModelError::ProjectionIdentity => ()
+    @model.ModelError::ProjectionIdentity => ()
     _ => fail("wrong model projection error")
   } noraise {
     _ => fail("expected model projection error")
@@ -123,7 +123,7 @@ test "investment model projection is identity-bound" {
 
 ///|
 test "investment model evaluates explicit totals and derived ratios" {
-  let version = ModelVersion::new(
+  let version = @model.ModelVersion::new(
     version_id="version-evaluation",
     project_id="p-001",
     principal_id="co-001",
@@ -136,9 +136,9 @@ test "investment model evaluates explicit totals and derived ratios" {
     actor_id="alice",
     grant=model_grant("investment:model:version:create"),
   )
-  let model = InvestmentModel::new(version)
+  let model = @model.InvestmentModel::new(version)
     .add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="revenue",
         version_id="version-evaluation",
         project_id="p-001",
@@ -155,7 +155,7 @@ test "investment model evaluates explicit totals and derived ratios" {
       grant=model_grant("investment:model:index:add"),
     )
     .add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="gross-profit",
         version_id="version-evaluation",
         project_id="p-001",
@@ -172,7 +172,7 @@ test "investment model evaluates explicit totals and derived ratios" {
       grant=model_grant("investment:model:index:add"),
     )
     .add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="tax-total",
         version_id="version-evaluation",
         project_id="p-001",
@@ -189,7 +189,7 @@ test "investment model evaluates explicit totals and derived ratios" {
       grant=model_grant("investment:model:index:add"),
     )
     .add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="tax-vat",
         version_id="version-evaluation",
         project_id="p-001",
@@ -206,7 +206,7 @@ test "investment model evaluates explicit totals and derived ratios" {
       grant=model_grant("investment:model:index:add"),
     )
     .add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="tax-land",
         version_id="version-evaluation",
         project_id="p-001",
@@ -255,7 +255,7 @@ test "investment model evaluates explicit totals and derived ratios" {
     }
     None => fail("expected evaluation projection")
   }
-  let mismatch_version = ModelVersion::new(
+  let mismatch_version = @model.ModelVersion::new(
     version_id="version-mismatch",
     project_id="p-001",
     principal_id="co-001",
@@ -268,9 +268,9 @@ test "investment model evaluates explicit totals and derived ratios" {
     actor_id="alice",
     grant=model_grant("investment:model:version:create"),
   )
-  let mismatch_model = InvestmentModel::new(mismatch_version)
+  let mismatch_model = @model.InvestmentModel::new(mismatch_version)
     .add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="mismatch-parent",
         version_id="version-mismatch",
         project_id="p-001",
@@ -287,7 +287,7 @@ test "investment model evaluates explicit totals and derived ratios" {
       grant=model_grant("investment:model:index:add"),
     )
     .add_index(
-      ModelIndex::new(
+      @model.ModelIndex::new(
         index_id="mismatch-child",
         version_id="version-mismatch",
         project_id="p-001",

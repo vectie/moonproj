@@ -2,9 +2,9 @@
 fn adversarial_policy_document(
   version : String,
   body : String,
-  authority_rank? : Int = 3,
-) -> PolicyDocument {
-  PolicyDocument::new(
+  authority_rank~ : Int32 = 3,
+) -> @policy.PolicyDocument {
+  @policy.PolicyDocument::new(
     document_id="adversarial-document",
     title="Adversarial policy fixture",
     issuer="Test authority",
@@ -20,8 +20,8 @@ fn adversarial_policy_document(
 }
 
 ///|
-fn adversarial_signal_rule(base_score : Int) -> PolicySignalRule {
-  PolicySignalRule::new(
+fn adversarial_signal_rule(base_score : Int32) -> @policy.PolicySignalRule {
+  @policy.PolicySignalRule::new(
     rule_id="compute-signal",
     phrases=["布局算力中心", "全市超级算力节点"],
     topic="compute",
@@ -50,7 +50,7 @@ test "fuzzed quoted-term parser terminates, deduplicates, and ignores incomplete
     "“a”".repeat(256),
   ]
   for text in corpus {
-    let terms = discover_policy_terms(text)
+    let terms = @policy.discover_policy_terms(text)
     let seen : Array[String] = []
     for term in terms {
       assert_true(!term.trim().is_empty())
@@ -58,10 +58,11 @@ test "fuzzed quoted-term parser terminates, deduplicates, and ignores incomplete
       seen.push(term)
     }
   }
-  assert_eq(discover_policy_terms("“same”“same”「same」\"same\""), [
-    "same",
-  ])
-  assert_true(discover_policy_terms("“unclosed").is_empty())
+  assert_eq(
+    @policy.discover_policy_terms("“same”“same”「same」\"same\""),
+    ["same"],
+  )
+  assert_true(@policy.discover_policy_terms("“unclosed").is_empty())
 }
 
 ///|
@@ -85,8 +86,8 @@ test "opportunity scoring remains deterministic and bounded across input extreme
             current_body,
             authority_rank~,
           )
-          let first = analyze_policy(Some(previous), current, [rule])
-          let second = analyze_policy(Some(previous), current, [rule])
+          let first = @policy.analyze_policy(Some(previous), current, [rule])
+          let second = @policy.analyze_policy(Some(previous), current, [rule])
           assert_eq(first, second)
           assert_eq(first.opportunities.length(), 1)
           assert_true(first.opportunities[0].score >= 0)
@@ -105,7 +106,9 @@ test "fuzzed policy graph keeps every edge and opportunity evidence-linked" {
   ]
   for index, body in bodies {
     let current = adversarial_policy_document("v" + index.to_string(), body)
-    let analysis = analyze_policy(None, current, [adversarial_signal_rule(80)])
+    let analysis = @policy.analyze_policy(None, current, [
+      adversarial_signal_rule(80),
+    ])
     let node_ids = analysis.nodes.map(node => node.node_id)
     for edge in analysis.edges {
       assert_true(node_ids.contains(edge.from_id))
@@ -131,7 +134,7 @@ test "fuzzed policy graph keeps every edge and opportunity evidence-linked" {
 test "constructor fuzz rejects empty identities, invalid ranks, scores, and phrases" {
   for rank in [-100, -1, 0, 6, 100] {
     try
-      PolicyDocument::new(
+      @policy.PolicyDocument::new(
         document_id="doc",
         title="title",
         issuer="issuer",
@@ -151,7 +154,7 @@ test "constructor fuzz rejects empty identities, invalid ranks, scores, and phra
   }
   for blank in ["", " ", "\n\t"] {
     try
-      PolicyDocument::new(
+      @policy.PolicyDocument::new(
         document_id=blank,
         title="title",
         issuer="issuer",
@@ -171,7 +174,7 @@ test "constructor fuzz rejects empty identities, invalid ranks, scores, and phra
   }
   for score in [-100, -1, 101, 1000] {
     try
-      PolicySignalRule::new(
+      @policy.PolicySignalRule::new(
         rule_id="rule",
         phrases=["signal"],
         topic="topic",
@@ -189,7 +192,7 @@ test "constructor fuzz rejects empty identities, invalid ranks, scores, and phra
     }
   }
   try
-    PolicySignalRule::new(
+    @policy.PolicySignalRule::new(
       rule_id="rule",
       phrases=[],
       topic="topic",

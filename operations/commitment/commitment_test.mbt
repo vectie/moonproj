@@ -14,7 +14,7 @@ fn grant_for(capability : String) -> @foundation.AuthorityGrant {
 ///|
 test "commitment follows contract to settlement" {
   let amount = @finance.Money::new(minor=50000, currency="CNY")
-  let draft = Commitment::new(
+  let draft = @commitment.Commitment::new(
     commitment_id="commit-001",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -24,33 +24,33 @@ test "commitment follows contract to settlement" {
     grant=grant_for("commitment:create"),
   )
   let submitted = draft.transition(
-    CommitmentState::Submitted,
+    @commitment.CommitmentState::Submitted,
     actor_id="alice",
     grant=grant_for("commitment:submit"),
   )
   let approved = submitted.transition(
-    CommitmentState::Approved,
+    @commitment.CommitmentState::Approved,
     actor_id="alice",
     grant=grant_for("commitment:approve"),
   )
   let performed = approved.transition(
-    CommitmentState::Performed,
+    @commitment.CommitmentState::Performed,
     actor_id="alice",
     grant=grant_for("commitment:perform"),
   )
   let settled = performed.transition(
-    CommitmentState::Settled,
+    @commitment.CommitmentState::Settled,
     actor_id="alice",
     grant=grant_for("commitment:settle"),
   )
-  assert_true(settled.state == CommitmentState::Settled)
+  assert_true(settled.state == @commitment.CommitmentState::Settled)
   assert_true(settled.is_terminal())
   assert_eq(settled.events.length(), 4)
 }
 
 ///|
 test "commitment rejects an invalid transition" {
-  let draft = Commitment::new(
+  let draft = @commitment.Commitment::new(
     commitment_id="commit-002",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -61,12 +61,12 @@ test "commitment rejects an invalid transition" {
   )
   try
     draft.transition(
-      CommitmentState::Performed,
+      @commitment.CommitmentState::Performed,
       actor_id="alice",
       grant=grant_for("commitment:perform"),
     )
   catch {
-    CommitmentError::InvalidStateTransition => ()
+    @commitment.CommitmentError::InvalidStateTransition => ()
     _ => fail("wrong commitment error")
   } noraise {
     _ => fail("expected commitment error")
@@ -83,7 +83,7 @@ test "commitment transitions append durable aggregate projections" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let draft = Commitment::new(
+  let draft = @commitment.Commitment::new(
     commitment_id="commit-projection",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -100,17 +100,17 @@ test "commitment transitions append durable aggregate projections" {
   let projection = draft.append_projection(projection)
   let performed = draft
     .transition(
-      CommitmentState::Submitted,
+      @commitment.CommitmentState::Submitted,
       actor_id="alice",
       grant=grant_for("commitment:submit"),
     )
     .transition(
-      CommitmentState::Approved,
+      @commitment.CommitmentState::Approved,
       actor_id="alice",
       grant=grant_for("commitment:approve"),
     )
     .transition(
-      CommitmentState::Performed,
+      @commitment.CommitmentState::Performed,
       actor_id="alice",
       grant=grant_for("commitment:perform"),
     )

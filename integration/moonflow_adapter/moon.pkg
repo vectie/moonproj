@@ -4,6 +4,7 @@ import {
   "moonbitlang/async/fs",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/json",
+  "moonbitlang/core/string",
   "moonbitlang/x/crypto",
   "moonbitlang/x/time",
   "vectie/moonlib/fsx",
@@ -17,6 +18,5 @@ import {
 supported_targets = "native"
 
 import {
-  "moonbitlang/core/test",
   "moonbitlang/core/env",
 } for "wbtest"

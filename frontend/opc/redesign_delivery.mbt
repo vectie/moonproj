@@ -328,7 +328,7 @@ fn product_in_gate_response_valid(
 fn load_product_in_gate(
   emit : @rabbita.Emit[Msg],
   project : String,
-  selection : Int,
+  selection : Int32,
 ) -> Cmd {
   products_load_detail(emit, "admission", project, selection)
 }
@@ -654,7 +654,7 @@ fn poll_engineering_audit(
   project : String,
   audit_id : String,
   task_id : String,
-  selection : Int,
+  selection : Int32,
 ) -> Cmd {
   @http.get(
     "/api/moonsuite/engineering/audits/" +
@@ -766,7 +766,7 @@ fn projection_item_text(
 fn load_engineering_projection(
   emit : @rabbita.Emit[Msg],
   project : String,
-  selection : Int,
+  selection : Int32,
 ) -> Cmd {
   products_load_detail(emit, "engineering", project, selection)
 }
@@ -870,7 +870,7 @@ fn quality_product_name(_model : Model, id : String) -> String {
 }
 
 ///|
-fn engineering_gate_label(index : Int) -> String {
+fn engineering_gate_label(index : Int32) -> String {
   match index {
     0 => "G1 目标、需求与候选身份"
     1 => "G2 功能完整与验收路径"
@@ -885,7 +885,7 @@ fn engineering_gate_label(index : Int) -> String {
 }
 
 ///|
-fn engineering_gate_state(model : Model, index : Int) -> String {
+fn engineering_gate_state(model : Model, index : Int32) -> String {
   if index < model.engineering_gate_states.length() {
     model.engineering_gate_states[index]
   } else {
@@ -894,7 +894,7 @@ fn engineering_gate_state(model : Model, index : Int) -> String {
 }
 
 ///|
-fn engineering_gate_row(model : Model, index : Int) -> @html.Html {
+fn engineering_gate_row(model : Model, index : Int32) -> @html.Html {
   let state = engineering_gate_state(model, index)
   div(class="release-gate-row") <| [
     span(class="release-gate-index", "G" + (index + 1).to_string()),

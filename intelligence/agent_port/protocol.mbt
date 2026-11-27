@@ -8,26 +8,29 @@ pub fn protocol_version() -> String {
 /// Coordination products keep distinct ownership even when they cooperate.
 /// MoonProj owns the top-down company contract, MoonFlow owns one declared
 /// workflow, and MoonTown owns bottom-up standing observation/orchestration.
+#derive(Debug, Eq)
 pub(all) enum CoordinationMode {
   CompanyTopDown
   MoonFlowSingleAgent
   MoonTownBottomUp
-} derive(Debug, Eq)
+}
 
 ///|
 /// Host/runtime permission and company authority are deliberately separate.
 /// A runtime permission can allow a tool call but can never authorize a
 /// payment, posting, filing, contract, trade, or other company effect.
+#derive(Debug, Eq)
 pub(all) enum AuthorizationPlane {
   RuntimePermission
   CompanyAuthority
-} derive(Debug, Eq)
+}
 
 ///|
 /// A product-owned capability request. A runtime such as MoonClaw may execute
 /// it, MoonFlow may progress one declared workflow, and MoonTown may supply
 /// observations. None of those products acquires company authority from this
 /// request.
+#derive(Debug, Eq)
 pub(all) struct AgentRequest {
   protocol_version : String
   request_id : String
@@ -45,19 +48,20 @@ pub(all) struct AgentRequest {
   expected_result_schema : String
   prohibited_effects : Array[String]
   idempotency_key : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AgentPortError {
   Invalid(String)
-  RevisionConflict(expected~ : Int, actual~ : Int)
+  RevisionConflict(expected~ : Int32, actual~ : Int32)
   InvalidTransition(from~ : ExecutionPhase, to~ : ExecutionPhase)
   ClaimRequired
   ClaimMismatch
   ClaimAlreadyHeld
   LeaseNotExpired
   AttemptQuarantined
-} derive(Debug, Eq)
+}
 
 ///|
 fn nonempty_unique(values : Array[String]) -> Bool {

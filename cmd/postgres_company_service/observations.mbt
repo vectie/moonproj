@@ -1,6 +1,6 @@
 ///|
 /// Native observation-only admin, notification, AI, attachment, webhook, and RBAC reads.
-fn observation_missing(coverage : Map[String, Int]) -> Array[Json] {
+fn observation_missing(coverage : Map[String, Int32]) -> Array[Json] {
   let names : Array[String] = []
   for table, count in coverage {
     if count == 0 {
@@ -12,7 +12,7 @@ fn observation_missing(coverage : Map[String, Int]) -> Array[Json] {
 }
 
 ///|
-fn observation_envelope(data : Json, coverage : Map[String, Int]) -> Json {
+fn observation_envelope(data : Json, coverage : Map[String, Int32]) -> Json {
   Json::object({
     "success": Json::boolean(true),
     "code": Json::number(0),
@@ -34,8 +34,8 @@ fn observation_envelope(data : Json, coverage : Map[String, Int]) -> Json {
 ///|
 async fn observation_coverage(
   tables : Array[String],
-) -> Map[String, Int] raise CompanyServiceError {
-  let result : Map[String, Int] = {}
+) -> Map[String, Int32] raise CompanyServiceError {
+  let result : Map[String, Int32] = Map([])
   for table in tables {
     result.set(table, raw_source_rows(table, 500).length())
   }
@@ -43,7 +43,7 @@ async fn observation_coverage(
 }
 
 ///|
-fn observation_rows_for(coverage : Map[String, Int], table : String) -> Int {
+fn observation_rows_for(coverage : Map[String, Int32], table : String) -> Int32 {
   coverage.get_or_default(table, 0)
 }
 
@@ -55,10 +55,10 @@ async fn attachment_source_rows(
   uploaded_by : String?,
   ai_status : String?,
   keyword : String?,
-) -> (Array[Json], Map[String, Int]) raise CompanyServiceError {
+) -> (Array[Json], Map[String, Int32]) raise CompanyServiceError {
   let attachment_rows = raw_source_rows("attachment", 500)
   let users = raw_source_rows("sys_user", 500)
-  let coverage : Map[String, Int] = {}
+  let coverage : Map[String, Int32] = Map([])
   coverage.set("attachment", attachment_rows.length())
   coverage.set("sys_user", users.length())
   let rows : Array[Json] = []
@@ -246,8 +246,8 @@ async fn attachment_list_response(
 ///|
 async fn attachment_stats_response() -> Json raise CompanyServiceError {
   let (rows, coverage) = attachment_source_rows(None, None, None, None, None)
-  let by_biz : Map[String, Json] = {}
-  let by_ai : Map[String, Int] = {}
+  let by_biz : Map[String, Json] = Map([])
+  let by_ai : Map[String, Int32] = Map([])
   let mut bytes = 0.0
   for row in rows {
     let biz = json_text(row, "bizType", "")
@@ -328,7 +328,7 @@ async fn attachment_stats_response() -> Json raise CompanyServiceError {
 ///|
 async fn attachment_download_response(
   attachment_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(attachment_id) {
     raise reject(422, "invalid attachment_id")
   }
@@ -372,7 +372,7 @@ fn ai_stat_date(payload : Json, first : String, second : String) -> String {
 }
 
 ///|
-fn ai_stat_day_number(value : String) -> Int {
+fn ai_stat_day_number(value : String) -> Int32 {
   if value.length() < 10 {
     return -1
   }
@@ -473,11 +473,11 @@ async fn ai_stats_overview_response(
       )
     }
   }
-  let by_biz : Map[String, Int] = {}
-  let by_provider_count : Map[String, Int] = {}
-  let by_provider_confidence : Map[String, Double] = {}
-  let corrected_fields : Map[String, Int] = {}
-  let timeseries : Map[String, Map[String, Int]] = {}
+  let by_biz : Map[String, Int32] = Map([])
+  let by_provider_count : Map[String, Int32] = Map([])
+  let by_provider_confidence : Map[String, Double] = Map([])
+  let corrected_fields : Map[String, Int32] = Map([])
+  let timeseries : Map[String, Map[String, Int32]] = Map([])
   let mut confidence_total = 0.0
   for row in drafts {
     let biz = json_text(
@@ -657,7 +657,7 @@ async fn ai_stats_overview_response(
 
 ///|
 async fn ai_stats_activity_response(
-  limit : Int,
+  limit : Int32,
 ) -> Json raise CompanyServiceError {
   if limit < 1 || limit > 100 {
     raise reject(422, "invalid AI activity limit")
@@ -890,8 +890,8 @@ async fn ai_stats_badge_batch_response(
   if biz_type.is_empty() || guids.is_empty() {
     return observation_envelope(Json::object({}), coverage)
   }
-  let result : Map[String, Json] = {}
-  let confirmed_at : Map[String, String] = {}
+  let result : Map[String, Json] = Map([])
+  let confirmed_at : Map[String, String] = Map([])
   for row in raw_source_rows("ai_draft", 500) {
     let payload = row.payload
     if json_text(payload, "status", "") == "confirmed" &&
@@ -958,7 +958,7 @@ fn ai_hub_text(
 }
 
 ///|
-fn ai_hub_trim(value : String, limit : Int) -> String {
+fn ai_hub_trim(value : String, limit : Int32) -> String {
   if value.length() > limit {
     value[0:limit].to_owned()
   } else {
@@ -1003,7 +1003,7 @@ async fn ai_hub_usage_count(
   table : String,
   action : String,
   month_only : Bool,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let mut count = 0
   let rows = raw_source_rows(table, 500)
   for row in rows {
@@ -1105,7 +1105,7 @@ async fn ai_hub_drafts_response(
 async fn ai_hub_draft_response(
   draft_id : String,
   user_code : String?,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(draft_id) {
     raise reject(422, "invalid AI Hub draftId")
   }
@@ -1261,7 +1261,7 @@ async fn ai_hub_query_response(
 ///|
 async fn ai_hub_correction_stats_response() -> Json raise CompanyServiceError {
   let corrections = raw_source_rows("ai_correction_log", 500)
-  let by_field : Map[String, Int] = {}
+  let by_field : Map[String, Int32] = Map([])
   for row in corrections {
     let key = ai_hub_text(row.payload, "biz_type", "bizType", "") +
       "\u0000" +
@@ -1310,7 +1310,7 @@ async fn ai_hub_correction_stats_response() -> Json raise CompanyServiceError {
 
 ///|
 async fn ai_hub_corrections_response(
-  limit : Int,
+  limit : Int32,
   biz_type : String?,
   field : String?,
   user_code : String?,
@@ -1552,7 +1552,7 @@ async fn notification_llm_providers_response() -> Json raise CompanyServiceError
 ///|
 /// Admin.
 async fn admin_param_values() -> Map[String, String] raise CompanyServiceError {
-  let params : Map[String, String] = {}
+  let params : Map[String, String] = Map([])
   for source in raw_source_rows("sys_param", 500) {
     let payload = source.payload
     let key = json_text(
@@ -1576,7 +1576,7 @@ async fn admin_param_values() -> Map[String, String] raise CompanyServiceError {
 
 ///|
 fn admin_redacted_params(params : Map[String, String]) -> Json {
-  let values : Map[String, Json] = {}
+  let values : Map[String, Json] = Map([])
   for key, value in params {
     let lowered = key.to_lower()
     let sensitive = lowered.contains("key") ||
@@ -1618,7 +1618,7 @@ async fn admin_ocr_response() -> Json raise CompanyServiceError {
     needs_key : Bool,
     keys : Array[String],
   ) -> Unit {
-    let key_status : Map[String, Json] = {}
+    let key_status : Map[String, Json] = Map([])
     for key in keys {
       let configured = params.get(key) is Some(_) &&
         !params.get_or_default(key, "").is_empty()
@@ -1706,7 +1706,7 @@ async fn admin_ocr_response() -> Json raise CompanyServiceError {
 ///|
 async fn admin_error_log_response(
   keyword : String?,
-  limit : Int,
+  limit : Int32,
 ) -> Json raise CompanyServiceError {
   if limit < 1 || limit > 500 {
     raise fail("invalid error log limit")
@@ -1802,7 +1802,7 @@ async fn admin_dict_options_response(
   group_name : String?,
 ) -> Json raise CompanyServiceError {
   let rows = raw_source_rows("my_biz_param_option", 500)
-  let coverage : Map[String, Int] = { "my_biz_param_option": rows.length() }
+  let coverage : Map[String, Int32] = { "my_biz_param_option": rows.length() }
   let items : Array[Json] = []
   for row in rows {
     let group = report_text(row.payload, "param_name", "")
@@ -1882,8 +1882,8 @@ async fn admin_audit_logs_response(
   action : String?,
   user_id : String?,
   target_type : String?,
-  limit : Int,
-  offset : Int,
+  limit : Int32,
+  offset : Int32,
 ) -> Json raise CompanyServiceError {
   if limit < 1 || limit > 500 || offset < 0 {
     raise fail("invalid audit pagination")
@@ -1976,7 +1976,7 @@ async fn admin_audit_logs_response(
 ///|
 async fn admin_audit_actions_response() -> Json raise CompanyServiceError {
   let coverage = observation_coverage(["audit_log", "sys_user"])
-  let counts : Map[String, Int] = {}
+  let counts : Map[String, Int32] = Map([])
   for source in raw_source_rows("audit_log", 500) {
     let action = json_text(source.payload, "action", "")
     if !action.is_empty() {
@@ -2073,7 +2073,7 @@ async fn admin_bpm_pool_response() -> Json raise CompanyServiceError {
   let coverage = observation_coverage([
     "wf_process_instance", "wf_process_def", "wf_step_action",
   ])
-  let process_names : Map[String, String] = {}
+  let process_names : Map[String, String] = Map([])
   for source in definitions {
     process_names.set(
       json_text(source.payload, "process_guid", source.record_id),
@@ -2084,8 +2084,8 @@ async fn admin_bpm_pool_response() -> Json raise CompanyServiceError {
       ),
     )
   }
-  let by_status : Map[String, Int] = {}
-  let by_biz_type : Map[String, Int] = {}
+  let by_status : Map[String, Int32] = Map([])
+  let by_biz_type : Map[String, Int32] = Map([])
   let recent : Array[Json] = []
   for source in instances {
     let payload = source.payload
@@ -2336,8 +2336,8 @@ async fn admin_quality_response() -> Json raise CompanyServiceError {
 /// RBAC.
 fn rbac_envelope(
   data : Json,
-  coverage : Map[String, Int],
-  command_count : Int,
+  coverage : Map[String, Int32],
+  command_count : Int32,
 ) -> Json {
   Json::object({
     "success": Json::boolean(true),
@@ -2368,7 +2368,7 @@ fn rbac_role_item(
   payload : Json,
   record_id : String,
   source_kind : String,
-  user_count : Int,
+  user_count : Int32,
 ) -> Json {
   let role_code = report_text(payload, "role_code", record_id)
   Json::object({
@@ -2451,8 +2451,8 @@ fn rbac_role_user_count(
   role_code : String,
   assignments : Array[SourceRow],
   command_assignments : Array[Json],
-) -> Int {
-  let users : Map[String, Bool] = {}
+) -> Int32 {
+  let users : Map[String, Bool] = Map([])
   for row in assignments {
     if json_text(row.payload, "role_code", "") == role_code {
       users.set(json_text(row.payload, "user_id", row.record_id), true)
@@ -2479,7 +2479,7 @@ async fn rbac_users_response() -> Json raise CompanyServiceError {
   let roles = raw_source_rows("sys_role", 500)
   let assignments = raw_source_rows("sys_user_role", 500)
   let command_assignments = rbac_active_assignment_payloads()
-  let coverage : Map[String, Int] = {
+  let coverage : Map[String, Int32] = {
     "sys_user": users.length(),
     "mu_business_unit": units.length(),
     "sys_role": roles.length(),
@@ -2561,7 +2561,7 @@ async fn rbac_users_response() -> Json raise CompanyServiceError {
 ///|
 async fn rbac_me_response(
   user_code : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let profile = auth_current_user(user_code)
   match profile {
     None => (404, Json::object({ "error": Json::string("user not found") }))
@@ -2577,7 +2577,7 @@ async fn rbac_me_response(
         user_id, assignments, command_assignments,
       )
       let permissions : Array[Json] = []
-      let permission_seen : Map[String, Bool] = {}
+      let permission_seen : Map[String, Bool] = Map([])
       for role_json in role_codes {
         let role_code = match role_json {
           String(text) => text
@@ -2657,7 +2657,7 @@ async fn rbac_roles_response() -> Json raise CompanyServiceError {
   let assignments = raw_source_rows("sys_user_role", 500)
   let command_roles = rbac_active_role_payloads()
   let command_assignments = rbac_active_assignment_payloads()
-  let coverage : Map[String, Int] = {
+  let coverage : Map[String, Int32] = {
     "sys_role": roles.length(),
     "sys_user_role": assignments.length(),
     "sys_user": raw_source_rows("sys_user", 500).length(),
@@ -2706,12 +2706,12 @@ async fn rbac_roles_response() -> Json raise CompanyServiceError {
 ///|
 async fn rbac_role_detail_response(
   role_code : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let roles = raw_source_rows("sys_role", 500)
   let assignments = raw_source_rows("sys_user_role", 500)
   let command_roles = rbac_active_role_payloads()
   let command_assignments = rbac_active_assignment_payloads()
-  let coverage : Map[String, Int] = {
+  let coverage : Map[String, Int32] = {
     "sys_role": roles.length(),
     "sys_user_role": assignments.length(),
     "sys_user": raw_source_rows("sys_user", 500).length(),
@@ -2935,7 +2935,7 @@ fn report_templates_meta_response() -> Json {
 }
 
 ///|
-fn report_template_run_response() -> (Int, Json) {
+fn report_template_run_response() -> (Int32, Json) {
   (
     501,
     Json::object({

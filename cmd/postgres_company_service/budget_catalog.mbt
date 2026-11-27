@@ -7,7 +7,7 @@ async fn business_units_tree_response() -> Json raise CompanyServiceError {
 
 ///|
 fn business_units_tree_from_rows(units : Array[SourceRow]) -> Json {
-  let counts : Map[String, Int] = Map([])
+  let counts : Map[String, Int32] = Map([])
   for row in units {
     let id = json_text(row.payload, "bu_guid", row.record_id)
     counts.set(id, counts.get(id).unwrap_or(0) + 1)
@@ -53,7 +53,7 @@ fn business_units_tree_from_rows(units : Array[SourceRow]) -> Json {
       level_order
     }
   })
-  let nodes : Map[String, Json] = {}
+  let nodes : Map[String, Json] = Map([])
   let parents : Map[String, String] = Map([])
   let roots : Array[Json] = []
   for row in units {

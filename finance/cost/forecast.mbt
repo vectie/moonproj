@@ -2,6 +2,7 @@
 /// Project cost forecast joining target, commitment, actual, and accepted
 /// progress. `variance_minor` is signed: positive is under target, negative is
 /// an expected overrun.
+#derive(Debug, Eq)
 pub(all) struct CostForecast {
   project_scope : String
   target : @finance.Money
@@ -10,9 +11,10 @@ pub(all) struct CostForecast {
   progress_bps : Int64
   forecast_at_completion : @finance.Money
   variance_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ForecastError {
   EmptyScope
   InvalidAmount
@@ -21,7 +23,7 @@ pub(all) suberror ForecastError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn CostForecast::new(

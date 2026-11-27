@@ -3,18 +3,20 @@
 /// The Moonproj production adapter executes this SQL on PostgreSQL while
 /// preserving the version/checksum chain. ERP MySQL is source-only and is not
 /// a target backend for this product.
+#derive(Debug, Eq)
 pub(all) struct SqlMigration {
   step : @schema.MigrationStep
   up_sql : String
   down_sql : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror SqlCatalogError {
   EmptySql
   InvalidDownMigration
   Schema(@schema.MigrationError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn SqlMigration::new(
@@ -28,7 +30,7 @@ pub fn SqlMigration::new(
   if down_sql.trim() == "" {
     raise SqlCatalogError::InvalidDownMigration
   }
-  { step, up_sql, down_sql }
+  { step, up_sql, down_sql, }
 }
 
 ///|

@@ -1,14 +1,15 @@
 ///|
+#derive(Debug)
 pub(all) suberror AccessPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct PermissionCandidate {
   capability : String
   scope : String
-  max_amount_minor : Int
+  max_amount_minor : Int32
 }
 
 ///|
@@ -325,7 +326,7 @@ fn strings(values : Array[String]) -> Json {
 }
 
 ///|
-fn json_number(value : Int) -> Json {
+fn json_number(value : Int32) -> Json {
   Json::number(value.to_double(), repr=value.to_string())
 }
 
@@ -358,8 +359,8 @@ fn run(
   let actor_by_user = map_object(config, "actor_by_user")
   let assignment_cap_by_role = map_object(config, "assignment_cap_by_role")
   let roles : Array[Json] = []
-  let role_reasons : Map[String, Array[String]] = {}
-  let role_scopes : Map[String, String] = {}
+  let role_reasons : Map[String, Array[String]] = Map([])
+  let role_scopes : Map[String, String] = Map([])
   for row in role_rows {
     let row_json = Json::object(row)
     reject_secrets(row_json, "sys_role")
@@ -560,15 +561,15 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() != 4 {
     println("usage: access_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let plan = run(args[1], args[2], args[3]) catch {
     error => {
-      println("access promotion plan failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("access promotion plan failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }

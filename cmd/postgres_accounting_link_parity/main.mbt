@@ -4,11 +4,12 @@
 /// This is deliberately identity-only. It proves that event, source, journal,
 /// and principal fields survived the PostgreSQL adapter; it never posts a
 /// journal, releases cash, or certifies a period.
+#derive(Debug)
 pub(all) suberror PostgresAccountingLinkParityError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 struct LinkItem {
@@ -133,9 +134,9 @@ fn load_receipt(
     events.push(event_id)
     sources.push(source_key)
     journals.push(journal_id)
-    items.push({ event_id, source_type, source_id, journal_id, principal_id })
+    items.push({ event_id, source_type, source_id, journal_id, principal_id, })
   }
-  { source_snapshot_id, mapping_version, items }
+  { source_snapshot_id, mapping_version, items, }
 }
 
 ///|
@@ -144,7 +145,7 @@ fn decode_hex(value : String) -> String raise PostgresAccountingLinkParityError 
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -180,7 +181,7 @@ fn decode_hex(value : String) -> String raise PostgresAccountingLinkParityError 
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresAccountingLinkParityError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -323,20 +324,20 @@ fn option(args : Array[String], name : String) -> String? {
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 2 {
     println(
       "usage: postgres_accounting_link_parity <receipt> [--psql path] [--host host] [--port port] [--user user] [--database database]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let receipt = load_receipt(args[1]) catch {
     error => {
       println(
-        "company PostgreSQL accounting-link parity failed: \{to_repr(error)}",
+        "company PostgreSQL accounting-link parity failed: \{Repr(error)}",
       )
-      @sys.exit(1)
-      { source_snapshot_id: "", mapping_version: "", items: [] }
+      @env.exit(1)
+      { source_snapshot_id: "", mapping_version: "", items: [], }
     }
   }
   let connection = @postgres.connection_from_env().with_overrides(
@@ -349,14 +350,14 @@ async fn main {
   let report = compare(receipt, connection) catch {
     error => {
       println(
-        "company PostgreSQL accounting-link parity failed: \{to_repr(error)}",
+        "company PostgreSQL accounting-link parity failed: \{Repr(error)}",
       )
-      @sys.exit(1)
+      @env.exit(1)
       Json::null()
     }
   }
   println(report.stringify())
   if json_text(report, "state") != "shadow_verified" {
-    @sys.exit(1)
+    @env.exit(1)
   }
 }

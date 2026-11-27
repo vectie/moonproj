@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror EmptyDispositionError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> EmptyDispositionError {
@@ -67,7 +68,7 @@ fn integer_value(
   fields : Map[String, Json],
   key : String,
   path : String,
-) -> Int raise EmptyDispositionError {
+) -> Int32 raise EmptyDispositionError {
   match required(fields, key, path) {
     Number(value, ..) if value == value.trunc() => value.to_int()
     _ => raise fail("expected integer at " + path + "." + key)
@@ -172,7 +173,7 @@ fn schema_only_entries(
     Array(values) => values
     _ => raise fail("schema-cohort-plan entries must be an array")
   }
-  let gap_tables : Map[String, Map[String, Json]] = {}
+  let gap_tables : Map[String, Map[String, Json]] = Map([])
   for index in 0..<gap_values.length() {
     let entry = object(
       gap_values[index],
@@ -284,7 +285,7 @@ fn validate(
 ) -> Json raise EmptyDispositionError {
   let gap = object(schema_gap, "schema-gap")
   let expected_json = schema_only_entries(schema_gap, cohort_plan)
-  let expected : Map[String, Map[String, Json]] = {}
+  let expected : Map[String, Map[String, Json]] = Map([])
   for item in expected_json {
     let entry = object(item, "expected entry")
     expected.set(string_value(entry, "table", "expected entry"), entry)
@@ -303,7 +304,7 @@ fn validate(
     Array(items) => items
     _ => raise fail("entries must be an array")
   }
-  let seen : Map[String, Bool] = {}
+  let seen : Map[String, Bool] = Map([])
   let mut pending = 0
   let mut approved = 0
   let mut source_required = 0
@@ -440,18 +441,18 @@ fn run(args : Array[String]) -> Json raise EmptyDispositionError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   let report = run(args) catch {
     error => {
-      println("ERP empty disposition failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("ERP empty disposition failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
   @fs.write_string_to_file(args[3], report.stringify(indent=2) + "\n") catch {
     _ => {
       println("ERP empty disposition failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   let summary = match report {

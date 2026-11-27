@@ -27,7 +27,7 @@ fn supplier_check_sign_coverage(
 fn supplier_check_sign_risk(
   state : String,
   evaluation : String,
-) -> (Int, String, Array[String], Bool, Bool, String) {
+) -> (Int32, String, Array[String], Bool, Bool, String) {
   let score = if state == "voided" ||
     state == "blacklisted" ||
     evaluation == "unqualified" ||
@@ -87,7 +87,7 @@ fn supplier_check_sign_risk(
 ///|
 async fn supplier_check_sign_response(
   provider_guid : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(provider_guid) {
     raise fail("invalid provider_guid")
   }

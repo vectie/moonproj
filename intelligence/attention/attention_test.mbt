@@ -63,7 +63,7 @@ test "execution projection turns human, review, failure, and quarantine into att
   let review = attempt_in_phase("review", WaitingForReview)
   let human = attempt_in_phase("human", WaitingForHuman)
   let success = attempt_in_phase("success", Succeeded)
-  let projection = project_execution_activity(
+  let projection = @attention.project_execution_activity(
     [review, human, success],
     principal_id="opc-001",
     at_epoch=10L,
@@ -77,7 +77,7 @@ test "execution projection turns human, review, failure, and quarantine into att
 
 ///|
 test "attention inbox deduplicates, acknowledges, and requires resolution evidence" {
-  let item : AttentionItem = {
+  let item : @attention.AttentionItem = {
     attention_id: "attention-001",
     dedupe_key: "attempt:001:review",
     principal_id: "opc-001",
@@ -95,7 +95,7 @@ test "attention inbox deduplicates, acknowledges, and requires resolution eviden
     created_at_epoch: 1L,
     updated_at_epoch: 1L,
   }
-  let inbox = AttentionInbox::new()
+  let inbox = @attention.AttentionInbox::new()
     .upsert(item)
     .upsert({
       ..item,

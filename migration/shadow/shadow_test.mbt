@@ -25,7 +25,7 @@ test "shadow plan derives record counts and provided control totals" {
         source_id="erp:ep_project:p-shadow-002",
       ),
     ])
-  let plan = ShadowPlan::new(
+  let plan = @shadow.ShadowPlan::new(
       run_id="run-shadow-001",
       source_snapshot_id="erp-shadow-001",
     )
@@ -33,7 +33,7 @@ test "shadow plan derives record counts and provided control totals" {
       metric_id: "project-count",
       domain: "project",
       dimension: "company:co-001",
-      measure: ShadowMeasure::RecordCount("legacy/project"),
+      measure: @shadow.ShadowMeasure::RecordCount("legacy/project"),
       source_value: 2L,
       tolerance: 0L,
     })
@@ -41,7 +41,7 @@ test "shadow plan derives record counts and provided control totals" {
       metric_id: "opening-cash",
       domain: "treasury",
       dimension: "currency:CNY",
-      measure: ShadowMeasure::ProvidedValue(100000L),
+      measure: @shadow.ShadowMeasure::ProvidedValue(100000L),
       source_value: 100005L,
       tolerance: 10L,
     })
@@ -53,14 +53,14 @@ test "shadow plan derives record counts and provided control totals" {
 
 ///|
 test "shadow plan exposes a mismatched source control total" {
-  let plan = ShadowPlan::new(
+  let plan = @shadow.ShadowPlan::new(
     run_id="run-shadow-002",
     source_snapshot_id="erp-shadow-002",
   ).add_expectation({
     metric_id: "project-count",
     domain: "project",
     dimension: "company:co-001",
-    measure: ShadowMeasure::RecordCount("legacy/project"),
+    measure: @shadow.ShadowMeasure::RecordCount("legacy/project"),
     source_value: 1L,
     tolerance: 0L,
   })

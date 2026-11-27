@@ -857,4 +857,3 @@ fn delivery_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     ],
   ]
 }
-

@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror ProductionDeploymentError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ProductionDeploymentError {
@@ -66,7 +67,7 @@ fn integer(
   fields : Map[String, Json],
   key : String,
   allow_zero : Bool,
-) -> Int raise ProductionDeploymentError {
+) -> Int32 raise ProductionDeploymentError {
   let value = match fields.get(key) {
     Some(Number(number, ..)) if number == number.trunc() => number.to_int()
     _ => raise fail(key + " must be an integer")
@@ -225,8 +226,8 @@ fn validate(manifest : Json) -> Json raise ProductionDeploymentError {
     Some(_) => raise fail("approvals.records must be an array")
     None => []
   }
-  let record_roles : Map[String, Bool] = {}
-  let approved_record_roles : Map[String, Bool] = {}
+  let record_roles : Map[String, Bool] = Map([])
+  let approved_record_roles : Map[String, Bool] = Map([])
   for record_value in records {
     let record = object(record_value, "approval record")
     let role = required(record, "role")
@@ -317,27 +318,27 @@ fn validate(manifest : Json) -> Json raise ProductionDeploymentError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: production_deployment_check <manifest> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     let result = validate(read_json(args[1])) catch {
       ProductionDeploymentError::InvalidInput(message) => {
         println("production deployment check failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
       ProductionDeploymentError::Io(_) => {
         println("production deployment check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
     }
     @fs.write_string_to_file(args[2], result.stringify(indent=2) + "\n") catch {
       _ => {
         println("production deployment check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
     println(result.stringify())

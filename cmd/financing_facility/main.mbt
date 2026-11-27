@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror FinancingPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Financing(@financing.FinancingError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise FinancingPromotionError {
@@ -299,31 +300,31 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: financing_facility <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       FinancingPromotionError::InvalidInput => {
         println(
           "financing facility promotion failed: invalid or unreviewed input",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
       FinancingPromotionError::Io(_) => {
         println("financing facility promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       FinancingPromotionError::Money(_) => {
         println("financing facility promotion failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       FinancingPromotionError::Financing(_) => {
         println(
           "financing facility promotion failed: financing lifecycle validation",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

@@ -5,13 +5,13 @@
 /// keeps this boundary small and deterministic: it accepts the same sheet /
 /// column / row contract and emits an uncompressed ZIP containing the minimum
 /// SpreadsheetML parts required by Excel and common readers.
-const XLSX_MAX_SHEETS : Int = 20
+const XLSX_MAX_SHEETS : Int32 = 20
 
 ///|
-const XLSX_MAX_CELLS : Int = 1000000
+const XLSX_MAX_CELLS : Int32 = 1000000
 
 ///|
-const XLSX_MAX_CELL_LENGTH : Int = 32768
+const XLSX_MAX_CELL_LENGTH : Int32 = 32768
 
 ///|
 struct XlsxColumn {
@@ -149,7 +149,7 @@ fn xlsx_safe_filename(value : String) -> String {
 }
 
 ///|
-fn xlsx_column_letter(index : Int) -> String {
+fn xlsx_column_letter(index : Int32) -> String {
   let alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
   let mut value = index + 1
   let mut result = ""
@@ -172,7 +172,7 @@ fn xlsx_width(value : Json) -> Double {
 ///|
 fn xlsx_parse_column(
   value : Json,
-  _index : Int,
+  _index : Int32,
 ) -> XlsxColumn raise CompanyServiceError {
   match value {
     Object(_) => {
@@ -194,7 +194,7 @@ fn xlsx_parse_column(
 ///|
 fn xlsx_parse_sheet(
   value : Json,
-  index : Int,
+  index : Int32,
 ) -> XlsxSheet raise CompanyServiceError {
   match value {
     Object(_) => {
@@ -226,7 +226,7 @@ fn xlsx_cell_value(row : Json, field : String) -> Json {
 }
 
 ///|
-fn xlsx_style(kind : String) -> Int {
+fn xlsx_style(kind : String) -> Int32 {
   match kind {
     "currency" => 2
     "number" => 3
@@ -237,7 +237,11 @@ fn xlsx_style(kind : String) -> Int {
 }
 
 ///|
-fn xlsx_inline_cell(reference : String, value : String, style : Int) -> String {
+fn xlsx_inline_cell(
+  reference : String,
+  value : String,
+  style : Int32,
+) -> String {
   "<c r=\"" +
   reference +
   "\" t=\"inlineStr\"" +
@@ -248,7 +252,11 @@ fn xlsx_inline_cell(reference : String, value : String, style : Int) -> String {
 }
 
 ///|
-fn xlsx_number_cell(reference : String, value : String, style : Int) -> String {
+fn xlsx_number_cell(
+  reference : String,
+  value : String,
+  style : Int32,
+) -> String {
   "<c r=\"" +
   reference +
   "\"" +
@@ -354,13 +362,13 @@ fn xlsx_crc32(data : Bytes) -> Int64 {
 }
 
 ///|
-fn xlsx_push_u16(output : Array[Byte], value : Int) -> Unit {
+fn xlsx_push_u16(output : Array[Byte], value : Int32) -> Unit {
   output.push((value & 255).to_byte())
   output.push(((value >> 8) & 255).to_byte())
 }
 
 ///|
-fn xlsx_push_u32(output : Array[Byte], value : Int) -> Unit {
+fn xlsx_push_u32(output : Array[Byte], value : Int32) -> Unit {
   output.push((value & 255).to_byte())
   output.push(((value >> 8) & 255).to_byte())
   output.push(((value >> 16) & 255).to_byte())
@@ -385,7 +393,7 @@ fn xlsx_push_bytes(output : Array[Byte], bytes : Bytes) -> Unit {
 ///|
 fn xlsx_zip(entries : Array[XlsxZipEntry]) -> Bytes {
   let output : Array[Byte] = []
-  let offsets : Array[Int] = []
+  let offsets : Array[Int32] = []
   for entry in entries {
     offsets.push(output.length())
     let name = @encoding/utf8.encode(entry.name)
@@ -443,7 +451,7 @@ fn xlsx_zip(entries : Array[XlsxZipEntry]) -> Bytes {
 }
 
 ///|
-fn xlsx_content_types_xml(sheet_count : Int) -> String {
+fn xlsx_content_types_xml(sheet_count : Int32) -> String {
   let mut xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/styles.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml\"/><Override PartName=\"/docProps/core.xml\" ContentType=\"application/vnd.openxmlformats-package.core-properties+xml\"/><Override PartName=\"/docProps/app.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.extended-properties+xml\"/>"
   for index in 0..<sheet_count {
     xml = xml +
@@ -471,7 +479,7 @@ fn xlsx_workbook_xml(sheets : Array[XlsxSheet]) -> String {
 }
 
 ///|
-fn xlsx_workbook_rels_xml(sheet_count : Int) -> String {
+fn xlsx_workbook_rels_xml(sheet_count : Int32) -> String {
   let mut xml = "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
   for index in 0..<sheet_count {
     xml = xml +

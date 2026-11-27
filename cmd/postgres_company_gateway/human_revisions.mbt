@@ -128,7 +128,7 @@ fn human_revision_validate_output(revision : Json, source : Json) -> Unit raise 
 async fn human_revision_read_file(
   root : String,
   relative : String,
-  limit : Int,
+  limit : Int32,
 ) -> Bytes {
   try {
     let canonical = @fs.realpath(root)

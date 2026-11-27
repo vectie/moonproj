@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct TodayProjectRead {
   project : ProductCompanyProject
   state : String
@@ -6,7 +7,7 @@ struct TodayProjectRead {
   observed_at : String
   note : String
   request : Int32
-} derive(Debug, Eq)
+}
 
 ///|
 fn today_portfolio_success(row : TodayProjectRead) -> Bool {

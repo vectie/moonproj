@@ -1,10 +1,11 @@
 ///|
 /// Build an explicit workflow-assignee promotion cohort. Assignments are
 /// configuration only; they do not grant permission or decision authority.
+#derive(Debug)
 pub(all) suberror WorkflowAssignmentPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> WorkflowAssignmentPlanError {
@@ -98,7 +99,7 @@ fn map_text(mapping : Map[String, Json], key : String) -> String {
 }
 
 ///|
-fn integer_or_zero(value : Json) -> Int {
+fn integer_or_zero(value : Json) -> Int32 {
   match value {
     Number(number, ..) if number == number.trunc() => number.to_int()
     String(text) => {
@@ -128,7 +129,7 @@ fn integer_or_zero(value : Json) -> Int {
 }
 
 ///|
-fn json_int(value : Int) -> Json {
+fn json_int(value : Int32) -> Json {
   Json::number(value.to_double(), repr=value.to_string())
 }
 
@@ -192,12 +193,12 @@ fn run(
     read_json(export_root + "/tables/sys_user.json"),
     "users",
   )
-  let definition_by_id : Map[String, Json] = {}
+  let definition_by_id : Map[String, Json] = Map([])
   for value in definitions {
     let _ = object(value, "workflow definition row")
     definition_by_id.set(text(value, "process_guid"), value)
   }
-  let step_by_id : Map[String, Json] = {}
+  let step_by_id : Map[String, Json] = Map([])
   for value in steps {
     let _ = object(value, "workflow step row")
     step_by_id.set(text(value, "step_guid"), value)
@@ -344,21 +345,21 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: workflow_assignment_plan <export> <mapping.json> <output.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     WorkflowAssignmentPlanError::InvalidInput(message) => {
       println("workflow assignment plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     WorkflowAssignmentPlanError::Io(_) => {
       println("workflow assignment plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

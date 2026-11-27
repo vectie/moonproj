@@ -4,10 +4,11 @@
 /// The command owns the fixed query contract for the first read-only slice.
 /// `psql` remains an operational PostgreSQL utility; no arbitrary SQL or
 /// credentials are accepted from the caller.
+#derive(Debug)
 pub(all) suberror PostgresReadModelError {
   InvalidInput(String)
   QueryFailed(String)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> PostgresReadModelError {
@@ -17,12 +18,12 @@ fn fail(message : String) -> PostgresReadModelError {
 ///|
 async fn run_psql(sql : String) -> String raise PostgresReadModelError {
   @postgres.run_sql(@postgres.connection_from_env(), sql) catch {
-    error => raise PostgresReadModelError::QueryFailed("\{to_repr(error)}")
+    error => raise PostgresReadModelError::QueryFailed("\{Repr(error)}")
   }
 }
 
 ///|
-fn hex_digit(value : Char) -> Int? {
+fn hex_digit(value : Char) -> Int32? {
   if value >= '0' && value <= '9' {
     Some(value.to_int() - '0'.to_int())
   } else if value >= 'a' && value <= 'f' {
@@ -63,7 +64,7 @@ fn decode_hex(value : String) -> String raise PostgresReadModelError {
 }
 
 ///|
-fn parse_int(value : String) -> Int raise PostgresReadModelError {
+fn parse_int(value : String) -> Int32 raise PostgresReadModelError {
   let trimmed = value.trim().to_owned()
   if trimmed.is_empty() {
     raise fail("expected integer field")
@@ -91,7 +92,7 @@ fn parse_int(value : String) -> Int raise PostgresReadModelError {
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresReadModelError {
   let result = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if result.length() != expected {
@@ -216,11 +217,11 @@ async fn run(args : Array[String]) -> Json raise PostgresReadModelError {
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   let report = run(args) catch {
     error => {
-      println("MoonBit PostgreSQL read model failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("MoonBit PostgreSQL read model failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }

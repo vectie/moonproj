@@ -21,7 +21,7 @@ extern "js" fn offer_transport_browser(run : () -> Unit) =
   #| }
 
 ///|
-extern "js" fn offer_transport_respond(status : Int, text : String) =
+extern "js" fn offer_transport_respond(status : Int32, text : String) =
   #| (status,text)=>globalThis.__offerTransport.pending.shift().callback({status,text:()=>({then:callback=>callback(text)})})
 
 ///|
@@ -173,8 +173,8 @@ test "offer actual create and update callbacks preserve byte-identical retry and
           "actor-offer",
           "offer-task",
           "offer-update-serialized",
-          true
-        )
+          true,
+        ),
       ),
     )
     let (send, sending) = update(emit, emitted[1], frozen)
@@ -183,7 +183,7 @@ test "offer actual create and update callbacks preserve byte-identical retry and
     checks.push(
       emitted[2]
       is OfferAction(
-        Written("actor-offer", "offer-task", "offer-update-serialized", 0, "")
+        Written("actor-offer", "offer-task", "offer-update-serialized", 0, ""),
       ),
     )
     let (read, reading) = update(emit, emitted[2], sending)

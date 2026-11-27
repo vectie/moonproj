@@ -28,7 +28,7 @@ fn portfolio_mandate() -> @domain.InvestmentMandate raise @domain.InvestmentErro
 ///|
 test "portfolio values positions against explicit quotes" {
   let mandate = portfolio_mandate()
-  let portfolio = Portfolio::new(
+  let portfolio = @portfolio.Portfolio::new(
     mandate,
     portfolio_id="portfolio-001",
     actor_id="alice",
@@ -59,7 +59,7 @@ test "portfolio values positions against explicit quotes" {
 
 ///|
 test "portfolio rejects a position from another mandate" {
-  let portfolio = Portfolio::new(
+  let portfolio = @portfolio.Portfolio::new(
     portfolio_mandate(),
     portfolio_id="portfolio-002",
     actor_id="alice",
@@ -79,7 +79,7 @@ test "portfolio rejects a position from another mandate" {
       grant=portfolio_grant("investment:portfolio:add"),
     )
   catch {
-    PortfolioError::WrongMandate => ()
+    @portfolio.PortfolioError::WrongMandate => ()
     _ => fail("wrong portfolio error")
   } noraise {
     _ => fail("expected portfolio error")
@@ -88,7 +88,7 @@ test "portfolio rejects a position from another mandate" {
 
 ///|
 test "portfolio rejects a missing market quote" {
-  let portfolio = Portfolio::new(
+  let portfolio = @portfolio.Portfolio::new(
     portfolio_mandate(),
     portfolio_id="portfolio-003",
     actor_id="alice",
@@ -110,7 +110,7 @@ test "portfolio rejects a missing market quote" {
     )
     .value([])
   catch {
-    PortfolioError::MissingQuote => ()
+    @portfolio.PortfolioError::MissingQuote => ()
     _ => fail("wrong portfolio error")
   } noraise {
     _ => fail("expected portfolio error")
@@ -119,7 +119,7 @@ test "portfolio rejects a missing market quote" {
 
 ///|
 test "portfolio valuation emits gain and loss accounting links" {
-  let portfolio = Portfolio::new(
+  let portfolio = @portfolio.Portfolio::new(
     portfolio_mandate(),
     portfolio_id="portfolio-valuation-events",
     actor_id="alice",
@@ -176,7 +176,7 @@ test "portfolio valuation emits gain and loss accounting links" {
 
 ///|
 test "portfolio valuation link rejects an unchanged market value" {
-  let portfolio = Portfolio::new(
+  let portfolio = @portfolio.Portfolio::new(
     portfolio_mandate(),
     portfolio_id="portfolio-valuation-gate",
     actor_id="alice",
@@ -210,7 +210,7 @@ test "portfolio valuation link rejects an unchanged market value" {
       grant=portfolio_grant("investment:valuation:record"),
     )
   catch {
-    PortfolioError::InvalidAmount => ()
+    @portfolio.PortfolioError::InvalidAmount => ()
     _ => fail("wrong valuation accounting error")
   } noraise {
     _ => fail("expected valuation accounting error")
@@ -219,7 +219,7 @@ test "portfolio valuation link rejects an unchanged market value" {
 
 ///|
 test "portfolio attributes per-position performance and persists evidence" {
-  let portfolio = Portfolio::new(
+  let portfolio = @portfolio.Portfolio::new(
       portfolio_mandate(),
       portfolio_id="portfolio-performance",
       actor_id="alice",
@@ -300,7 +300,7 @@ test "portfolio attributes per-position performance and persists evidence" {
     Some(latest) => assert_true(latest.payload.contains("150"))
     None => fail("expected benchmark comparison projection")
   }
-  let observation = BenchmarkObservation::new(
+  let observation = @portfolio.BenchmarkObservation::new(
     observation_id="benchmark-observation-2026-07",
     benchmark_id="benchmark-cn-equity-2026-07",
     period_id="2026-07",
@@ -334,14 +334,14 @@ test "portfolio attributes per-position performance and persists evidence" {
 
 ///|
 test "benchmark reconciliation quarantines mismatched source identity" {
-  let comparison = BenchmarkComparison::new(
+  let comparison = @portfolio.BenchmarkComparison::new(
     portfolio_id="portfolio-benchmark",
     period_id="2026-07",
     benchmark_id="benchmark-cn-equity-2026-07",
     portfolio_return_bps=250L,
     benchmark_return_bps=100L,
   )
-  let wrong_benchmark = BenchmarkObservation::new(
+  let wrong_benchmark = @portfolio.BenchmarkObservation::new(
     observation_id="benchmark-observation-wrong",
     benchmark_id="benchmark-other",
     period_id="2026-07",
@@ -351,12 +351,12 @@ test "benchmark reconciliation quarantines mismatched source identity" {
     return_bps=100L,
   )
   try comparison.reconcile(wrong_benchmark, tolerance_bps=0L) catch {
-    PortfolioError::ProjectionIdentity => ()
+    @portfolio.PortfolioError::ProjectionIdentity => ()
     _ => fail("wrong portfolio error")
   } noraise {
     _ => fail("expected benchmark identity error")
   }
-  let mismatch = BenchmarkObservation::new(
+  let mismatch = @portfolio.BenchmarkObservation::new(
     observation_id="benchmark-observation-mismatch",
     benchmark_id="benchmark-cn-equity-2026-07",
     period_id="2026-07",
@@ -372,7 +372,7 @@ test "benchmark reconciliation quarantines mismatched source identity" {
 
 ///|
 test "portfolio stress scenarios and projections preserve mandate evidence" {
-  let portfolio = Portfolio::new(
+  let portfolio = @portfolio.Portfolio::new(
     portfolio_mandate(),
     portfolio_id="portfolio-risk",
     actor_id="alice",
@@ -388,7 +388,7 @@ test "portfolio stress scenarios and projections preserve mandate evidence" {
     actor_id="alice",
     grant=portfolio_grant("investment:portfolio:add"),
   )
-  let scenario = RiskScenario::new(
+  let scenario = @portfolio.RiskScenario::new(
     scenario_id="stress-down-25",
     name="25 percent market drawdown",
     shock_bps=-2500L,

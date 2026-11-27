@@ -1,16 +1,18 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct TaskTableChange {
   before : Task
   after : Task
   fields : Array[String]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TaskTableUpdate {
   draft : Draft
   changes : Array[TaskTableChange]
   ignored : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Preview edits to existing tasks by stable ID. Omitted rows and columns are
@@ -50,14 +52,14 @@ pub fn preview_task_table_updates(
       ignored.push(rows[0][i])
     }
   }
-  let originals : Map[String, Task] = {}
+  let originals : Map[String, Task] = Map([])
   for task in draft.tasks {
     if task.id.trim().is_empty() || originals.contains(task.id) {
       raise Invalid("Current draft has empty or duplicate task IDs")
     }
     originals[task.id] = task
   }
-  let replacements : Map[String, Task] = {}
+  let replacements : Map[String, Task] = Map([])
   let owners = draft.owners.map(o => (o.id, o.name))
   let milestones = draft.milestones.map(m => (m.id, m.name))
   for index = 1; index < rows.length(); index = index + 1 {
@@ -66,7 +68,7 @@ pub fn preview_task_table_updates(
     if row.length() != headers.length() {
       raise Invalid(label + ": column count differs from header")
     }
-    let values : Map[String, String] = {}
+    let values : Map[String, String] = Map([])
     for i, header in headers {
       if !header.is_empty() {
         values[header] = row[i]

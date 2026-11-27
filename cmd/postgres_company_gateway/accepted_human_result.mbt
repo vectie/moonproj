@@ -30,7 +30,7 @@ fn accepted_human_result_evidence_id(
   !value.has_prefix("/") &&
   !value.to_lower().has_prefix("file:") &&
   !(value.length() >= 3 &&
-  value[0] is ('a'..='z' | 'A'..='Z') &&
+  value[0] is ('a'..<='z' | 'A'..<='Z') &&
   value[1] == ':' &&
   value[2] == '/') &&
   !value.contains(workspace)

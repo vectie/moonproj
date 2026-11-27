@@ -1,12 +1,13 @@
 ///|
 // These drafts live only in this tab's model. Exact captured source identity is
 // part of the key; notes are never silently moved onto a refreshed source.
+#derive(Eq)
 struct DispatchOutcomeGap {
   choice : String
   summary : String
   severity : String
   evidence_refs : Array[String]
-} derive(Eq)
+}
 
 ///|
 struct DispatchOutcomeDraft {
@@ -19,9 +20,9 @@ struct DispatchOutcomeDraft {
   capability_version : String
   capability_summary : String
   change_text : String
-  recorded_at : Int
-  request : Int
-  pending_selection : Int
+  recorded_at : Int32
+  request : Int32
+  pending_selection : Int32
   pending : Bool
   prepared : Json?
   notice : String
@@ -30,10 +31,10 @@ struct DispatchOutcomeDraft {
 ///|
 enum DispatchOutcomeMsg {
   Edit(String, String)
-  GapEdit(Int, String, String)
-  Evidence(Int, String)
+  GapEdit(Int32, String, String)
+  Evidence(Int32, String)
   Preview
-  Loaded(String, Int, Int, Json, Result[String, String])
+  Loaded(String, Int32, Int32, Json, Result[String, String])
   Download(String)
 }
 
@@ -127,7 +128,7 @@ fn dispatch_outcome_refreshing_source(model : Model) -> Model {
 }
 
 ///|
-fn dispatch_outcome_gap_label(index : Int) -> String {
+fn dispatch_outcome_gap_label(index : Int32) -> String {
   match index {
     0 => "信息缺口"
     1 => "识别缺口"
@@ -149,7 +150,7 @@ fn dispatch_outcome_evidence(handoff : Json) -> Array[String] {
 }
 
 ///|
-fn dispatch_outcome_severity(value : String) -> Int {
+fn dispatch_outcome_severity(value : String) -> Int32 {
   match value {
     "1" => 1
     "2" => 2
@@ -274,15 +275,15 @@ fn dispatch_outcome_draft_json(draft : DispatchOutcomeDraft) -> Json {
 }
 
 ///|
-extern "js" fn dispatch_outcome_now() -> Int =
+extern "js" fn dispatch_outcome_now() -> Int32 =
   #| () => Math.floor(Date.now() / 1000)
 
 ///|
-extern "js" fn dispatch_outcome_text_bytes(value : String) -> Int =
+extern "js" fn dispatch_outcome_text_bytes(value : String) -> Int32 =
   #| value => new TextEncoder().encode(value).length
 
 ///|
-extern "js" fn dispatch_outcome_time(value : String) -> Int =
+extern "js" fn dispatch_outcome_time(value : String) -> Int32 =
   #| value => { if(!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2})?$/.test(value)) return 0; const ms=Date.parse(value+'Z'); if(!Number.isFinite(ms)||new Date(ms).toISOString().slice(0,value.length)!==value) return 0; const seconds=ms/1000; return seconds>0&&seconds<=2147483647?seconds:0; }
 
 ///|

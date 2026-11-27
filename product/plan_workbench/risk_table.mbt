@@ -1,16 +1,18 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct RiskTableChange {
   before : Risk?
   after : Risk
   fields : Array[String]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct RiskTableUpdate {
   draft : Draft
   changes : Array[RiskTableChange]
   ignored : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 fn risk_column(header : String) -> String {
@@ -92,7 +94,7 @@ pub fn preview_risk_table(
       ignored.push(rows[0][i])
     }
   }
-  let originals : Map[String, Risk] = {}
+  let originals : Map[String, Risk] = Map([])
   for risk in draft.risks {
     if risk.id.trim().is_empty() ||
       risk.id != risk.id.trim().to_owned() ||
@@ -101,7 +103,7 @@ pub fn preview_risk_table(
     }
     originals[risk.id] = risk
   }
-  let replacements : Map[String, Risk] = {}
+  let replacements : Map[String, Risk] = Map([])
   let added : Array[Risk] = []
   let owners = draft.owners.map(o => (o.id, o.name))
   for index = 1; index < rows.length(); index = index + 1 {
@@ -110,7 +112,7 @@ pub fn preview_risk_table(
     if row.length() != headers.length() {
       raise Invalid(label + ": column count differs from header")
     }
-    let values : Map[String, String] = {}
+    let values : Map[String, String] = Map([])
     for i, header in headers {
       if !header.is_empty() {
         values[header] = row[i]

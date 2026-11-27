@@ -9,7 +9,7 @@ fn plan_task_continuations(task : Json) -> Array[Json] {
 
 ///|
 fn plan_task_continuation_public(value : Json) -> Json {
-  let fields : Map[String, Json] = {}
+  let fields : Map[String, Json] = Map([])
   for
     key in [
       "continuation_id", "original_run_id", "task_id", "session_id", "original_command_id",
@@ -56,7 +56,7 @@ fn plan_task_continuation_source(value : Json) -> Json {
 
 ///|
 fn plan_task_continuation_identity(value : Json) -> Json {
-  let fields : Map[String, Json] = {}
+  let fields : Map[String, Json] = Map([])
   for
     key in [
       "continuation_id", "original_run_id", "task_id", "session_id", "original_command_id",
@@ -130,7 +130,7 @@ fn plan_task_continuation_validate(
     path.contains("\\") ||
     path.split("/").any(part => part == ".." || part == "." || part.is_empty()) ||
     digest.length() != 64 ||
-    !digest.iter().all(c => c is ('0'..='9' | 'a'..='f' | 'A'..='F')) {
+    !digest.iter().all(c => c is ('0'..<='9' | 'a'..<='f' | 'A'..<='F')) {
     raise reject(
       422, "continuation requires an immutable relative input path and SHA-256 digest",
     )
@@ -185,11 +185,11 @@ fn plan_task_continuation_merge(
   // run_id solely for that helper. The public sibling DTO never gains run_id.
   let current_fields = match current {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   let observed_fields = match observation {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   current_fields.set(
     "run_id",
@@ -362,7 +362,7 @@ fn plan_task_continuation_apply(
   }
   let fields = match task {
     Object(values) => values.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   let observation = json_field(body, "continuation").unwrap_or(Json::null())
   let mut source = json_field(body, "selected_delivery_source").unwrap_or(
@@ -404,11 +404,11 @@ fn plan_task_continuation_apply(
 fn plan_task_continuation_response(
   task : Json,
   replay : Bool,
-  revision? : Int = 0,
+  revision~ : Int32 = 0,
 ) -> Json {
   let fields = match task {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields.set("__revision", Json::number(revision.to_double()))
   {
@@ -445,12 +445,12 @@ fn plan_task_continuation_operation_response(
   key : String,
   request : Json,
   applied : Bool,
-  revision : Int,
+  revision : Int32,
 ) -> Json {
   let response = plan_task_continuation_response(task, replay, revision~)
   let fields = match response {
     Object(fields) => fields
-    _ => Map::new()
+    _ => Map([])
   }
   fields.set("operation_idempotency_key", Json::string(key))
   fields.set(
@@ -464,7 +464,7 @@ fn plan_task_continuation_operation_response(
 ///|
 fn plan_task_continuation_atomic_sql(
   task_id : String,
-  revision : Int,
+  revision : Int32,
   command_source : String,
   sql : String,
 ) -> String {
@@ -479,7 +479,7 @@ fn plan_task_continuation_atomic_sql(
 ///|
 fn plan_task_continuation_sql(
   task_id : String,
-  revision : Int,
+  revision : Int32,
   next : Json,
   request : Json,
   actor : String,
@@ -545,7 +545,7 @@ async fn plan_task_continuation_command(
   body : Json,
   actor : String,
   key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

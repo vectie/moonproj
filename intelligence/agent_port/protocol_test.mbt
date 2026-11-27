@@ -1,7 +1,7 @@
 ///|
-fn execution_request() -> AgentRequest {
+fn execution_request() -> @agent_port.AgentRequest {
   {
-    protocol_version: protocol_version(),
+    protocol_version: @agent_port.protocol_version(),
     request_id: "agent-001",
     work_item_id: "work-001",
     flow_run_id: "flow-001",
@@ -15,7 +15,7 @@ fn execution_request() -> AgentRequest {
     input_digest: "sha256:0000000000000000000000000000000000000000000000000000000000000000",
     acceptance_criteria: ["deliverable cites the customer brief"],
     expected_result_schema: "professional-service-deliverable.v1",
-    prohibited_effects: reserved_company_effects(),
+    prohibited_effects: @agent_port.reserved_company_effects(),
     idempotency_key: "idem-001",
   }
 }
@@ -41,8 +41,8 @@ test "agent request refuses incomplete evidence and effect boundaries" {
 
 ///|
 test "proposed command remains inert when runtime permission was observed" {
-  let proposal : ProposedCommand = {
-    protocol_version: protocol_version(),
+  let proposal : @agent_port.ProposedCommand = {
+    protocol_version: @agent_port.protocol_version(),
     command_id: "proposal-001",
     request_id: "agent-001",
     attempt_id: "attempt-001",
@@ -67,8 +67,8 @@ test "proposed command remains inert when runtime permission was observed" {
 
 ///|
 test "agent result is versioned and terminal" {
-  let result : AgentResult = {
-    protocol_version: protocol_version(),
+  let result : @agent_port.AgentResult = {
+    protocol_version: @agent_port.protocol_version(),
     request_id: "agent-002",
     attempt_id: "attempt-002",
     status: "succeeded",

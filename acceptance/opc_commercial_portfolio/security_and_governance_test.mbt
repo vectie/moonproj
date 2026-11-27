@@ -34,7 +34,7 @@ test "customer channel rejects replay forgery staleness and wrong identity" {
     _ => fail("replay must not be accepted")
   }
 
-  let forged = { ..valid, message_id: "message-forged", nonce: "nonce-forged" }
+  let forged = { ..valid, message_id: "message-forged", nonce: "nonce-forged", }
   try
     @customer_channel.verify_inbound(
       channel,

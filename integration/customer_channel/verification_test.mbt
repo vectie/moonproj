@@ -1,5 +1,5 @@
 ///|
-fn envelope_fixture() -> SignedCustomerEnvelope {
+fn envelope_fixture() -> @customer_channel.SignedCustomerEnvelope {
   {
     message_id: "message-001",
     channel_id: "channel-customer-001",
@@ -13,7 +13,7 @@ fn envelope_fixture() -> SignedCustomerEnvelope {
 }
 
 ///|
-fn channel_fixture() -> VerifiedWebhookChannel {
+fn channel_fixture() -> @customer_channel.VerifiedWebhookChannel {
   {
     channel_id: "channel-customer-001",
     principal_id: "opc-001",
@@ -28,14 +28,17 @@ fn channel_fixture() -> VerifiedWebhookChannel {
 test "verified customer webhook binds identity, freshness, signature, and replay" {
   let secret = "0123456789abcdef0123456789abcdef"
   let unsigned = envelope_fixture()
-  let signed = { ..unsigned, signature: sign_envelope(unsigned, secret~) }
+  let signed = {
+    ..unsigned,
+    signature: @customer_channel.sign_envelope(unsigned, secret~),
+  }
   assert_eq(
     signed.signature,
     "hmac-sha256=30f75130e13138a71dd3bfa9f50dbb7c4f2cfd70a2f33ad1e09fa66e99385b49",
   )
-  let (receipt, registry) = verify_inbound(
+  let (receipt, registry) = @customer_channel.verify_inbound(
     channel_fixture(),
-    ChannelReplayRegistry::new(),
+    @customer_channel.ChannelReplayRegistry::new(),
     signed,
     secret~,
     now_epoch=1010L,
@@ -45,7 +48,7 @@ test "verified customer webhook binds identity, freshness, signature, and replay
   assert_true(!receipt.company_authority_granted)
   assert_true(receipt.body_digest.has_prefix("sha256:"))
   try
-    verify_inbound(
+    @customer_channel.verify_inbound(
       channel_fixture(),
       registry,
       signed,
@@ -64,12 +67,15 @@ test "verified customer webhook binds identity, freshness, signature, and replay
 test "verified customer webhook fails closed on tampering and stale delivery" {
   let secret = "0123456789abcdef0123456789abcdef"
   let unsigned = envelope_fixture()
-  let signed = { ..unsigned, signature: sign_envelope(unsigned, secret~) }
+  let signed = {
+    ..unsigned,
+    signature: @customer_channel.sign_envelope(unsigned, secret~),
+  }
   try
-    verify_inbound(
+    @customer_channel.verify_inbound(
       channel_fixture(),
-      ChannelReplayRegistry::new(),
-      { ..signed, body: "{\"accepted\":false}" },
+      @customer_channel.ChannelReplayRegistry::new(),
+      { ..signed, body: "{\"accepted\":false}", },
       secret~,
       now_epoch=1010L,
     )
@@ -80,9 +86,9 @@ test "verified customer webhook fails closed on tampering and stale delivery" {
     _ => fail("expected tampering to fail")
   }
   try
-    verify_inbound(
+    @customer_channel.verify_inbound(
       channel_fixture(),
-      ChannelReplayRegistry::new(),
+      @customer_channel.ChannelReplayRegistry::new(),
       signed,
       secret~,
       now_epoch=1400L,

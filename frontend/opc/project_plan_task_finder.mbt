@@ -1,12 +1,14 @@
 ///|
+#derive(Debug, Eq)
 struct PlanTaskFinder {
   query : String
   owner : String
   milestone : String
   focus : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanTaskFinderMsg {
   Query(String)
   Owner(String)
@@ -15,7 +17,7 @@ enum PlanTaskFinderMsg {
   ShowAll
   Reset
   Export
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_task_finder_initial() -> PlanTaskFinder {

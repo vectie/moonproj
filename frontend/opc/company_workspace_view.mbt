@@ -80,7 +80,13 @@ fn workspace_job_card(
             "标为 20% 关键决策：" + job.title
           },
         )
-        .title(if pinned { "移出 20% 关键聚焦" } else { "固定到 20% 关键聚焦" }),
+        .title(
+          if pinned {
+            "移出 20% 关键聚焦"
+          } else {
+            "固定到 20% 关键聚焦"
+          },
+        ),
       on_click=emit(CharterAction(ToggleCriticalTask(job.id))),
       if pinned {
         "已入 20%"
@@ -177,7 +183,8 @@ fn workspace_agent_sheet_view(
   match model.charter.charter {
     None => @html.nothing
     Some(charter) =>
-      match charter.roles.filter(r => r.id == model.workspace.focused_agent).get(0) {
+      match
+        charter.roles.filter(r => r.id == model.workspace.focused_agent).get(0) {
         None => @html.nothing
         Some(role) =>
           div(
@@ -193,9 +200,7 @@ fn workspace_agent_sheet_view(
             ),
             section(
               class="desktop-sheet desktop-sheet-compact",
-              attrs=@html.Attrs::build()
-                .role("dialog")
-                .aria_label(role.name),
+              attrs=@html.Attrs::build().role("dialog").aria_label(role.name),
             ) <| [
               header(class="desktop-sheet-bar") <| [
                 div(class="desktop-sheet-bar-title") <| [
@@ -217,7 +222,9 @@ fn workspace_agent_sheet_view(
                   ),
                 ],
               ],
-              div(class="desktop-sheet-body") <| [charter_role_card(charter, role)],
+              div(class="desktop-sheet-body") <| [
+                charter_role_card(charter, role),
+              ],
             ],
           ]
       }
@@ -246,7 +253,9 @@ fn workspace_overlay_sheet_view(
       ),
       section(
         class="desktop-sheet",
-        attrs=@html.Attrs::build().role("dialog").aria_label("组织与权力结构"),
+        attrs=@html.Attrs::build()
+          .role("dialog")
+          .aria_label("组织与权力结构"),
       ) <| [
         header(class="desktop-sheet-bar") <| [
           div(class="desktop-sheet-bar-title") <| [
@@ -260,7 +269,9 @@ fn workspace_overlay_sheet_view(
             "× 返回桌面",
           ),
         ],
-        div(class="desktop-sheet-body") <| [workspace_org_view(emit, model)],
+        div(class="desktop-sheet-body") <| [
+          workspace_org_view(emit, model),
+        ],
       ],
     ]
   }
@@ -278,7 +289,9 @@ fn workspace_overlay_sheet_view(
       ),
       section(
         class="desktop-sheet",
-        attrs=@html.Attrs::build().role("dialog").aria_label("公司资源清单"),
+        attrs=@html.Attrs::build()
+          .role("dialog")
+          .aria_label("公司资源清单"),
       ) <| [
         header(class="desktop-sheet-bar") <| [
           div(class="desktop-sheet-bar-title") <| [
@@ -368,7 +381,10 @@ fn workspace_flow_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
         if has_charter_hero {
           h2("工作如何汇成交付")
         } else {
-          div <| [small("公司工作空间"), h1("工作如何汇成交付")]
+          div <| [
+            small("公司工作空间"),
+            h1("工作如何汇成交付"),
+          ]
         },
       ],
       button(
@@ -458,7 +474,9 @@ fn workspace_flow_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
     },
     if !goals.is_empty() && !jobs.is_empty() {
       div(class="flow-key") <| [
-        span("连线表示贡献归属 · 任务顺序不代表执行依赖 · 确认交付时触发光点传递"),
+        span(
+          "连线表示贡献归属 · 任务顺序不代表执行依赖 · 确认交付时触发光点传递",
+        ),
       ]
     } else {
       @html.nothing
@@ -734,14 +752,20 @@ fn workspace_app_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
           "返回全景；不会停止工作或关闭编辑器",
         ),
         on_click=emit(WorkspaceAction(Flow)),
-        if resource_mode { "返回资源清单" } else { "返回全景" },
+        if resource_mode {
+          "返回资源清单"
+        } else {
+          "返回全景"
+        },
       ),
       h1(app_title),
       if resource_mode {
         @html.nothing
       } else {
         job
-        .map(t => workspace_status(workspace_stage(workspace_record(model, t), t)))
+        .map(t => {
+          workspace_status(workspace_stage(workspace_record(model, t), t))
+        })
         .unwrap_or(@html.nothing)
       },
     ],

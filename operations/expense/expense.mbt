@@ -1,27 +1,31 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ExpenseAllocation {
   project_scope : String
   cost_subject : String
   amount : @finance.Money
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ExpenseState {
   Draft
   Submitted
   Approved
   Rejected
   Paid
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ExpenseEvent {
   from : ExpenseState
   to : ExpenseState
   actor_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ExpenseClaim {
   expense_id : String
   principal_id : String
@@ -31,9 +35,10 @@ pub(all) struct ExpenseClaim {
   offset_minor : Int64
   state : ExpenseState
   events : Array[ExpenseEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ExpenseError {
   EmptyIdentifier
   InvalidIdentifier
@@ -50,7 +55,7 @@ pub(all) suberror ExpenseError {
   Journal(@finance.LedgerError)
   AccountingEvent(@accounting.AccountingEventError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ExpenseClaim::new(
@@ -151,8 +156,8 @@ pub fn ExpenseClaim::transition(
     error => raise ExpenseError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -191,5 +196,5 @@ pub fn ExpenseClaim::offset_advance(
   ) catch {
     error => raise ExpenseError::Advance(error)
   }
-  ({ ..self, offset_minor: self.offset_minor + amount_minor }, updated_advance)
+  ({ ..self, offset_minor: self.offset_minor + amount_minor, }, updated_advance)
 }

@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror ConsolidatedReportError {
   InvalidInput
   Io(@fs.IOError)
   Reporting(@reporting.ReportingError)
   Reconciliation(@reconciliation.ReconciliationError)
   Money(@finance.MoneyError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise ConsolidatedReportError {
@@ -62,7 +63,7 @@ fn required_int64(
 fn required_int(
   obj : Map[String, Json],
   key : String,
-) -> Int raise ConsolidatedReportError {
+) -> Int32 raise ConsolidatedReportError {
   match required(obj, key) {
     Number(value, ..) if value == value.trunc() => value.to_int()
     _ => raise ConsolidatedReportError::InvalidInput
@@ -140,7 +141,7 @@ fn run(
       error => raise ConsolidatedReportError::Money(error)
     }
     let report = @reconciliation.ReconciliationReport::new(scope=section_id, lines=[
-      { reference_id: section_id, expected, actual },
+      { reference_id: section_id, expected, actual, },
     ]) catch {
       error => raise ConsolidatedReportError::Reconciliation(error)
     }
@@ -235,31 +236,31 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: consolidated_report <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       ConsolidatedReportError::InvalidInput => {
         println("consolidated report failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ConsolidatedReportError::Io(_) => {
         println("consolidated report failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ConsolidatedReportError::Reporting(_) => {
         println("consolidated report failed: reporting validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ConsolidatedReportError::Reconciliation(_) => {
         println("consolidated report failed: reconciliation validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ConsolidatedReportError::Money(_) => {
         println("consolidated report failed: invalid money")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

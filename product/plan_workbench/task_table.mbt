@@ -128,7 +128,7 @@ pub fn import_task_table(
     if row.length() != headers.length() {
       raise Invalid(label + ": column count differs from header")
     }
-    let values : Map[String, String] = {}
+    let values : Map[String, String] = Map([])
     for i, h in headers {
       if !h.is_empty() {
         values[h] = row[i].trim().to_owned()

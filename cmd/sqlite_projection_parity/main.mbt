@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteProjectionParityError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct Key {
@@ -133,7 +134,7 @@ fn load_receipt(path : String) -> Receipt raise SqliteProjectionParityError {
       Some(candidate) =>
         match candidate {
           Object(_) =>
-            expected_candidates.push({ key, candidate: canonical(candidate) })
+            expected_candidates.push({ key, candidate: canonical(candidate), })
           _ => raise fail("promotion candidate is not an object")
         }
       None => ()
@@ -189,8 +190,8 @@ fn key_token(key : Key) -> String {
 }
 
 ///|
-fn counter(values : Array[Key]) -> (Map[String, Int], Array[Key]) {
-  let counts : Map[String, Int] = {}
+fn counter(values : Array[Key]) -> (Map[String, Int32], Array[Key]) {
+  let counts : Map[String, Int32] = Map([])
   let unique : Array[Key] = []
   for value in values {
     let token = key_token(value)
@@ -211,7 +212,7 @@ fn sorted_keys(values : Array[Key]) -> Array[Key] {
 }
 
 ///|
-fn key_count_json(key : Key, count : Int) -> Json {
+fn key_count_json(key : Key, count : Int32) -> Json {
   Json::array([
     Json::string(key.aggregate_type),
     Json::string(key.aggregate_id),
@@ -223,8 +224,8 @@ fn key_count_json(key : Key, count : Int) -> Json {
 
 ///|
 fn differences(
-  expected : Map[String, Int],
-  actual : Map[String, Int],
+  expected : Map[String, Int32],
+  actual : Map[String, Int32],
   keys : Array[Key],
 ) -> Array[Json] {
   let result : Array[Json] = []
@@ -239,7 +240,7 @@ fn differences(
 }
 
 ///|
-fn duplicates(counts : Map[String, Int], keys : Array[Key]) -> Array[Json] {
+fn duplicates(counts : Map[String, Int32], keys : Array[Key]) -> Array[Json] {
   let result : Array[Json] = []
   for key in sorted_keys(keys) {
     let count = counts.get(key_token(key)).unwrap_or(0)
@@ -251,8 +252,8 @@ fn duplicates(counts : Map[String, Int], keys : Array[Key]) -> Array[Json] {
 }
 
 ///|
-fn type_counts(values : Array[Key]) -> Map[String, Int] {
-  let result : Map[String, Int] = {}
+fn type_counts(values : Array[Key]) -> Map[String, Int32] {
+  let result : Map[String, Int32] = Map([])
   for value in values {
     result.set(
       value.aggregate_type,
@@ -263,8 +264,8 @@ fn type_counts(values : Array[Key]) -> Map[String, Int] {
 }
 
 ///|
-fn counts_json(values : Map[String, Int]) -> Json {
-  let result : Map[String, Json] = {}
+fn counts_json(values : Map[String, Int32]) -> Json {
+  let result : Map[String, Json] = Map([])
   for key, value in values {
     result.set(key, Json::number(value.to_double(), repr=value.to_string()))
   }
@@ -277,7 +278,7 @@ fn decode_hex(value : String) -> String raise SqliteProjectionParityError {
     raise fail("invalid SQLite hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -415,7 +416,7 @@ fn key_from_candidate_token(value : String) -> Key {
 }
 
 ///|
-fn candidate_key_json(key : Key, count : Int) -> Json {
+fn candidate_key_json(key : Key, count : Int32) -> Json {
   Json::array([
     Json::string(key.aggregate_type),
     Json::string(key.aggregate_id),
@@ -443,10 +444,10 @@ fn exact_compare(
   actual : Array[ActualCandidate],
   integrity : String,
 ) -> Json {
-  let expected_counts : Map[String, Int] = {}
-  let actual_counts : Map[String, Int] = {}
-  let expected_values : Map[String, Array[String]] = {}
-  let actual_values : Map[String, Array[String]] = {}
+  let expected_counts : Map[String, Int32] = Map([])
+  let actual_counts : Map[String, Int32] = Map([])
+  let expected_values : Map[String, Array[String]] = Map([])
+  let actual_values : Map[String, Array[String]] = Map([])
   for value in receipt.expected_candidates {
     let key = candidate_token(value.key)
     expected_counts.set(key, expected_counts.get(key).unwrap_or(0) + 1)
@@ -564,17 +565,17 @@ fn compare(receipt : Receipt, actual : Array[Key], integrity : String) -> Json {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 5 {
     println(
       "usage: sqlite_projection_parity <receipt> <output> <rows> <integrity>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let receipt = load_receipt(args[1]) catch {
     error => {
-      println("company SQLite projection parity failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("company SQLite projection parity failed: \{Repr(error)}")
+      @env.exit(1)
       {
         source_snapshot_id: "",
         mapping_version: "",
@@ -587,20 +588,16 @@ fn main {
   if args.length() >= 6 && args[5] == "exact" {
     let actual = decode_exact_actual(args[3]) catch {
       error => {
-        println(
-          "company SQLite exact projection parity failed: \{to_repr(error)}",
-        )
-        @sys.exit(1)
+        println("company SQLite exact projection parity failed: \{Repr(error)}")
+        @env.exit(1)
         []
       }
     }
     let report = exact_compare(receipt, actual, args[4])
     @fs.write_string_to_file(args[2], report.stringify(indent=2) + "\n") catch {
       error => {
-        println(
-          "company SQLite exact projection parity failed: \{to_repr(error)}",
-        )
-        @sys.exit(1)
+        println("company SQLite exact projection parity failed: \{Repr(error)}")
+        @env.exit(1)
       }
     }
     println(report.stringify())
@@ -612,23 +609,23 @@ fn main {
           .unwrap_or(false) {
           ()
         } else {
-          @sys.exit(1)
+          @env.exit(1)
         }
-      _ => @sys.exit(1)
+      _ => @env.exit(1)
     }
   } else {
     let actual = load_actual(args[3]) catch {
       error => {
-        println("company SQLite projection parity failed: \{to_repr(error)}")
-        @sys.exit(1)
+        println("company SQLite projection parity failed: \{Repr(error)}")
+        @env.exit(1)
         []
       }
     }
     let report = compare(receipt, actual, args[4])
     @fs.write_string_to_file(args[2], report.stringify(indent=2) + "\n") catch {
       error => {
-        println("company SQLite projection parity failed: \{to_repr(error)}")
-        @sys.exit(1)
+        println("company SQLite projection parity failed: \{Repr(error)}")
+        @env.exit(1)
       }
     }
     println(report.stringify())
@@ -640,9 +637,9 @@ fn main {
           .unwrap_or(false) {
           ()
         } else {
-          @sys.exit(1)
+          @env.exit(1)
         }
-      _ => @sys.exit(1)
+      _ => @env.exit(1)
     }
   }
 }

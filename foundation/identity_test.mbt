@@ -1,19 +1,22 @@
 ///|
 test "identity validates institutional records" {
-  let entity = LegalEntity::new(
+  let entity = @foundation.LegalEntity::new(
     entity_id="co-001",
     legal_name="Example Holdings",
     functional_currency="CNY",
   )
   assert_eq(entity.entity_id, "co-001")
   assert_eq(entity.functional_currency, "CNY")
-  let principal = Principal::new(id="co-001", kind=PrincipalKind::Entity)
-  assert_true(principal.kind == PrincipalKind::Entity)
+  let principal = @foundation.Principal::new(
+    id="co-001",
+    kind=@foundation.PrincipalKind::Entity,
+  )
+  assert_true(principal.kind == @foundation.PrincipalKind::Entity)
 }
 
 ///|
 test "authority is scoped and amount bounded" {
-  let grant : AuthorityGrant = {
+  let grant : @foundation.AuthorityGrant = {
     grant_id: "grant-001",
     principal_id: "co-001",
     actor_id: "alice",
@@ -40,7 +43,7 @@ test "authority is scoped and amount bounded" {
       amount_minor=50000,
     ),
   )
-  require_authority(
+  @foundation.require_authority(
     grant,
     principal_id="co-001",
     actor_id="alice",
@@ -53,13 +56,13 @@ test "authority is scoped and amount bounded" {
 ///|
 test "invalid identity is rejected" {
   try
-    LegalEntity::new(
+    @foundation.LegalEntity::new(
       entity_id="",
       legal_name="Example Holdings",
       functional_currency="CNY",
     )
   catch {
-    IdentityError::EmptyIdentifier(_) => ()
+    @foundation.IdentityError::EmptyIdentifier(_) => ()
     _ => fail("wrong identity error")
   } noraise {
     _ => fail("expected identity error")
@@ -68,7 +71,7 @@ test "invalid identity is rejected" {
 
 ///|
 test "user directory keeps credentials and privilege outside identity" {
-  let grant : AuthorityGrant = {
+  let grant : @foundation.AuthorityGrant = {
     grant_id: "user-create",
     principal_id: "co-001",
     actor_id: "migration",
@@ -77,7 +80,7 @@ test "user directory keeps credentials and privilege outside identity" {
     max_amount_minor: 0,
     active: true,
   }
-  let user = UserAccount::new(
+  let user = @foundation.UserAccount::new(
     user_id="user-001",
     user_code="alice",
     display_name="Alice",
@@ -88,11 +91,11 @@ test "user directory keeps credentials and privilege outside identity" {
     actor_id="migration",
     grant~,
   )
-  let directory = UserDirectory::empty().append(user)
+  let directory = @foundation.UserDirectory::empty().append(user)
   assert_eq(directory.users.length(), 1)
-  assert_true(directory.users[0].state == UserAccountState::Active)
+  assert_true(directory.users[0].state == @foundation.UserAccountState::Active)
   try directory.append(user) catch {
-    IdentityError::DuplicateUser => ()
+    @foundation.IdentityError::DuplicateUser => ()
     _ => fail("wrong duplicate user error")
   } noraise {
     _ => fail("expected duplicate user error")

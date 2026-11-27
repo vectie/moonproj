@@ -13,7 +13,7 @@ fn evidence_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "evidence preserves provenance through verification and archive" {
-  let evidence = Evidence::new(
+  let evidence = @evidence.Evidence::new(
       evidence_id="evidence-001",
       principal_id="co-001",
       scope="project:p-001",
@@ -25,14 +25,14 @@ test "evidence preserves provenance through verification and archive" {
     )
     .verify(actor_id="alice", grant=evidence_grant("evidence:verify"))
     .archive(actor_id="alice", grant=evidence_grant("evidence:archive"))
-  assert_true(evidence.state == EvidenceState::Archived)
+  assert_true(evidence.state == @evidence.EvidenceState::Archived)
   assert_eq(evidence.content_hash, "sha256:abc")
   assert_eq(evidence.events.length(), 2)
 }
 
 ///|
 test "audit trail is append-only and rejects replay" {
-  let record : AuditRecord = {
+  let record : @evidence.AuditRecord = {
     audit_id: "audit-001",
     principal_id: "co-001",
     actor_id: "alice",
@@ -43,13 +43,13 @@ test "audit trail is append-only and rejects replay" {
     outcome: "accepted",
     evidence_id: Some("evidence-001"),
   }
-  let trail = AuditTrail::empty().append(
+  let trail = @evidence.AuditTrail::empty().append(
     record,
     grant=evidence_grant("audit:append"),
   )
   assert_eq(trail.records.length(), 1)
   try trail.append(record, grant=evidence_grant("audit:append")) catch {
-    EvidenceError::DuplicateAudit => ()
+    @evidence.EvidenceError::DuplicateAudit => ()
     _ => fail("wrong audit error")
   } noraise {
     _ => fail("expected audit error")
@@ -59,7 +59,7 @@ test "audit trail is append-only and rejects replay" {
 ///|
 test "evidence rejects an empty content hash" {
   try
-    Evidence::new(
+    @evidence.Evidence::new(
       evidence_id="evidence-002",
       principal_id="co-001",
       scope="project:p-001",
@@ -70,7 +70,7 @@ test "evidence rejects an empty content hash" {
       grant=evidence_grant("evidence:attach"),
     )
   catch {
-    EvidenceError::InvalidHash => ()
+    @evidence.EvidenceError::InvalidHash => ()
     _ => fail("wrong evidence error")
   } noraise {
     _ => fail("expected evidence error")

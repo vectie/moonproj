@@ -81,7 +81,7 @@ async fn supplier_rescore_command(
   let event_id = "supplier:rescore-all:" + idempotency_key
   let audit_id = event_id + ":audit"
   let mut updated = 0
-  let updates : Array[(String, SupplierRiskMetrics, Int, Json)] = []
+  let updates : Array[(String, SupplierRiskMetrics, Int32, Json)] = []
   for item in command_items {
     let supplier_id = json_text(item, "providerGuid", "")
     if supplier_id.is_empty() {

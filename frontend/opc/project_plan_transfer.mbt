@@ -1,20 +1,22 @@
 ///|
+#derive(Debug, Eq)
 struct PlanTransferState {
   from_owner : String
   to_owner : String
   source : @plan_workbench.Draft?
   preview : @plan_workbench.Draft?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanTransferMsg {
   From(String)
   To(String)
   Preview
   Apply
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_transfer_initial() -> PlanTransferState {

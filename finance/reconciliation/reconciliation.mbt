@@ -2,13 +2,15 @@
 /// One expected-versus-observed amount used by migration and operational
 /// parity reports. The reference is deliberately domain-neutral so the same
 /// report can compare an ERP row, a subledger balance, or a journal projection.
+#derive(Debug, Eq)
 pub(all) struct ReconciliationLine {
   reference_id : String
   expected : @finance.Money
   actual : @finance.Money
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ReconciliationReport {
   scope : String
   lines : Array[ReconciliationLine]
@@ -16,9 +18,10 @@ pub(all) struct ReconciliationReport {
   actual_total : @finance.Money
   difference_minor : Int64
   balanced : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ReconciliationError {
   EmptyScope
   EmptyReference
@@ -30,7 +33,7 @@ pub(all) suberror ReconciliationError {
   Unbalanced(Int64)
   Journal(@finance.LedgerError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ReconciliationReport::new(

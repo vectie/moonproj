@@ -16,13 +16,13 @@ fn treasury_plan_grant(
 
 ///|
 test "cash plan confirms and actualizes within its plan" {
-  let plan = CashPlan::new(
+  let plan = @treasury.CashPlan::new(
       plan_id="plan-001",
       principal_id="co-001",
       project_scope="project:p-001",
       period="2026-07",
       category="construction",
-      direction=CashPlanDirection::Outflow,
+      direction=@treasury.CashPlanDirection::Outflow,
       planned_amount=@finance.Money::new(minor=100000, currency="CNY"),
       actor_id="alice",
       grant=treasury_plan_grant("treasury:plan:create", "project:p-001"),
@@ -36,13 +36,13 @@ test "cash plan confirms and actualizes within its plan" {
       actor_id="alice",
       grant=treasury_plan_grant("treasury:plan:actualize", "project:p-001"),
     )
-  assert_true(plan.state == CashPlanState::Actualized)
+  assert_true(plan.state == @treasury.CashPlanState::Actualized)
   assert_eq(plan.actual_amount.minor, 95000L)
 }
 
 ///|
 test "fund dispatch requires approval before execution" {
-  let dispatch = FundDispatch::new(
+  let dispatch = @treasury.FundDispatch::new(
       dispatch_id="dispatch-001",
       principal_id="co-001",
       from_project="project:p-001",
@@ -60,18 +60,18 @@ test "fund dispatch requires approval before execution" {
       actor_id="alice",
       grant=treasury_plan_grant("treasury:dispatch:execute", "project:p-001"),
     )
-  assert_true(dispatch.state == DispatchState::Executed)
+  assert_true(dispatch.state == @treasury.DispatchState::Executed)
 }
 
 ///|
 test "cash plan rejects actualization above the plan" {
-  let plan = CashPlan::new(
+  let plan = @treasury.CashPlan::new(
     plan_id="plan-002",
     principal_id="co-001",
     project_scope="project:p-001",
     period="2026-07",
     category="construction",
-    direction=CashPlanDirection::Outflow,
+    direction=@treasury.CashPlanDirection::Outflow,
     planned_amount=@finance.Money::new(minor=100, currency="CNY"),
     actor_id="alice",
     grant=treasury_plan_grant("treasury:plan:create", "project:p-001"),
@@ -86,7 +86,7 @@ test "cash plan rejects actualization above the plan" {
       grant=treasury_plan_grant("treasury:plan:actualize", "project:p-001"),
     )
   catch {
-    TreasuryPlanError::OverActualization => ()
+    @treasury.TreasuryPlanError::OverActualization => ()
     _ => fail("wrong treasury plan error")
   } noraise {
     _ => fail("expected treasury plan error")

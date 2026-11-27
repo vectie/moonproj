@@ -1,9 +1,10 @@
 ///|
+#derive(Debug)
 pub(all) suberror InvestmentBenchmarkError {
   InvalidInput
   Io(@fs.IOError)
   Portfolio(@portfolio.PortfolioError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise InvestmentBenchmarkError {
@@ -157,23 +158,23 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: investment_benchmark <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       InvestmentBenchmarkError::InvalidInput => {
         println("investment benchmark failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvestmentBenchmarkError::Io(_) => {
         println("investment benchmark failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvestmentBenchmarkError::Portfolio(_) => {
         println("investment benchmark failed: portfolio validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

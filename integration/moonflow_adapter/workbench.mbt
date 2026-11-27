@@ -183,7 +183,7 @@ pub async fn list_workbench(
   }
   let directory = checked_input_path(root, reference)
   let summaries : Map[String, Json] = Map([])
-  let order : Array[((Int64, Int), String)] = []
+  let order : Array[((Int64, Int32), String)] = []
   for key in @fs.readdir(directory) {
     if !workbench_key(key) {
       continue

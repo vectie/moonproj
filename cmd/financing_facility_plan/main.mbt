@@ -1,10 +1,11 @@
 ///|
 /// Compile a reviewed financing-facility map. This names explicit facility
 /// operations but grants no lender, cash, or accounting authority.
+#derive(Debug)
 pub(all) suberror FinancingFacilityPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> FinancingFacilityPlanError {
@@ -239,19 +240,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: financing_facility_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     FinancingFacilityPlanError::InvalidInput(message) => {
       println("financing plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     FinancingFacilityPlanError::Io(_) => {
       println("financing plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

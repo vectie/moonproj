@@ -85,7 +85,7 @@ fn native_continuation_validate_snapshot(
 async fn native_continuation_read_file(
   root : String,
   relative : String,
-  limit : Int,
+  limit : Int32,
 ) -> Bytes {
   try {
     // A trusted captured workspace may itself be a platform symlink alias.

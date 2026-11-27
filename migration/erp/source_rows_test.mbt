@@ -1,6 +1,6 @@
 ///|
 test "typed ERP source rows preserve workflow, payment, and investment identity" {
-  let task = task_record(
+  let task = @erp.task_record(
     {
       task_guid: "task-001",
       proj_guid: "proj-001",
@@ -20,7 +20,7 @@ test "typed ERP source rows preserve workflow, payment, and investment identity"
     },
     schema_version=1,
   )
-  let payment = payment_application_record(
+  let payment = @erp.payment_application_record(
     {
       apply_guid: "apply-001",
       apply_code: "AP-001",
@@ -43,7 +43,7 @@ test "typed ERP source rows preserve workflow, payment, and investment identity"
     },
     schema_version=1,
   )
-  let workflow = workflow_step_record(
+  let workflow = @erp.workflow_step_record(
     {
       step_guid: "step-001",
       process_guid: "process-001",
@@ -57,7 +57,7 @@ test "typed ERP source rows preserve workflow, payment, and investment identity"
     },
     schema_version=1,
   )
-  let index = investment_index_record(
+  let index = @erp.investment_index_record(
     {
       index_guid: "index-001",
       version_guid: "version-001",
@@ -73,7 +73,7 @@ test "typed ERP source rows preserve workflow, payment, and investment identity"
     },
     schema_version=1,
   )
-  let user = user_record(
+  let user = @erp.user_record(
     {
       user_id: "user-001",
       user_code: "U-001",
@@ -88,7 +88,7 @@ test "typed ERP source rows preserve workflow, payment, and investment identity"
     },
     schema_version=1,
   )
-  let audit = audit_record(
+  let audit = @erp.audit_record(
     {
       log_id: "1",
       user_id: Some("user-001"),
@@ -111,12 +111,12 @@ test "typed ERP source rows preserve workflow, payment, and investment identity"
 ///|
 test "typed ERP source rows reject missing identity" {
   try
-    lifecycle_stage_record(
-      { stage_code: "", stage_name: "stage", stage_order: 1 },
+    @erp.lifecycle_stage_record(
+      { stage_code: "", stage_name: "stage", stage_order: 1, },
       schema_version=1,
     )
   catch {
-    ErpImportError::MissingIdentifier => ()
+    @erp.ErpImportError::MissingIdentifier => ()
     _ => fail("wrong lifecycle identity error")
   } noraise {
     _ => fail("expected lifecycle identity error")
@@ -126,7 +126,7 @@ test "typed ERP source rows reject missing identity" {
 ///|
 test "typed ERP source rows reject invalid progress and money" {
   try
-    task_record(
+    @erp.task_record(
       {
         task_guid: "task-bad",
         proj_guid: "proj-001",
@@ -147,13 +147,13 @@ test "typed ERP source rows reject invalid progress and money" {
       schema_version=1,
     )
   catch {
-    ErpImportError::InvalidValue => ()
+    @erp.ErpImportError::InvalidValue => ()
     _ => fail("wrong progress error")
   } noraise {
     _ => fail("expected progress error")
   }
   try
-    loan_offset_record(
+    @erp.loan_offset_record(
       {
         offset_guid: "offset-bad",
         loan_guid: "loan-001",
@@ -166,7 +166,7 @@ test "typed ERP source rows reject invalid progress and money" {
       schema_version=1,
     )
   catch {
-    ErpImportError::InvalidValue => ()
+    @erp.ErpImportError::InvalidValue => ()
     _ => fail("wrong amount error")
   } noraise {
     _ => fail("expected amount error")

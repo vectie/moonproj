@@ -1,16 +1,18 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct OwnerTableChange {
   before : Owner?
   after : Owner
   fields : Array[String]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct OwnerTableUpdate {
   draft : Draft
   changes : Array[OwnerTableChange]
   ignored : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 fn owner_column(header : String) -> String {
@@ -57,7 +59,7 @@ pub fn preview_owner_table(
       ignored.push(rows[0][i])
     }
   }
-  let originals : Map[String, Owner] = {}
+  let originals : Map[String, Owner] = Map([])
   for owner in draft.owners {
     if owner.id.trim().is_empty() ||
       owner.id != owner.id.trim().to_owned() ||
@@ -66,7 +68,7 @@ pub fn preview_owner_table(
     }
     originals[owner.id] = owner
   }
-  let replacements : Map[String, Owner] = {}
+  let replacements : Map[String, Owner] = Map([])
   let added : Array[Owner] = []
   for index = 1; index < rows.length(); index = index + 1 {
     let row = rows[index]
@@ -74,7 +76,7 @@ pub fn preview_owner_table(
     if row.length() != headers.length() {
       raise Invalid(label + ": column count differs from header")
     }
-    let values : Map[String, String] = {}
+    let values : Map[String, String] = Map([])
     for i, header in headers {
       if !header.is_empty() {
         values[header] = row[i]

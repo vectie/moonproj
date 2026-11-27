@@ -1,16 +1,17 @@
 ///|
 /// Read-only extraction preview. Context IDs refer to the source draft; the JSON
 /// uses only portable template IDs and can be read by the existing template flow.
+#derive(Debug, Eq, ToJson)
 pub(all) struct PhaseExtraction {
   selected : Array[String]
   prerequisites : Array[String]
   partial_milestones : Array[String]
   cross_scope_risks : Array[String]
   unscoped_risks : Array[String]
-  omitted_risk_count : Int
+  omitted_risk_count : Int32
   fallback_owner : Bool
   json : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 /// Extract the union of explicit task selections and a selected milestone's
@@ -38,7 +39,7 @@ pub fn extract_phase(
   if selected.is_empty() {
     raise Invalid("Select at least one task or a milestone containing tasks")
   }
-  let included : Map[String, Bool] = {}
+  let included : Map[String, Bool] = Map([])
   let pending = selected.copy()
   for id in selected {
     included[id] = true

@@ -179,14 +179,14 @@ async fn native_load_control(uri : String) -> NativeControl raise GatewayError {
 ///|
 fn native_response_status_allowed(
   status : Int32,
-  method : @http.RequestMethod,
+  http_method : @http.RequestMethod,
   path : String,
   body : String,
 ) -> Bool {
   (status >= 200 && status <= 299) ||
   (
     status == 503 &&
-    method == @http.Get &&
+    http_method == @http.Get &&
     path == "/v1/moongate-route" &&
     body == ""
   )
@@ -216,7 +216,7 @@ fn native_catalog_only_route_response(route : Json) -> Bool {
 ///|
 fn native_validate_response(
   control : NativeControl,
-  method : @http.RequestMethod,
+  http_method : @http.RequestMethod,
   path : String,
   body : String,
   status : Int32,
@@ -224,7 +224,7 @@ fn native_validate_response(
   data : Bytes,
 ) -> Json raise {
   if instance != control.instance_id ||
-    !native_response_status_allowed(status, method, path, body) {
+    !native_response_status_allowed(status, http_method, path, body) {
     raise GatewayError::Upstream(
       "MoonClaw native control unavailable or rejected request (HTTP " +
       status.to_string() +
@@ -249,14 +249,14 @@ fn native_validate_response(
 ///|
 async fn native_request(
   control : NativeControl,
-  method : @http.RequestMethod,
+  http_method : @http.RequestMethod,
   path : String,
   body : String,
 ) -> Json raise GatewayError {
   try {
     let client = @http.Client(control.uri)
     defer client.close()
-    client.request(method, path, extra_headers={
+    client.request(http_method, path, extra_headers={
       "Content-Type": "application/json",
       "X-MoonClaw-Execution-Token": control.auth_token,
       "X-MoonClaw-Instance-ID": control.instance_id,
@@ -269,7 +269,7 @@ async fn native_request(
       .get("x-moonclaw-instance-id")
       .unwrap_or(response.headers.get("X-MoonClaw-Instance-ID").unwrap_or(""))
     if echoed != control.instance_id ||
-      !native_response_status_allowed(response.code, method, path, body) {
+      !native_response_status_allowed(response.code, http_method, path, body) {
       raise GatewayError::Upstream(
         "MoonClaw native control unavailable or rejected request (HTTP " +
         response.code.to_string() +
@@ -278,7 +278,7 @@ async fn native_request(
     }
     native_validate_response(
       control,
-      method,
+      http_method,
       path,
       body,
       response.code,
@@ -296,7 +296,7 @@ async fn native_request(
 
 ///|
 fn native_component(value : String) -> String {
-  let out = StringBuilder::new()
+  let out = StringBuilder()
   let digits = "0123456789ABCDEF"
   for byte in @encoding/utf8.encode(value) {
     if (byte >= b'a' && byte <= b'z') ||
@@ -400,7 +400,7 @@ fn native_execution_snapshot(
   }
   let request = match request {
     Object(fields) => fields
-    _ => Map::new()
+    _ => Map([])
   }
   if native_coordinated(task) {
     request["payload"] = {
@@ -704,7 +704,7 @@ fn native_execution_readback(
   }
   let fields = match native_observation(execution, state, "") {
     Object(values) => values
-    _ => Map::new()
+    _ => Map([])
   }
   fields.set(
     "summary",
@@ -775,12 +775,12 @@ fn native_result_json(result : ProxyResult) -> Json raise GatewayError {
 ///|
 async fn native_company_request(
   bridge : NativeBridge,
-  method : @http.RequestMethod,
+  http_method : @http.RequestMethod,
   path : String,
   body : Json,
 ) -> ProxyResult raise GatewayError {
   let request : @http.Request = {
-    meth: method,
+    meth: http_method,
     path,
     headers: {
       "X-Moonproj-Actor": bridge.actor,
@@ -791,10 +791,10 @@ async fn native_company_request(
     bridge.service_uri,
     bridge.service_token,
     bridge.actor_signing_secret,
-    method,
+    http_method,
     path,
     request,
-    if method is @http.Get {
+    if http_method is @http.Get {
       b""
     } else {
       @encoding/utf8.encode(body.stringify())
@@ -1130,7 +1130,7 @@ async fn native_dispatch_task(
       let observation = native_observation(execution, "queued", "")
       let fields = match observation {
         Object(fields) => fields
-        _ => Map::new()
+        _ => Map([])
       }
       fields.set("dispatched", Json::boolean(true))
       native_company_observe(bridge, task_id, Json::object(fields))

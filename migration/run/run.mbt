@@ -1,23 +1,26 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum MigrationReceiptState {
   Applied
   Certified
   RolledBack
-} derive(Debug, Eq)
+}
 
 ///|
 /// A migration receipt retains both sides of an immutable apply. Keeping the
 /// baseline makes rollback a verifiable operation instead of a metadata-only
 /// state change.
+#derive(Debug, Eq)
 pub(all) struct MigrationReceipt {
   manifest : @manifest.MigrationManifest
   baseline : @store.RecordStore
   applied : @store.RecordStore
   parity : @parity.ParitySummary?
   state : MigrationReceiptState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror MigrationRunError {
   InvalidState
   IdentityMismatch
@@ -25,7 +28,7 @@ pub(all) suberror MigrationRunError {
   ParityRejected
   RollbackConflict
   Manifest(@manifest.ManifestError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn MigrationReceipt::apply(
@@ -64,7 +67,7 @@ pub fn MigrationReceipt::record_parity(
     report.source_snapshot_id != self.manifest.source_snapshot_id {
     raise MigrationRunError::IdentityMismatch
   }
-  { ..self, parity: Some(report.evaluate()) }
+  { ..self, parity: Some(report.evaluate()), }
 }
 
 ///|
@@ -81,7 +84,7 @@ pub fn MigrationReceipt::certify(
   if !summary.accepted {
     raise MigrationRunError::ParityRejected
   }
-  { ..self, state: MigrationReceiptState::Certified }
+  { ..self, state: MigrationReceiptState::Certified, }
 }
 
 ///|
@@ -105,6 +108,6 @@ pub fn MigrationReceipt::rollback(
   }
   (
     self.baseline,
-    { ..self, manifest, state: MigrationReceiptState::RolledBack },
+    { ..self, manifest, state: MigrationReceiptState::RolledBack, },
   )
 }

@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror FinancingAccountingPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> FinancingAccountingPlanError {
@@ -418,21 +419,21 @@ fn text(value : Json) -> String {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: financing_accounting_plan <facility-plan.json> <mapping.json> <output.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     FinancingAccountingPlanError::InvalidInput(message) => {
       println("financing accounting plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     FinancingAccountingPlanError::Io(_) => {
       println("financing accounting plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

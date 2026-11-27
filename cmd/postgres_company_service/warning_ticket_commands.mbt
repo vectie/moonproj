@@ -103,7 +103,7 @@ async fn warning_ticket_transition(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(ticket_id) || !valid_identifier(idempotency_key) {
     raise reject(422, "ticket id and Idempotency-Key must be valid")
   }

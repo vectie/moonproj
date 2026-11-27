@@ -13,7 +13,7 @@ fn payable_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "payable tracks partial and complete supplier settlement" {
-  let payable = Payable::open(
+  let payable = @payable.Payable::open(
     payable_id="pay-001",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -33,14 +33,14 @@ test "payable tracks partial and complete supplier settlement" {
     actor_id="alice",
     grant=payable_grant("payable:pay"),
   )
-  assert_true(partial.state == PayableState::PartiallyPaid)
-  assert_true(paid.state == PayableState::Paid)
+  assert_true(partial.state == @payable.PayableState::PartiallyPaid)
+  assert_true(paid.state == @payable.PayableState::Paid)
   assert_eq(paid.outstanding.minor, 0L)
 }
 
 ///|
 test "payable rejects overpayment" {
-  let payable = Payable::open(
+  let payable = @payable.Payable::open(
     payable_id="pay-002",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -57,7 +57,7 @@ test "payable rejects overpayment" {
       grant=payable_grant("payable:pay"),
     )
   catch {
-    PayableError::OverPayment => ()
+    @payable.PayableError::OverPayment => ()
     _ => fail("wrong payable error")
   } noraise {
     _ => fail("expected payable error")
@@ -66,7 +66,7 @@ test "payable rejects overpayment" {
 
 ///|
 test "payable opening creates a source accounting event" {
-  let payable = Payable::open(
+  let payable = @payable.Payable::open(
     payable_id="pay-accounting",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -88,7 +88,7 @@ test "payable opening creates a source accounting event" {
 
 ///|
 test "payable payment creates a separate cash settlement event" {
-  let payable = Payable::open(
+  let payable = @payable.Payable::open(
     payable_id="pay-payment-accounting",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -120,7 +120,7 @@ test "payable payment creates a separate cash settlement event" {
       cash_account="1001",
     )
   catch {
-    PayableError::OverPayment => ()
+    @payable.PayableError::OverPayment => ()
     _ => fail("wrong payment event error")
   } noraise {
     _ => fail("expected payment event error")
@@ -137,7 +137,7 @@ test "payable payment persists an immutable projection" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let payable = Payable::open(
+  let payable = @payable.Payable::open(
     payable_id="pay-projection",
     principal_id="co-001",
     project_scope="project:p-001",

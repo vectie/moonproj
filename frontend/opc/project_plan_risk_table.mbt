@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq)
 struct PlanRiskTableState {
   text : String
   tsv : Bool
   base : @plan_workbench.Draft?
   preview : @plan_workbench.RiskTableUpdate?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanRiskTableMsg {
   Text(String)
   Format(Bool)
@@ -15,7 +17,7 @@ enum PlanRiskTableMsg {
   Apply
   Close
   Export
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_risk_table_initial() -> PlanRiskTableState {
@@ -182,7 +184,8 @@ fn plan_risk_table_view(
               strong("Before / 修改前"),
               match change.before {
                 None => p("New risk / 新增风险")
-                Some(before) => @html.pre(ToJson::to_json(before).stringify(indent=2))
+                Some(before) =>
+                  @html.pre(ToJson::to_json(before).stringify(indent=2))
               },
               strong("After / 修改后"),
               @html.pre(ToJson::to_json(change.after).stringify(indent=2)),

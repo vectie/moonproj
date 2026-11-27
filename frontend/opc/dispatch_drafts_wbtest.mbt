@@ -110,12 +110,12 @@ extern "js" fn drafts_test_events() -> String =
 
 ///|
 #cfg(target="js")
-extern "js" fn drafts_test_post_count() -> Int =
+extern "js" fn drafts_test_post_count() -> Int32 =
   #| () => globalThis.__draftsTest.posts.length
 
 ///|
 #cfg(target="js")
-extern "js" fn drafts_test_post_body(index : Int) -> String =
+extern "js" fn drafts_test_post_body(index : Int32) -> String =
   #| index => globalThis.__draftsTest.posts[index] || ""
 
 ///|

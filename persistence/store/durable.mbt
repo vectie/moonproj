@@ -4,18 +4,20 @@
 /// interrupted between those writes can recover the fully validated candidate.
 /// A production database adapter must still provide its own atomic commit and
 /// durability guarantees.
+#derive(Debug, Eq)
 pub(all) struct DurableRecordStore {
   path : String
   pending_path : String
   store : RecordStore
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror DurableStoreError {
   FileIo
   InvalidPendingSnapshot
   Store(StoreError)
-} derive(Debug, Eq)
+}
 
 ///|
 fn durable_pending_path(path : String) -> String {
@@ -32,15 +34,15 @@ pub fn DurableRecordStore::open(
     let store = load_snapshot(pending) catch {
       _ => raise DurableStoreError::InvalidPendingSnapshot
     }
-    return { path, pending_path: pending, store }
+    return { path, pending_path: pending, store, }
   }
   if @fs.path_exists(path) {
     let store = load_snapshot(path) catch {
       error => raise DurableStoreError::Store(error)
     }
-    return { path, pending_path: pending, store }
+    return { path, pending_path: pending, store, }
   }
-  { path, pending_path: pending, store: RecordStore::new(schema) }
+  { path, pending_path: pending, store: RecordStore::new(schema), }
 }
 
 ///|
@@ -71,5 +73,5 @@ pub fn DurableRecordStore::transact(
       _ => raise DurableStoreError::FileIo
     }
   }
-  { ..self, store: candidate }
+  { ..self, store: candidate, }
 }

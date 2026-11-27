@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum InvoiceState {
   Draft
   Issued
@@ -6,16 +7,18 @@ pub(all) enum InvoiceState {
   PartiallyPaid
   Paid
   Voided
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct InvoiceEvent {
   from : InvoiceState
   to : InvoiceState
   actor_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Invoice {
   invoice_id : String
   principal_id : String
@@ -25,9 +28,10 @@ pub(all) struct Invoice {
   paid_minor : Int64
   state : InvoiceState
   events : Array[InvoiceEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror InvoiceError {
   EmptyIdentifier
   InvalidAmount
@@ -38,7 +42,7 @@ pub(all) suberror InvoiceError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Invoice::new(
@@ -122,8 +126,8 @@ pub fn Invoice::transition(
     error => raise InvoiceError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -198,5 +202,5 @@ pub fn Invoice::record_payment(
   } else {
     InvoiceState::PartiallyPaid
   }
-  { ..self, paid_minor, state }
+  { ..self, paid_minor, state, }
 }

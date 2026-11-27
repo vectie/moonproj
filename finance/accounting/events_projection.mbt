@@ -40,7 +40,7 @@ fn accounting_event_payload(event : AccountingEvent) -> String {
 /// envelope for migration and reconciliation queries.
 pub fn AccountingEvent::to_record(
   self : AccountingEvent,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise AccountingEventError {
   @store.StoredRecord::new(
     record_type="accounting_event",
@@ -56,7 +56,7 @@ pub fn AccountingEvent::to_record(
 ///|
 pub fn AccountingEventLog::to_records(
   self : AccountingEventLog,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> Array[@store.StoredRecord] raise AccountingEventError {
   let records : Array[@store.StoredRecord] = []
   for event in self.events {

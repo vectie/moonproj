@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct CostBucket {
   id : String
   label : String
   task_ids : Array[String]
   known_minor : Int64?
   invalid_tasks : Int32
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct BudgetBreakdown {
   currency : String
   known_minor : Int64?
@@ -17,7 +19,7 @@ pub(all) struct BudgetBreakdown {
   remaining_minor : Int64?
   owners : Array[CostBucket]
   milestones : Array[CostBucket]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 fn cost_sum(tasks : Array[Task]) -> (Int64?, Int32) {

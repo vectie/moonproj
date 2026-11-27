@@ -6,7 +6,7 @@
 /// authorize, persist, or invoke providers.
 struct DashboardContext {
   rows : Map[String, Array[SourceRow]]
-  coverage : Map[String, Int]
+  coverage : Map[String, Int32]
   missing : Array[String]
 }
 
@@ -24,10 +24,10 @@ fn dashboard_tables() -> Array[String] {
 
 ///|
 async fn dashboard_context(
-  max_rows : Int,
+  max_rows : Int32,
 ) -> DashboardContext raise CompanyServiceError {
-  let rows : Map[String, Array[SourceRow]] = {}
-  let coverage : Map[String, Int] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
+  let coverage : Map[String, Int32] = Map([])
   for table in dashboard_tables() {
     let values = raw_source_rows(table, max_rows)
     rows.set(table, values)
@@ -122,7 +122,7 @@ async fn dashboard_group_overview_response() -> Json raise CompanyServiceError {
   let costs = dashboard_rows(context, "cb_cost").filter(fn(row) {
     dashboard_active(row.payload) && report_is_end_cost(row.payload)
   })
-  let running : Map[String, Bool] = {}
+  let running : Map[String, Bool] = Map([])
   for row in dashboard_rows(context, "proj_lifecycle_instance") {
     if report_text(row.payload, "status", "") == "in_progress" {
       running.set(report_text(row.payload, "proj_guid", row.record_id), true)
@@ -206,7 +206,7 @@ async fn dashboard_group_funnel_response() -> Json raise CompanyServiceError {
       report_amount(right.payload, "stage_order"),
     )
   })
-  let grouped : Map[String, Map[String, Bool]] = {}
+  let grouped : Map[String, Map[String, Bool]] = Map([])
   for row in dashboard_rows(context, "proj_lifecycle_instance") {
     let status = report_text(row.payload, "status", "")
     if ["in_progress", "done"].contains(status) {
@@ -252,7 +252,7 @@ async fn dashboard_group_funnel_response() -> Json raise CompanyServiceError {
 
 ///|
 async fn dashboard_group_anomalies_response(
-  limit : Int,
+  limit : Int32,
 ) -> Json raise CompanyServiceError {
   if limit < 1 || limit > 30 {
     raise reject(422, "limit must be between 1 and 30")
@@ -345,7 +345,7 @@ async fn dashboard_group_anomalies_response(
 ///|
 async fn dashboard_project_kpi_response(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(project_id) {
     raise reject(422, "invalid project_id")
   }
@@ -480,7 +480,7 @@ async fn dashboard_project_kpi_response(
 ///|
 async fn dashboard_project_anomalies_response(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(project_id) {
     raise reject(422, "invalid project_id")
   }
@@ -553,7 +553,7 @@ async fn dashboard_v2_response(
     dashboard_active(row.payload) &&
     dashboard_scoped(row.payload, business_unit_id, project_id)
   })
-  let project_ids : Map[String, Bool] = {}
+  let project_ids : Map[String, Bool] = Map([])
   for row in projects {
     project_ids.set(report_text(row.payload, "proj_guid", row.record_id), true)
   }
@@ -561,7 +561,7 @@ async fn dashboard_v2_response(
     dashboard_active(row.payload) &&
     project_ids.contains(report_text(row.payload, "proj_guid", ""))
   })
-  let contract_ids : Map[String, Bool] = {}
+  let contract_ids : Map[String, Bool] = Map([])
   for row in contracts {
     contract_ids.set(
       report_text(row.payload, "contract_guid", row.record_id),
@@ -598,7 +598,7 @@ async fn dashboard_v2_response(
       sum
     }
   })
-  let plan_by_month : Map[String, Double] = {}
+  let plan_by_month : Map[String, Double] = Map([])
   for row in plans {
     let month = cashflow_month(row.payload, "jhfk_date")
     plan_by_month.set(
@@ -607,7 +607,7 @@ async fn dashboard_v2_response(
       report_amount(row.payload, "jhfk_amount"),
     )
   }
-  let actual_by_month : Map[String, Double] = {}
+  let actual_by_month : Map[String, Double] = Map([])
   for row in applications {
     if report_text(row.payload, "apply_state", "") == "已审核" {
       let month = cashflow_month(row.payload, "apply_date")
@@ -629,7 +629,7 @@ async fn dashboard_v2_response(
       }),
     )
   }
-  let stage_counts : Map[String, Int] = {}
+  let stage_counts : Map[String, Int32] = Map([])
   for row in projects {
     let stage = report_text(row.payload, "proj_status", "unknown")
     stage_counts.set(stage, stage_counts.get_or_default(stage, 0) + 1)
@@ -747,7 +747,7 @@ async fn dashboard_v3_response(
     dashboard_active(row.payload) &&
     dashboard_scoped(row.payload, business_unit_id, project_id)
   })
-  let project_ids : Map[String, Bool] = {}
+  let project_ids : Map[String, Bool] = Map([])
   for row in projects {
     project_ids.set(report_text(row.payload, "proj_guid", row.record_id), true)
   }
@@ -755,7 +755,7 @@ async fn dashboard_v3_response(
     dashboard_active(row.payload) &&
     project_ids.contains(report_text(row.payload, "proj_guid", ""))
   })
-  let contract_by_id : Map[String, Json] = {}
+  let contract_by_id : Map[String, Json] = Map([])
   for row in contracts {
     contract_by_id.set(
       report_text(row.payload, "contract_guid", row.record_id),
@@ -774,7 +774,7 @@ async fn dashboard_v3_response(
     dashboard_active(row.payload) &&
     dashboard_scoped(row.payload, business_unit_id, project_id)
   })
-  let sale_contract_ids : Map[String, Bool] = {}
+  let sale_contract_ids : Map[String, Bool] = Map([])
   for row in sale_contracts {
     sale_contract_ids.set(
       report_text(row.payload, "scontract_guid", row.record_id),
@@ -829,7 +829,7 @@ async fn dashboard_v3_response(
     dashboard_active(row.payload) &&
     dashboard_scoped(row.payload, business_unit_id, project_id)
   })
-  let tender_ids : Map[String, Bool] = {}
+  let tender_ids : Map[String, Bool] = Map([])
   for row in tender_plans {
     tender_ids.set(report_text(row.payload, "tender_guid", row.record_id), true)
   }
@@ -991,7 +991,7 @@ async fn dashboard_v3_response(
     report_text(row.payload, "bu_type", "") == "company" &&
     dashboard_active(row.payload)
   })
-  let expense_by_category_map : Map[String, Double] = {}
+  let expense_by_category_map : Map[String, Double] = Map([])
   for row in applications {
     if ["完全支付", "部分支付"].contains(
         report_text(row.payload, "pay_state", ""),
@@ -1008,7 +1008,7 @@ async fn dashboard_v3_response(
       )
     }
   }
-  let expense_by_id : Map[String, Json] = {}
+  let expense_by_id : Map[String, Json] = Map([])
   for row in expenses {
     expense_by_id.set(
       report_text(row.payload, "expense_guid", row.record_id),
@@ -1031,7 +1031,7 @@ async fn dashboard_v3_response(
       )
     }
   }
-  let category_names : Map[String, String] = {}
+  let category_names : Map[String, String] = Map([])
   for row in dashboard_rows(context, "cb_r_master") {
     category_names.set(
       report_text(row.payload, "r_code", ""),
@@ -1182,7 +1182,7 @@ async fn dashboard_v3_response(
   let top_unpaid = signed_contracts.map(compact_contract)
   let top_r0 = r0_contracts.map(compact_contract)
   let top_approving = approving_contracts.map(compact_contract)
-  let sort_contracts = fn(left : Json, right : Json) -> Int {
+  let sort_contracts = fn(left : Json, right : Json) -> Int32 {
     let order = json_number(right, "htAmount", 0.0).compare(
       json_number(left, "htAmount", 0.0),
     )

@@ -1,6 +1,6 @@
 ///|
-fn profile_fixture() -> ProductProfile raise {
-  ProductProfile::new(profile_id="moonproj", name="MoonProj", capabilities=[
+fn profile_fixture() -> @product.ProductProfile raise {
+  @product.ProductProfile::new(profile_id="moonproj", name="MoonProj", capabilities=[
     {
       id: "company-governance",
       label: "Company governance",
@@ -11,8 +11,8 @@ fn profile_fixture() -> ProductProfile raise {
 }
 
 ///|
-fn extension_fixture() -> ExtensionPack raise {
-  ExtensionPack::new(
+fn extension_fixture() -> @product.ExtensionPack raise {
+  @product.ExtensionPack::new(
     extension_id="professional-services-plus",
     name="Professional Services Plus",
     base_profile_id="moonproj",
@@ -31,7 +31,7 @@ fn extension_fixture() -> ExtensionPack raise {
 }
 
 ///|
-fn adoption_fixture() -> WorkflowAdoptionEvidence {
+fn adoption_fixture() -> @product.WorkflowAdoptionEvidence {
   {
     principal_id: "opc-001",
     product_id: "moonproj",
@@ -48,7 +48,7 @@ fn adoption_fixture() -> WorkflowAdoptionEvidence {
 
 ///|
 test "transactional pack activates only after the first adopted workflow" {
-  let transactional : TransactionalPack = {
+  let transactional : @product.TransactionalPack = {
     pack: extension_fixture(),
     price_currency: "CNY",
     price_minor: 9900L,
@@ -63,7 +63,7 @@ test "transactional pack activates only after the first adopted workflow" {
   )
   assert_true(profile.has_extension("professional-services-plus"))
   assert_eq(receipt.workflow_id, "professional-service-shadow-001")
-  let not_adopted = { ..adoption_fixture(), adoption_count: 0 }
+  let not_adopted = { ..adoption_fixture(), adoption_count: 0, }
   let second_profile = profile_fixture()
   try
     second_profile.activate_transactional(
@@ -83,7 +83,7 @@ test "transactional pack activates only after the first adopted workflow" {
 
 ///|
 test "staffing and marketplace remain behind Product In-Gate and independent review" {
-  let review : AutonomousExpansionReview = {
+  let review : @product.AutonomousExpansionReview = {
     review_id: "review-autonomy-001",
     principal_id: "opc-001",
     product_id: "moonproj",
@@ -95,11 +95,14 @@ test "staffing and marketplace remain behind Product In-Gate and independent rev
     approved: true,
     reviewed_at_epoch: 200L,
   }
-  let receipt = authorize_autonomous_expansion(adoption_fixture(), review)
+  let receipt = @product.authorize_autonomous_expansion(
+    adoption_fixture(),
+    review,
+  )
   assert_true(receipt.enabled)
   assert_true(!receipt.company_authority_granted)
   try
-    authorize_autonomous_expansion(adoption_fixture(), {
+    @product.authorize_autonomous_expansion(adoption_fixture(), {
       ..review,
       reviewed_by: "owner-001",
     })
@@ -110,8 +113,8 @@ test "staffing and marketplace remain behind Product In-Gate and independent rev
     _ => fail("expected self-reviewed staffing to fail")
   }
   try
-    authorize_autonomous_expansion(
-      { ..adoption_fixture(), decision: Experiment },
+    @product.authorize_autonomous_expansion(
+      { ..adoption_fixture(), decision: Experiment, },
       review,
     )
   catch {

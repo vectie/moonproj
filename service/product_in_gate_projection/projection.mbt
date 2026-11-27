@@ -22,7 +22,7 @@ pub fn persisted(
   product~ : String,
   normalized~ : Json,
   owner~ : String,
-  revision~ : Int,
+  revision~ : Int32,
   event_id~ : String,
   updated_at_ms~ : UInt64,
 ) -> Json {

@@ -4,7 +4,7 @@ fn reply_ui_update(model : Model, action : DispatchReplyMsg) -> Model {
 }
 
 ///|
-fn reply_ui_body(revision : Int, history : Array[Json]) -> String {
+fn reply_ui_body(revision : Int32, history : Array[Json]) -> String {
   let parsed = @json.parse(
     offer_test_body(revision, offer_test_value(), [
       {

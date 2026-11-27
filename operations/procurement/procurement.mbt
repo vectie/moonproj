@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum SupplierState {
   Draft
   PendingReview
@@ -6,26 +7,29 @@ pub(all) enum SupplierState {
   Suspended
   Blacklisted
   Voided
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SupplierEvaluation {
   Unrated
   Reviewed
   Qualified
   Unqualified
   Strategic
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct SupplierEvent {
   from : SupplierState
   to : SupplierState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Supplier {
   supplier_id : String
   principal_id : String
@@ -36,9 +40,10 @@ pub(all) struct Supplier {
   state : SupplierState
   evaluation : SupplierEvaluation
   events : Array[SupplierEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror SupplierError {
   EmptyIdentifier
   InvalidState
@@ -46,7 +51,7 @@ pub(all) suberror SupplierError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Supplier::new(
@@ -116,7 +121,7 @@ pub fn Supplier::submit_review(
     actor_id,
     capability: "supplier:submit",
   })
-  { ..self, state: SupplierState::PendingReview, events }
+  { ..self, state: SupplierState::PendingReview, events, }
 }
 
 ///|
@@ -156,7 +161,7 @@ pub fn Supplier::review(
     actor_id,
     capability: "supplier:review",
   })
-  { ..self, state, evaluation, events }
+  { ..self, state, evaluation, events, }
 }
 
 ///|
@@ -185,7 +190,7 @@ pub fn Supplier::blacklist(
     actor_id,
     capability: "supplier:blacklist",
   })
-  { ..self, state: SupplierState::Blacklisted, events }
+  { ..self, state: SupplierState::Blacklisted, events, }
 }
 
 ///|
@@ -214,10 +219,11 @@ pub fn Supplier::void_supplier(
     actor_id,
     capability: "supplier:void",
   })
-  { ..self, state: SupplierState::Voided, events }
+  { ..self, state: SupplierState::Voided, events, }
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum TenderState {
   Planning
   Publishing
@@ -225,24 +231,27 @@ pub(all) enum TenderState {
   Awarded
   Completed
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TenderBid {
   supplier_id : String
   amount : @finance.Money
   actor_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TenderEvent {
   from : TenderState
   to : TenderState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TenderPlan {
   tender_id : String
   principal_id : String
@@ -255,9 +264,10 @@ pub(all) struct TenderPlan {
   awarded_supplier_id : String?
   awarded_amount : @finance.Money?
   events : Array[TenderEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror TenderError {
   EmptyIdentifier
   InvalidAmount
@@ -270,7 +280,7 @@ pub(all) suberror TenderError {
   Projection(@store.ProjectionError)
   Commitment(@commitment.CommitmentError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn TenderPlan::new(
@@ -353,8 +363,8 @@ fn TenderPlan::transition_internal(
     error => raise TenderError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -421,7 +431,7 @@ pub fn TenderPlan::add_bid(
     error => raise TenderError::NotAuthorized(error)
   }
   let bids = self.bids.copy()
-  bids.push({ supplier_id: supplier.supplier_id, amount, actor_id })
+  bids.push({ supplier_id: supplier.supplier_id, amount, actor_id, })
   { ..self, bids, }
 }
 

@@ -13,7 +13,7 @@ fn invoice_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "invoice distinguishes acceptance from payment" {
-  let invoice = Invoice::new(
+  let invoice = @invoice.Invoice::new(
     invoice_id="invoice-001",
     principal_id="co-001",
     customer_id="customer-001",
@@ -23,12 +23,12 @@ test "invoice distinguishes acceptance from payment" {
     grant=invoice_grant("invoice:create"),
   )
   let issued = invoice.transition(
-    InvoiceState::Issued,
+    @invoice.InvoiceState::Issued,
     actor_id="alice",
     grant=invoice_grant("invoice:issue"),
   )
   let accepted = issued.transition(
-    InvoiceState::Accepted,
+    @invoice.InvoiceState::Accepted,
     actor_id="alice",
     grant=invoice_grant("invoice:accept"),
   )
@@ -42,14 +42,14 @@ test "invoice distinguishes acceptance from payment" {
     actor_id="alice",
     grant=invoice_grant("invoice:collect"),
   )
-  assert_true(partial.state == InvoiceState::PartiallyPaid)
-  assert_true(paid.state == InvoiceState::Paid)
+  assert_true(partial.state == @invoice.InvoiceState::PartiallyPaid)
+  assert_true(paid.state == @invoice.InvoiceState::Paid)
   assert_eq(paid.outstanding_minor(), 0)
 }
 
 ///|
 test "invoice rejects payment before acceptance and overpayment" {
-  let invoice = Invoice::new(
+  let invoice = @invoice.Invoice::new(
     invoice_id="invoice-002",
     principal_id="co-001",
     customer_id="customer-001",
@@ -65,18 +65,18 @@ test "invoice rejects payment before acceptance and overpayment" {
       grant=invoice_grant("invoice:collect"),
     )
   catch {
-    InvoiceError::InvalidState => ()
+    @invoice.InvoiceError::InvalidState => ()
     _ => fail("wrong invoice error")
   } noraise {
     _ => fail("expected invoice error")
   }
   let accepted = try! invoice.transition(
-    InvoiceState::Issued,
+    @invoice.InvoiceState::Issued,
     actor_id="alice",
     grant=invoice_grant("invoice:issue"),
   )
   let accepted = try! accepted.transition(
-    InvoiceState::Accepted,
+    @invoice.InvoiceState::Accepted,
     actor_id="alice",
     grant=invoice_grant("invoice:accept"),
   )
@@ -87,7 +87,7 @@ test "invoice rejects payment before acceptance and overpayment" {
       grant=invoice_grant("invoice:collect"),
     )
   catch {
-    InvoiceError::Overpayment => ()
+    @invoice.InvoiceError::Overpayment => ()
     _ => fail("wrong overpayment error")
   } noraise {
     _ => fail("expected overpayment error")
@@ -96,7 +96,7 @@ test "invoice rejects payment before acceptance and overpayment" {
 
 ///|
 test "accepted invoice opens a receivable through a separate gate" {
-  let invoice = Invoice::new(
+  let invoice = @invoice.Invoice::new(
     invoice_id="invoice-receivable-001",
     principal_id="co-001",
     customer_id="customer-001",
@@ -107,12 +107,12 @@ test "accepted invoice opens a receivable through a separate gate" {
   )
   let accepted = invoice
     .transition(
-      InvoiceState::Issued,
+      @invoice.InvoiceState::Issued,
       actor_id="alice",
       grant=invoice_grant("invoice:issue"),
     )
     .transition(
-      InvoiceState::Accepted,
+      @invoice.InvoiceState::Accepted,
       actor_id="alice",
       grant=invoice_grant("invoice:accept"),
     )
@@ -145,7 +145,7 @@ test "invoice and receivable retain separate durable source projections" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let invoice = Invoice::new(
+  let invoice = @invoice.Invoice::new(
     invoice_id="invoice-receivable-projection",
     principal_id="co-001",
     customer_id="customer-001",
@@ -156,12 +156,12 @@ test "invoice and receivable retain separate durable source projections" {
   )
   let accepted = invoice
     .transition(
-      InvoiceState::Issued,
+      @invoice.InvoiceState::Issued,
       actor_id="alice",
       grant=invoice_grant("invoice:issue"),
     )
     .transition(
-      InvoiceState::Accepted,
+      @invoice.InvoiceState::Accepted,
       actor_id="alice",
       grant=invoice_grant("invoice:accept"),
     )
@@ -212,7 +212,7 @@ test "invoice acceptance and payment persist projections" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let invoice = Invoice::new(
+  let invoice = @invoice.Invoice::new(
     invoice_id="invoice-projection",
     principal_id="co-001",
     customer_id="customer-001",
@@ -229,12 +229,12 @@ test "invoice acceptance and payment persist projections" {
   let projection = invoice.append_projection(projection)
   let accepted = invoice
     .transition(
-      InvoiceState::Issued,
+      @invoice.InvoiceState::Issued,
       actor_id="alice",
       grant=invoice_grant("invoice:issue"),
     )
     .transition(
-      InvoiceState::Accepted,
+      @invoice.InvoiceState::Accepted,
       actor_id="alice",
       grant=invoice_grant("invoice:accept"),
     )

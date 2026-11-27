@@ -24,7 +24,7 @@ fn ai_hub_command_spec(
 }
 
 ///|
-fn ai_hub_command_gate(command : String) -> (Int, Json) {
+fn ai_hub_command_gate(command : String) -> (Int32, Json) {
   (
     409,
     Json::object({

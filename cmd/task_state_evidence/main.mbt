@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror TaskStateEvidenceError {
   InvalidInput
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise TaskStateEvidenceError {
@@ -149,19 +150,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: task_state_evidence <exception-review.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       TaskStateEvidenceError::InvalidInput => {
         println("task-state evidence failed: invalid or decided input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TaskStateEvidenceError::Io(_) => {
         println("task-state evidence failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

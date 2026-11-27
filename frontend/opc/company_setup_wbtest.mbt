@@ -31,7 +31,7 @@ fn setup_test_session(model : Model, actor : String) -> Model {
 }
 
 ///|
-fn setup_test_profile(model : Model, status : Int, body : String) -> Model {
+fn setup_test_profile(model : Model, status : Int32, body : String) -> Model {
   let state = model.company_setup
   setup_test_update(
     model,
@@ -40,7 +40,7 @@ fn setup_test_profile(model : Model, status : Int, body : String) -> Model {
 }
 
 ///|
-fn setup_test_units(model : Model, status : Int, body : String) -> Model {
+fn setup_test_units(model : Model, status : Int32, body : String) -> Model {
   let state = model.company_setup
   setup_test_update(
     model,
@@ -142,7 +142,7 @@ fn setup_test_posting(model : Model, kind : String) -> Model {
 }
 
 ///|
-fn setup_test_posted(model : Model, kind : String, status : Int) -> Model {
+fn setup_test_posted(model : Model, kind : String, status : Int32) -> Model {
   let state = model.company_setup
   let request = company_setup_op(state, kind).request.unwrap()
   setup_test_update(
@@ -165,7 +165,7 @@ fn setup_test_exact_body(request : CompanySetupRequest) -> String {
 }
 
 ///|
-fn setup_test_exact(model : Model, status : Int, body : String) -> Model {
+fn setup_test_exact(model : Model, status : Int32, body : String) -> Model {
   let state = model.company_setup
   setup_test_update(
     model,

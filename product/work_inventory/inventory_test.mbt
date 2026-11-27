@@ -93,7 +93,7 @@ test "dated work scope round trips without completion arithmetic" {
     wire
     is {
       "groups": Array(
-        [{ "estimate_low_days": Null, "estimate_high_days": Null, .. }]
+        [{ "estimate_low_days": Null, "estimate_high_days": Null, .. }],
       ),
       ..
     },

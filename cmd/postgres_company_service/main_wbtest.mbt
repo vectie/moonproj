@@ -263,7 +263,7 @@ test "native company service maps exact import template routes" {
   assert_true(
     import_template_csv("project")
     is Some(
-      "\u{FEFF}projCode,projName,projShortName,buCode,projStatus,beginDate\n"
+      "\u{FEFF}projCode,projName,projShortName,buCode,projStatus,beginDate\n",
     ),
   )
   assert_true(import_template_csv("unsupported") is None)

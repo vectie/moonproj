@@ -1,11 +1,12 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct TaskHandoff {
   title : String
   acceptance : String
   source_reference : String
   context : String
   end_date : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 fn handoff_task_name(d : Draft, id : String) -> String {

@@ -78,13 +78,13 @@ fn book_lesson_handoff_projection(data : Json) -> Json raise GatewayError {
         "The accepted task requires its available named command and audit receipts",
       )
     }
-    guard native_field(item, "revision") is Number(revision) &&
+    guard native_field(item, "revision") is Number(revision, ..) &&
       revision >= 1 &&
       revision.trunc() == revision else {
       raise GatewayError::Upstream("The command revision is unavailable")
     }
   }
-  guard native_field(task, "revision") is Number(revision) &&
+  guard native_field(task, "revision") is Number(revision, ..) &&
     revision >= 1 &&
     revision.trunc() == revision &&
     native_text(report, "task_id") == task_id &&

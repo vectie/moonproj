@@ -1,20 +1,22 @@
 ///|
+#derive(Debug, Eq)
 struct PlanScheduleState {
   anchor : String
   date : String
   source : @plan_workbench.Draft?
   preview : @plan_workbench.MilestoneRebase?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanScheduleMsg {
   Anchor(String)
   Date(String)
   Preview
   Apply
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_schedule_initial() -> PlanScheduleState {

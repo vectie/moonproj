@@ -11,9 +11,9 @@ extern "js" fn research_test_picker_setup() =
 
 ///|
 extern "js" fn research_test_picker_finish(
-  index : Int,
+  index : Int32,
   text : String,
-  size : Int,
+  size : Int32,
   failed : Bool,
 ) =
   #| (index,text,size,failed) => {
@@ -23,7 +23,7 @@ extern "js" fn research_test_picker_finish(
   #| }
 
 ///|
-extern "js" fn research_test_picker_removed(index : Int) -> Bool =
+extern "js" fn research_test_picker_removed(index : Int32) -> Bool =
   #| index => globalThis.__researchPickerTest.inputs[index].removed
 
 ///|

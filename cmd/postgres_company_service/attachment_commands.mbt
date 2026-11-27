@@ -28,7 +28,7 @@ fn attachment_reextract_spec(
 ///|
 async fn attachment_reextract_response(
   attachment_guid : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let rows = raw_source_rows("attachment", 500)
   let coverage = Json::object({
     "attachment": Json::number(rows.length().to_double()),
@@ -95,7 +95,7 @@ fn attachment_upload_spec(
 }
 
 ///|
-fn attachment_upload_gate() -> (Int, Json) {
+fn attachment_upload_gate() -> (Int32, Json) {
   (
     409,
     Json::object({
@@ -141,7 +141,7 @@ fn attachment_delete_spec(
 }
 
 ///|
-fn attachment_delete_gate(attachment_guid : String) -> (Int, Json) {
+fn attachment_delete_gate(attachment_guid : String) -> (Int32, Json) {
   (
     409,
     Json::object({

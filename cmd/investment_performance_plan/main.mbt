@@ -2,10 +2,11 @@
 /// Compile a reviewed portfolio/quote/benchmark map into the explicit native
 /// investment-performance plan. No market provider or trading authority is
 /// called by this compiler.
+#derive(Debug)
 pub(all) suberror InvestmentPerformancePlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> InvestmentPerformancePlanError {
@@ -331,19 +332,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: investment_performance_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     InvestmentPerformancePlanError::InvalidInput(message) => {
       println("investment performance plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     InvestmentPerformancePlanError::Io(_) => {
       println("investment performance plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

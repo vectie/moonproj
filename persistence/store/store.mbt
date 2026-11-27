@@ -1,21 +1,24 @@
 ///|
 /// A persistence-neutral record envelope. `payload` is owned by a domain
 /// serializer; this package deliberately does not choose JSON, SQL, or files.
+#derive(Debug, Eq)
 pub(all) struct StoredRecord {
   record_type : String
   record_id : String
-  schema_version : Int
+  schema_version : Int32
   payload : String
   source_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct RecordStore {
   schema : @schema.SchemaState
   records : Array[StoredRecord]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror StoreError {
   EmptyRecordType
   EmptyRecordId
@@ -28,13 +31,13 @@ pub(all) suberror StoreError {
   FileIo
   EmptyBatch
   Schema(@schema.MigrationError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn StoredRecord::new(
   record_type~ : String,
   record_id~ : String,
-  schema_version~ : Int,
+  schema_version~ : Int32,
   payload~ : String,
   source_id~ : String,
 ) -> StoredRecord raise StoreError {
@@ -53,12 +56,12 @@ pub fn StoredRecord::new(
   if payload.trim() == "" {
     raise StoreError::EmptyPayload
   }
-  { record_type, record_id, schema_version, payload, source_id }
+  { record_type, record_id, schema_version, payload, source_id, }
 }
 
 ///|
 pub fn RecordStore::new(schema : @schema.SchemaState) -> RecordStore {
-  { schema, records: [] }
+  { schema, records: [], }
 }
 
 ///|
@@ -101,7 +104,7 @@ pub fn RecordStore::get(
 pub fn RecordStore::count_type(
   self : RecordStore,
   record_type~ : String,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for record in self.records {
     if record.record_type == record_type {

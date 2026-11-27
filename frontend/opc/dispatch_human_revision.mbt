@@ -55,7 +55,7 @@ fn dispatch_human_revision_content_valid(record : Json, value : Json) -> Bool {
 
 ///|
 #cfg(target="js")
-extern "js" fn dispatch_human_revision_utf8_size(value : String) -> Int =
+extern "js" fn dispatch_human_revision_utf8_size(value : String) -> Int32 =
   #| value => new TextEncoder().encode(value).length
 
 ///|

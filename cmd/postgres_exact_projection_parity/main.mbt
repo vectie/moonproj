@@ -1,9 +1,10 @@
 ///|
+#derive(Debug)
 pub(all) suberror PostgresExactProjectionParityError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 struct Key {
@@ -208,7 +209,7 @@ fn load_receipt(
   if expected.is_empty() {
     raise fail("receipt contains no accepted items")
   }
-  { source_snapshot_id: snapshot, mapping_version: mapping, cohort, expected }
+  { source_snapshot_id: snapshot, mapping_version: mapping, cohort, expected, }
 }
 
 ///|
@@ -219,7 +220,7 @@ fn decode_hex(
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -264,7 +265,7 @@ fn token(key : Key) -> String {
 }
 
 ///|
-fn key_json(key : Key, count : Int) -> Json {
+fn key_json(key : Key, count : Int32) -> Json {
   Json::array([
     Json::string(key.aggregate_type),
     Json::string(key.aggregate_id),
@@ -319,8 +320,8 @@ async fn actual(
 }
 
 ///|
-fn count_expected(values : Array[Expected]) -> Map[String, Int] {
-  let result : Map[String, Int] = {}
+fn count_expected(values : Array[Expected]) -> Map[String, Int32] {
+  let result : Map[String, Int32] = Map([])
   for value in values {
     let k = token(value.key)
     result.set(k, result.get(k).unwrap_or(0) + 1)
@@ -329,8 +330,8 @@ fn count_expected(values : Array[Expected]) -> Map[String, Int] {
 }
 
 ///|
-fn count_actual(values : Array[Actual]) -> Map[String, Int] {
-  let result : Map[String, Int] = {}
+fn count_actual(values : Array[Actual]) -> Map[String, Int32] {
+  let result : Map[String, Int32] = Map([])
   for value in values {
     let k = token(value.key)
     result.set(k, result.get(k).unwrap_or(0) + 1)
@@ -387,8 +388,8 @@ async fn compare(
     }
   }
   let mismatches : Array[Json] = []
-  let expected_candidates : Map[String, Array[String]] = {}
-  let actual_candidates : Map[String, Array[String]] = {}
+  let expected_candidates : Map[String, Array[String]] = Map([])
+  let actual_candidates : Map[String, Array[String]] = Map([])
   for value in receipt.expected {
     let k = token(value.key)
     let current = expected_candidates.get(k).unwrap_or([])
@@ -475,20 +476,20 @@ fn json_state(value : Json) -> String {
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println(
       "usage: postgres_exact_projection_parity <receipt> <output> [--psql path] [--host host] [--port port] [--user user] [--database database]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let receipt = load_receipt(args[1]) catch {
     _ => {
       println(
         "company PostgreSQL exact projection parity failed: \\{to_repr(error)}",
       )
-      @sys.exit(1)
-      { source_snapshot_id: "", mapping_version: "", cohort: "", expected: [] }
+      @env.exit(1)
+      { source_snapshot_id: "", mapping_version: "", cohort: "", expected: [], }
     }
   }
   let connection = @postgres.connection_from_env().with_overrides(
@@ -503,7 +504,7 @@ async fn main {
       println(
         "company PostgreSQL exact projection parity failed: \\{to_repr(error)}",
       )
-      @sys.exit(1)
+      @env.exit(1)
       Json::null()
     }
   }
@@ -512,11 +513,11 @@ async fn main {
       println(
         "company PostgreSQL exact projection parity failed: \\{to_repr(error)}",
       )
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   println(report.stringify())
   if json_state(report) != "shadow_verified" {
-    @sys.exit(1)
+    @env.exit(1)
   }
 }

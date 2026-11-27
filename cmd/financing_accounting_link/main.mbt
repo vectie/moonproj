@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror FinancingAccountingLinkError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Financing(@financing.FinancingError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise FinancingAccountingLinkError {
@@ -302,27 +303,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: financing_accounting_link <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       FinancingAccountingLinkError::InvalidInput => {
         println("financing accounting link failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       FinancingAccountingLinkError::Io(_) => {
         println("financing accounting link failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       FinancingAccountingLinkError::Money(_) => {
         println("financing accounting link failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       FinancingAccountingLinkError::Financing(_) => {
         println("financing accounting link failed: financing validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

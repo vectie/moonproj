@@ -95,7 +95,7 @@ async fn tender_read_response(
 ///|
 async fn tender_detail_response(
   tender_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let items = tender_projection_items(Some(tender_id))
   if items.is_empty() {
     (404, Json::object({ "error": Json::string("tender not found") }))
@@ -202,7 +202,7 @@ async fn tender_split_read_response(
 ///|
 async fn tender_split_detail_response(
   split_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let items = tender_split_projection_items(Some(split_id), None)
   if items.is_empty() {
     (404, Json::object({ "error": Json::string("contract split not found") }))

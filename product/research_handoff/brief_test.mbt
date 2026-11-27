@@ -25,7 +25,10 @@ test "actual final MoonFind export round-trips every known field and Unicode" {
   for kind in ["current", "historical", "undecided"] {
     let brief = parsed(kind)
     assert_eq(ToJson::to_json(brief), @json.parse(producer_export(kind)))
-    assert_eq(@research_handoff.decode(ToJson::to_json(brief).stringify()), Ok(brief))
+    assert_eq(
+      @research_handoff.decode(ToJson::to_json(brief).stringify()),
+      Ok(brief),
+    )
     assert_eq(
       brief.worksheet.evidence.papers[0].retrieved_at,
       Some(1790000000000L),
@@ -187,7 +190,8 @@ test "input size bound rejects before parsing and optional source dates stay unk
       evidence: { ..brief.worksheet.evidence, papers: [source], },
     },
   }
-  guard @research_handoff.decode(ToJson::to_json(undated).stringify()) is Ok(restored) else {
+  guard @research_handoff.decode(ToJson::to_json(undated).stringify())
+    is Ok(restored) else {
     fail("optional dates rejected")
   }
   assert_true(

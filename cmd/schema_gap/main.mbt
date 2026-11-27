@@ -1,9 +1,10 @@
 ///|
 /// MoonBit schema-versus-fixture gap report.
+#derive(Debug)
 pub(all) suberror SchemaGapError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> SchemaGapError {
@@ -49,7 +50,7 @@ fn optional_int(
   fields : Map[String, Json],
   key : String,
   path : String,
-) -> Int raise SchemaGapError {
+) -> Int32 raise SchemaGapError {
   match fields.get(key) {
     None => 0
     Some(Number(value, ..)) if value == value.trunc() => value.to_int()
@@ -76,7 +77,7 @@ fn schema_tables(path : String) -> Array[String] raise SchemaGapError {
     let line = line_view.to_owned()
     match line.find(marker) {
       Some(start) => {
-        let tail = line.sub(start=start + marker.length())
+        let tail = line.exact_view(start=start + marker.length())
         match tail.before(" ") {
           Some(view) => {
             let name = view.to_owned()
@@ -212,7 +213,7 @@ fn run(
     Some(_) => raise fail("manifest tables must be an array")
     None => raise fail("manifest has no tables")
   }
-  let source_rows : Map[String, Int] = Map::Map([])
+  let source_rows : Map[String, Int32] = Map::Map([])
   for index in 0..<manifest_tables.length() {
     let path = "manifest.tables[" + index.to_string() + "]"
     let entry = object(manifest_tables[index], path)
@@ -264,15 +265,15 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: schema_gap <schema> <export_manifest> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let report = run(args[1], args[2]) catch {
     error => {
-      println("ERP schema gap report failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("ERP schema gap report failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
@@ -280,7 +281,7 @@ fn main {
   @fs.write_string_to_file(args[3], output) catch {
     _ => {
       println("ERP schema gap report failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   println(output)

@@ -31,7 +31,7 @@ fn reviewed_alert() -> @policy.PolicyAlert {
 
 ///|
 test "reviewed policy alert becomes an in-app draft without delivery" {
-  let notification = notification_for_policy_alert(
+  let notification = @policy_alert.notification_for_policy_alert(
     reviewed_alert(),
     principal_id="company-1",
     recipient_id="owner-1",

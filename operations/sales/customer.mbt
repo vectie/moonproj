@@ -1,11 +1,13 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum CustomerState {
   Active
   Blocked
   Archived
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Customer {
   customer_id : String
   principal_id : String
@@ -14,17 +16,19 @@ pub(all) struct Customer {
   name : String
   contact_reference : String
   state : CustomerState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SubscriptionState {
   Reserved
   Converted
   Cancelled
   Refunded
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Reservation {
   subscription_id : String
   customer_id : String
@@ -33,17 +37,19 @@ pub(all) struct Reservation {
   unit_reference : String
   amount : @finance.Money
   state : SubscriptionState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum MortgageState {
   Applying
   Approved
   Released
   Rejected
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MortgageApplication {
   mortgage_id : String
   contract_id : String
@@ -54,17 +60,19 @@ pub(all) struct MortgageApplication {
   loan_amount : @finance.Money
   annual_rate_bps : Int64
   state : MortgageState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum RefundState {
   Requested
   Approved
   Paid
   Rejected
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct RefundRequest {
   refund_id : String
   contract_id : String
@@ -74,9 +82,10 @@ pub(all) struct RefundRequest {
   reason : String
   amount : @finance.Money
   state : RefundState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror SalesRecordError {
   EmptyIdentifier
   InvalidAmount
@@ -85,7 +94,7 @@ pub(all) suberror SalesRecordError {
   InvalidState
   OverRefund
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Customer::new(
@@ -146,7 +155,7 @@ pub fn Customer::block(
   ) catch {
     error => raise SalesRecordError::NotAuthorized(error)
   }
-  { ..self, state: CustomerState::Blocked }
+  { ..self, state: CustomerState::Blocked, }
 }
 
 ///|
@@ -207,7 +216,7 @@ pub fn Reservation::convert(
   ) catch {
     error => raise SalesRecordError::NotAuthorized(error)
   }
-  { ..self, state: SubscriptionState::Converted }
+  { ..self, state: SubscriptionState::Converted, }
 }
 
 ///|
@@ -274,7 +283,7 @@ pub fn MortgageApplication::approve(
   ) catch {
     error => raise SalesRecordError::NotAuthorized(error)
   }
-  { ..self, state: MortgageState::Approved }
+  { ..self, state: MortgageState::Approved, }
 }
 
 ///|
@@ -296,7 +305,7 @@ pub fn MortgageApplication::release(
   ) catch {
     error => raise SalesRecordError::NotAuthorized(error)
   }
-  { ..self, state: MortgageState::Released }
+  { ..self, state: MortgageState::Released, }
 }
 
 ///|
@@ -363,7 +372,7 @@ pub fn RefundRequest::approve(
   ) catch {
     error => raise SalesRecordError::NotAuthorized(error)
   }
-  { ..self, state: RefundState::Approved }
+  { ..self, state: RefundState::Approved, }
 }
 
 ///|
@@ -385,5 +394,5 @@ pub fn RefundRequest::pay(
   ) catch {
     error => raise SalesRecordError::NotAuthorized(error)
   }
-  { ..self, state: RefundState::Paid }
+  { ..self, state: RefundState::Paid, }
 }

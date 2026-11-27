@@ -1,6 +1,6 @@
 ///|
-fn shadow_fixture() -> ProfessionalServiceShadow raise {
-  ProfessionalServiceShadow::new(
+fn shadow_fixture() -> @professional_services.ProfessionalServiceShadow raise {
+  @professional_services.ProfessionalServiceShadow::new(
     engagement_id="eng-001",
     principal_id="opc-001",
     customer_id="customer-001",
@@ -120,7 +120,7 @@ test "shadow workflow rejects unresolved dependencies and owner self-review" {
   } noraise {
     _ => fail("expected early dispatch to fail")
   }
-  let invalid = ProfessionalServiceShadow::new(
+  let invalid = @professional_services.ProfessionalServiceShadow::new(
       engagement_id="eng-002",
       principal_id="opc-001",
       customer_id="customer-001",

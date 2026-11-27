@@ -16,7 +16,7 @@ fn delivery_task_source_metadata(
     if !(implicit_original && supplied is Null) && !json_equal(supplied, stored) {
       raise reject(409, "report replay must preserve the exact delivery source")
     }
-    let fields : Map[String, Json] = {}
+    let fields : Map[String, Json] = Map([])
     for
       key in [
         "delivery_source", "delivery_source_snapshot", "delivery_source_revision",
@@ -142,7 +142,7 @@ fn plan_task_acceptance_binding(
 ///|
 fn plan_task_acceptance_atomic_sql(
   task_id : String,
-  revision : Int,
+  revision : Int32,
   command_source : String,
   request : Json,
   command_sql : String,
@@ -178,7 +178,7 @@ async fn plan_task_acceptance_error_response(
   task_id : String?,
   body : Json,
   error : CompanyServiceError,
-) -> (Int, Json) {
+) -> (Int32, Json) {
   let response = service_error_response(error)
   if response.0 != 409 || json_text(body, "status", "") != "done" {
     return response
@@ -195,7 +195,7 @@ async fn plan_task_acceptance_error_response(
           )
           let fields = match response.1 {
             Object(fields) => fields.copy()
-            _ => Map::new()
+            _ => Map([])
           }
           fields.set("task", public)
           fields.set("revision", Json::number(revision.to_double()))

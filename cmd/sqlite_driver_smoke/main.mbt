@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteDriverSmokeError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> SqliteDriverSmokeError {
@@ -78,7 +79,7 @@ fn prepare(work_dir : String) -> Unit raise SqliteDriverSmokeError {
 }
 
 ///|
-fn parse_int(value : String) -> Int raise SqliteDriverSmokeError {
+fn parse_int(value : String) -> Int32 raise SqliteDriverSmokeError {
   let source = value.trim().to_owned()
   if source.is_empty() {
     raise fail("expected integer")
@@ -96,9 +97,9 @@ fn parse_int(value : String) -> Int raise SqliteDriverSmokeError {
 ///|
 fn report(
   database : String,
-  count : Int,
+  count : Int32,
   integrity : String,
-  duplicate_count : Int,
+  duplicate_count : Int32,
   output : String,
 ) -> Unit raise SqliteDriverSmokeError {
   if count != 1 || duplicate_count != 0 || integrity != "ok" {
@@ -132,15 +133,15 @@ fn run(args : Array[String]) -> Unit raise SqliteDriverSmokeError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     SqliteDriverSmokeError::InvalidInput(message) => {
       println("company SQLite driver smoke failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     SqliteDriverSmokeError::Io(_) => {
       println("company SQLite driver smoke failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

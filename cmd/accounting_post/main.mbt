@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror PostError {
   InvalidArguments
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Accounting(@accounting.AccountingError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise PostError {
@@ -192,7 +193,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PostError {
   let accepted : Array[Json] = []
   let journal_ids : Array[String] = []
   let event_ids : Array[String] = []
-  let seen_events : Map[String, Bool] = {}
+  let seen_events : Map[String, Bool] = Map([])
   for item_value in required_array(root, "items") {
     let item = object(item_value)
     let source_table = required_string(item, "source_table")
@@ -317,31 +318,31 @@ fn strings_json(values : Array[String]) -> Json {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: accounting_post <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       PostError::Quarantined(source) => {
         println("accounting-post refused quarantined item: " + source)
-        @sys.exit(1)
+        @env.exit(1)
       }
       PostError::InvalidInput => {
         println("accounting-post failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       PostError::Io(_) => {
         println("accounting-post failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       PostError::Accounting(_) => {
         println("accounting-post failed: accounting invariant")
-        @sys.exit(1)
+        @env.exit(1)
       }
       _ => {
         println("accounting-post failed")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

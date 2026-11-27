@@ -62,7 +62,9 @@ test "compiled phase selection preview download and existing append replacement 
     ] {
     assert_true(html.contains(text))
   }
-  ignore(plan_test_file("phase-input.json", ToJson::to_json(d).stringify(indent=2)))
+  ignore(
+    plan_test_file("phase-input.json", ToJson::to_json(d).stringify(indent=2)),
+  )
   ignore(plan_test_file("phase-preview.html", html))
   let (download, unchanged) = plan_update(_ => none, Extract(Download), preview)
   drafts_test_execute(download)

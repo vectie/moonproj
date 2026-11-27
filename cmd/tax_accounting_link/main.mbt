@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror TaxAccountingLinkError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Tax(@tax.TaxError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise TaxAccountingLinkError {
@@ -252,27 +253,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: tax_accounting_link <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       TaxAccountingLinkError::InvalidInput => {
         println("tax accounting link failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TaxAccountingLinkError::Io(_) => {
         println("tax accounting link failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TaxAccountingLinkError::Money(_) => {
         println("tax accounting link failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TaxAccountingLinkError::Tax(error) => {
-        println("tax accounting link failed: tax validation: \{to_repr(error)}")
-        @sys.exit(1)
+        println("tax accounting link failed: tax validation: \{Repr(error)}")
+        @env.exit(1)
       }
     }
   }

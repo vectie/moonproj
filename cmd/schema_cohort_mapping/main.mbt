@@ -1,20 +1,21 @@
 ///|
 /// MoonBit validator for one explicit schema-only target mapping wave.
+#derive(Debug)
 pub(all) suberror SchemaCohortMappingError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct PlanEntry {
   table : String
-  snapshot_rows : Int
+  snapshot_rows : Int32
 }
 
 ///|
 struct AcceptedEntry {
   table : String
-  snapshot_rows : Int
+  snapshot_rows : Int32
   target : Json
   security_controls : Json
   disposition : String
@@ -90,7 +91,7 @@ fn optional_int(
   fields : Map[String, Json],
   key : String,
   path : String,
-) -> Int raise SchemaCohortMappingError {
+) -> Int32 raise SchemaCohortMappingError {
   match fields.get(key) {
     None => 0
     Some(Number(value, ..)) if value == value.trunc() => value.to_int()
@@ -237,15 +238,15 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: schema_cohort_mapping <cohort_plan> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let report = run(args[1], args[2]) catch {
     error => {
-      println("ERP schema cohort mapping failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("ERP schema cohort mapping failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
@@ -253,7 +254,7 @@ fn main {
   @fs.write_string_to_file(args[3], output) catch {
     _ => {
       println("ERP schema cohort mapping failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   println(output)

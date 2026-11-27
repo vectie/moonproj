@@ -7,7 +7,7 @@ fn legacy_record(
   record_type~ : String,
   record_id~ : String,
   source_id~ : String,
-  schema_version~ : Int,
+  schema_version~ : Int32,
   payload~ : String,
 ) -> @store.StoredRecord raise ErpImportError {
   @store.StoredRecord::new(
@@ -30,16 +30,17 @@ fn json_number(value : Int64) -> Json {
 /// A raw source row used when a table has not yet earned a domain translator.
 /// The payload is preserved as supplied by the read-only extractor and is
 /// never treated as an approved company aggregate.
+#derive(Debug, Eq)
 pub(all) struct LegacyRawRow {
   table_name : String
   record_id : String
   payload : String
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn raw_record(
   row : LegacyRawRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   if row.table_name.trim() == "" || row.record_id.trim() == "" {
     raise ErpImportError::MissingIdentifier
@@ -59,7 +60,7 @@ pub fn raw_record(
 /// identity so duplicate exports cannot be mistaken for independent evidence.
 pub fn raw_records(
   rows : Array[LegacyRawRow],
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> Array[@store.StoredRecord] raise ErpImportError {
   let records : Array[@store.StoredRecord] = []
   let seen_records : Array[String] = []
@@ -88,7 +89,7 @@ pub fn raw_records(
 ///|
 pub fn business_unit_record(
   row : LegacyBusinessUnitRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   let parent : Json = match row.parent_guid {
     Some(value) => Json::string(value)
@@ -112,7 +113,7 @@ pub fn business_unit_record(
 ///|
 pub fn project_record(
   row : LegacyProjectRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/project",
@@ -131,7 +132,7 @@ pub fn project_record(
 ///|
 pub fn contract_record(
   row : LegacyContractRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/contract",
@@ -153,7 +154,7 @@ pub fn contract_record(
 pub fn cost_record(
   row : LegacyCostRow,
   cost_id~ : String,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/cost",
@@ -173,7 +174,7 @@ pub fn cost_record(
 ///|
 pub fn supplier_record(
   row : LegacySupplierRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/supplier",
@@ -193,7 +194,7 @@ pub fn supplier_record(
 ///|
 pub fn tender_record(
   row : LegacyTenderRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/tender",
@@ -215,7 +216,7 @@ pub fn tender_record(
 ///|
 pub fn milestone_record(
   row : LegacyMilestoneRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/milestone",
@@ -240,7 +241,7 @@ pub fn milestone_record(
 ///|
 pub fn invoice_record(
   row : LegacyInvoiceRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/invoice",
@@ -260,7 +261,7 @@ pub fn invoice_record(
 ///|
 pub fn expense_record(
   row : LegacyExpenseRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/expense",
@@ -282,7 +283,7 @@ pub fn expense_record(
 ///|
 pub fn advance_record(
   row : LegacyAdvanceRow,
-  schema_version~ : Int,
+  schema_version~ : Int32,
 ) -> @store.StoredRecord raise ErpImportError {
   legacy_record(
     record_type="legacy/advance",

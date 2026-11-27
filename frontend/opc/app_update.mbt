@@ -50,7 +50,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       Prepare
       | PrepareWork(_, _)
       | CancelPreparation
-      | OpenEngineering(_)
+      | OpenEngineering(_),
     )
     | DraftAction(New | Resume(_) | Revise(_))
     | PlanAction(Handoff(CreateDraft)) => true
@@ -61,7 +61,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     next.dispatch_task_selection == model.dispatch_task_selection {
     (
       @cmd.batch([
-        remember_page_route(next.page, if next.page == Workspace { next.workspace.job } else { next.dispatch_task_id }, push=true),
+        remember_page_route(
+          next.page,
+          if next.page == Workspace {
+            next.workspace.job
+          } else {
+            next.dispatch_task_id
+          },
+          push=true,
+        ),
         command,
       ]),
       next,
@@ -320,7 +328,7 @@ fn update_model(
       branch,
       commit,
       review,
-      gate_states
+      gate_states,
     ) =>
       if project != engineering_project_name(model.engineering_project) {
         (none, model)
@@ -416,7 +424,7 @@ fn update_model(
       next_experiment,
       review_by,
       owner,
-      persisted
+      persisted,
     ) =>
       if project != engineering_project_name(model.engineering_project) {
         (none, model)
@@ -1380,4 +1388,3 @@ fn update_model(
     DismissNotice => (none, { ..model, notice: "", })
   }
 }
-

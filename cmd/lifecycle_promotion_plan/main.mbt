@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror LifecyclePromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> LifecyclePromotionPlanError {
@@ -388,19 +389,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: lifecycle_promotion_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     LifecyclePromotionPlanError::InvalidInput(message) => {
       println("lifecycle promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     LifecyclePromotionPlanError::Io(_) => {
       println("lifecycle promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

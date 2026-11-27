@@ -1,20 +1,23 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum PayableState {
   Open
   PartiallyPaid
   Paid
   Voided
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct PayableEvent {
   from : PayableState
   to : PayableState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Payable {
   payable_id : String
   principal_id : String
@@ -25,9 +28,10 @@ pub(all) struct Payable {
   outstanding : @finance.Money
   state : PayableState
   events : Array[PayableEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror PayableError {
   EmptyIdentifier
   InvalidAmount
@@ -40,7 +44,7 @@ pub(all) suberror PayableError {
   Money(@finance.MoneyError)
   Journal(@finance.LedgerError)
   AccountingEvent(@accounting.AccountingEventError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Payable::open(
@@ -130,7 +134,7 @@ pub fn Payable::record_payment(
     actor_id,
     capability: "payable:pay",
   })
-  { ..self, outstanding, state: next_state, events }
+  { ..self, outstanding, state: next_state, events, }
 }
 
 ///|
@@ -159,5 +163,5 @@ pub fn Payable::void_record(
     actor_id,
     capability: "payable:void",
   })
-  { ..self, state: PayableState::Voided, events }
+  { ..self, state: PayableState::Voided, events, }
 }

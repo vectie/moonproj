@@ -116,5 +116,5 @@ fn signed_portfolio_message(
     body: "{\"kind\":\"order\",\"offer\":\"decision-brief\"}",
     signature: "",
   }
-  { ..unsigned, signature: @customer_channel.sign_envelope(unsigned, secret~) }
+  { ..unsigned, signature: @customer_channel.sign_envelope(unsigned, secret~), }
 }

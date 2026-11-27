@@ -4,10 +4,11 @@
 /// Only allow-listed target/source domains cross this boundary. The planner
 /// never infers a journal or amount from source metadata; the native candidate
 /// and reviewed mapping must agree before a link is accepted.
+#derive(Debug)
 pub(all) suberror AccountingLinkPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> AccountingLinkPlanError {
@@ -496,15 +497,15 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: accounting_link_plan <domain_receipt> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let report = run(args[1], args[2], args[3]) catch {
     error => {
-      println("accounting-link plan failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("accounting-link plan failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }

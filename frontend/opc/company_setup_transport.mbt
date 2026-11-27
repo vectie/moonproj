@@ -119,7 +119,7 @@ extern "js" fn company_setup_fetch(
   method : String,
   key : String,
   body : String,
-  receive : (Int, String) -> Unit,
+  receive : (Int32, String) -> Unit,
 ) =
   #| (url, method, key, body, receive) => {
   #|   const controller = typeof AbortController === "function" ? new AbortController() : null;
@@ -147,7 +147,7 @@ extern "js" fn company_setup_fetch(
   #| }
 
 ///|
-fn company_setup_get(url : String, receive : (Int, String) -> Cmd) -> Cmd {
+fn company_setup_get(url : String, receive : (Int32, String) -> Cmd) -> Cmd {
   @cmd.custom_cmd(scheduler => {
     company_setup_fetch(url, "GET", "", "", (status, body) => {
       scheduler.add(receive(status, body))

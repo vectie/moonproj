@@ -42,9 +42,7 @@ fn guided_page(model : Model) -> String {
 ///|
 #warnings("-alert_unstable")
 fn guided_task(model : Model) -> String {
-  opc_render_cell(
-    @rabbita.static_cell(dispatch_view(_ => none, model)),
-  )
+  opc_render_cell(@rabbita.static_cell(dispatch_view(_ => none, model)))
 }
 
 ///|
@@ -375,7 +373,10 @@ test "guided synthetic previews use exact view components without runtime effect
     if guided_preview_enabled() {
       println(
         "MOONPROJ_UI_PREVIEW " +
-        Json::object({ "name": ToJson::to_json(name), "html": ToJson::to_json(html) }).stringify(),
+        Json::object({
+          "name": ToJson::to_json(name),
+          "html": ToJson::to_json(html),
+        }).stringify(),
       )
     }
   }

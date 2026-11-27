@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum TaxObligationState {
   Draft
   Calculated
@@ -6,17 +7,19 @@ pub(all) enum TaxObligationState {
   Filed
   Paid
   Voided
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TaxEvent {
   from : TaxObligationState
   to : TaxObligationState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TaxObligation {
   tax_id : String
   principal_id : String
@@ -31,25 +34,28 @@ pub(all) struct TaxObligation {
   withholding_amount : @finance.Money
   state : TaxObligationState
   events : Array[TaxEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum TaxFilingState {
   Prepared
   Submitted
   Accepted
   Rejected
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TaxFilingEvent {
   from : TaxFilingState
   to : TaxFilingState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct TaxFiling {
   filing_id : String
   tax_id : String
@@ -62,9 +68,10 @@ pub(all) struct TaxFiling {
   reported_tax_amount : @finance.Money
   state : TaxFilingState
   events : Array[TaxFilingEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror TaxError {
   EmptyIdentifier
   EmptyCategory
@@ -81,7 +88,7 @@ pub(all) suberror TaxError {
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn TaxObligation::new(
@@ -291,8 +298,8 @@ pub fn TaxFiling::transition(
     error => raise TaxError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -348,6 +355,6 @@ pub fn TaxObligation::transition(
     error => raise TaxError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }

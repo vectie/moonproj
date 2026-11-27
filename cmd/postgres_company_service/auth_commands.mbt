@@ -26,7 +26,7 @@ fn auth_command_spec(
 async fn auth_latest_projection(
   aggregate_type : String,
   aggregate_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
     @postgres.sql_literal(aggregate_type) +
@@ -48,7 +48,7 @@ async fn auth_latest_projection(
 ///|
 async fn auth_local_user_projection(
   user_code : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, revision, payload FROM company_aggregate_projection WHERE aggregate_type = 'rbac_user' AND payload->>'user_code' = " +
     @postgres.sql_literal(user_code) +
@@ -71,7 +71,7 @@ async fn auth_local_user_projection(
 ///|
 async fn auth_password_projection(
   user_code : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   match auth_latest_projection("auth_credential", user_code) {
     Some(value) => Some(value)
     None => auth_local_user_projection(user_code)
@@ -82,7 +82,7 @@ async fn auth_password_projection(
 /// Verify a command-owned credential without issuing a session. The gateway
 /// owns the HttpOnly session; this endpoint only proves the PostgreSQL-backed
 /// credential and returns a redacted authentication envelope.
-async fn auth_login(body : Json) -> (Int, Json) raise CompanyServiceError {
+async fn auth_login(body : Json) -> (Int32, Json) raise CompanyServiceError {
   let user_code = json_text(body, "userCode", json_text(body, "user_code", ""))
     .trim()
     .to_owned()
@@ -270,7 +270,7 @@ async fn auth_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "logout" &&
     command_type != "profile" &&
     command_type != "change_password" {

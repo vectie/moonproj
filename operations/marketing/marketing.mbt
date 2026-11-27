@@ -1,12 +1,14 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum CampaignState {
   Planning
   Active
   Completed
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MarketingCampaign {
   campaign_id : String
   principal_id : String
@@ -15,16 +17,18 @@ pub(all) struct MarketingCampaign {
   budget : @finance.Money
   actual_cost : @finance.Money
   state : CampaignState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum PlacementState {
   Planned
   Placed
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MarketingPlacement {
   placement_id : String
   campaign_id : String
@@ -32,11 +36,12 @@ pub(all) struct MarketingPlacement {
   project_scope : String
   channel : String
   amount : @finance.Money
-  leads : Int
+  leads : Int32
   state : PlacementState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror MarketingError {
   EmptyIdentifier
   InvalidAmount
@@ -46,7 +51,7 @@ pub(all) suberror MarketingError {
   InvalidLeads
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn MarketingCampaign::new(
@@ -110,7 +115,7 @@ pub fn MarketingCampaign::activate(
   ) catch {
     error => raise MarketingError::NotAuthorized(error)
   }
-  { ..self, state: CampaignState::Active }
+  { ..self, state: CampaignState::Active, }
 }
 
 ///|
@@ -170,7 +175,7 @@ pub fn MarketingCampaign::complete(
   ) catch {
     error => raise MarketingError::NotAuthorized(error)
   }
-  { ..self, state: CampaignState::Completed }
+  { ..self, state: CampaignState::Completed, }
 }
 
 ///|
@@ -222,7 +227,7 @@ pub fn MarketingPlacement::new(
 ///|
 pub fn MarketingPlacement::place(
   self : MarketingPlacement,
-  leads~ : Int,
+  leads~ : Int32,
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> MarketingPlacement raise MarketingError {
@@ -242,5 +247,5 @@ pub fn MarketingPlacement::place(
   ) catch {
     error => raise MarketingError::NotAuthorized(error)
   }
-  { ..self, leads, state: PlacementState::Placed }
+  { ..self, leads, state: PlacementState::Placed, }
 }

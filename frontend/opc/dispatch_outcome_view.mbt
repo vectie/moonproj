@@ -24,7 +24,7 @@ fn dispatch_outcome_textarea(
 fn dispatch_outcome_gap_view(
   emit : @rabbita.Emit[DispatchOutcomeMsg],
   source : Json,
-  index : Int,
+  index : Int32,
   gap : DispatchOutcomeGap,
 ) -> @html.Html {
   let id = "outcome-gap-" + index.to_string()

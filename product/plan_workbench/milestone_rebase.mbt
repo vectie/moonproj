@@ -1,8 +1,9 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct MilestoneRebase {
   offset_days : Int64
   draft : Draft
-} derive(Debug, Eq)
+}
 
 ///|
 fn rebase_date(
@@ -14,7 +15,7 @@ fn rebase_date(
       label + ": use a date from 0001-01-01 to 9999-12-31 (YYYY-MM-DD)",
     )
   }
-  let date = @time.PlainDate::from_str(value) catch {
+  let date : @time.PlainDate = @string.FromStr::from_str(value) catch {
     _ => raise Invalid(label + ": invalid date " + value)
   }
   if date.year() < 1 || date.year() > 9999 || date.to_string() != value {

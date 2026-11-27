@@ -1,8 +1,9 @@
 ///|
 /// Candidate hints are never task authority or result evidence.
+#derive(Debug)
 priv suberror NativeContinuationError {
-  Rejected(Int, String)
-} derive(Debug)
+  Rejected(Int32, String)
+}
 
 ///|
 fn native_continuation_root(root : String) -> String {

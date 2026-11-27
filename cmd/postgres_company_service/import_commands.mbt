@@ -30,7 +30,7 @@ async fn import_project_batch_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -323,7 +323,7 @@ async fn import_contract_batch_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -452,7 +452,7 @@ async fn import_contract_batch_command(
     let supplier_name = import_project_text(
       row, "yfProviderName", "supplier_name",
     )
-    let canonical : Map[String, Json] = {}
+    let canonical : Map[String, Json] = Map([])
     canonical.set("contract_id", Json::string(resolved_id))
     canonical.set("contract_code", Json::string(contract_code))
     canonical.set("contract_name", Json::string(contract_name))

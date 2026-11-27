@@ -1,5 +1,6 @@
 ///|
 /// Retained MoonFind content only. Unknown JSON fields are never persisted.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Paper {
   paper_id : String
   versioned_id : String
@@ -11,9 +12,10 @@ pub(all) struct Paper {
   published_at : String?
   updated_at : String?
   retrieved_at : Int64?
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Claim {
   claim_id : String
   statement : String
@@ -21,9 +23,10 @@ pub(all) struct Claim {
   evidence_location : String
   confidence : String
   counterevidence : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Summary {
   paper_id : String
   one_sentence : String
@@ -33,17 +36,19 @@ pub(all) struct Summary {
   limitations : Array[String]
   claims : Array[Claim]
   open_questions : Array[String]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Evidence {
   run_id : String
   question : String
   papers : Array[Paper]
   summaries : Array[Summary]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct OptionEntry {
   id : String
   name : String
@@ -57,13 +62,14 @@ pub(all) struct OptionEntry {
   retained_source : Paper?
   retained_claim : Claim?
   evidence_review_note : String?
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Worksheet {
   contract_id : String
-  revision : Int
-  next_option : Int
+  revision : Int32
+  next_option : Int32
   evidence : Evidence
   question : String
   audience : String
@@ -74,13 +80,14 @@ pub(all) struct Worksheet {
   reasoning : String
   next_action : String
   history : Array[Archive]?
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 /// Earlier user worksheet only; its evidence is never current evidence.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Archive {
-  revision : Int
-  next_option : Int
+  revision : Int32
+  next_option : Int32
   evidence : Evidence
   question : String
   audience : String
@@ -90,16 +97,17 @@ pub(all) struct Archive {
   chosen_option_id : String
   reasoning : String
   next_action : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Brief {
   contract_id : String
   boundary : String
   evidence_status : String
   company_decision_recorded : Bool
   worksheet : Worksheet
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
 /// Decode a versioned decision export, never an arbitrary worksheet or command.

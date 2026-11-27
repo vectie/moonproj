@@ -1,35 +1,40 @@
 ///|
 /// The kind of principal that may own records or receive authority.
+#derive(Debug, Eq)
 pub(all) enum PrincipalKind {
   Entity
   Person
   Service
-} derive(Debug, Eq)
+}
 
 ///|
 /// A stable institutional or acting identity.
+#derive(Debug, Eq)
 pub(all) struct Principal {
   id : String
   kind : PrincipalKind
-} derive(Debug, Eq)
+}
 
 ///|
 /// A legal entity that owns resources, obligations, and accounting books.
+#derive(Debug, Eq)
 pub(all) struct LegalEntity {
   entity_id : String
   legal_name : String
   functional_currency : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// A credential-free company user identity. Authentication secrets and
 /// privilege grants deliberately live outside this migration-safe record.
+#derive(Debug, Eq)
 pub(all) enum UserAccountState {
   Active
   Disabled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct UserAccount {
   user_id : String
   user_code : String
@@ -38,15 +43,17 @@ pub(all) struct UserAccount {
   business_unit_id : String
   department_id : String?
   state : UserAccountState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct UserDirectory {
   users : Array[UserAccount]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Authority granted by an institutional principal to an actor.
+#derive(Debug, Eq)
 pub(all) struct AuthorityGrant {
   grant_id : String
   principal_id : String
@@ -55,18 +62,20 @@ pub(all) struct AuthorityGrant {
   scope : String
   max_amount_minor : Int64
   active : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror IdentityError {
   EmptyIdentifier(String)
   EmptyName
   InvalidCurrency(String)
   DuplicateUser
   NotAuthorized(AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AuthorityError {
   InactiveGrant
   WrongActor
@@ -74,7 +83,7 @@ pub(all) suberror AuthorityError {
   WrongCapability
   ScopeMismatch
   AmountExceeded
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Principal::new(
@@ -84,7 +93,7 @@ pub fn Principal::new(
   if id.trim() == "" {
     raise IdentityError::EmptyIdentifier(id)
   }
-  { id, kind }
+  { id, kind, }
 }
 
 ///|
@@ -102,7 +111,7 @@ pub fn LegalEntity::new(
   if functional_currency.length() != 3 {
     raise IdentityError::InvalidCurrency(functional_currency)
   }
-  { entity_id, legal_name, functional_currency }
+  { entity_id, legal_name, functional_currency, }
 }
 
 ///|
@@ -156,7 +165,7 @@ pub fn UserAccount::new(
 
 ///|
 pub fn UserDirectory::empty() -> UserDirectory {
-  { users: [] }
+  { users: [], }
 }
 
 ///|

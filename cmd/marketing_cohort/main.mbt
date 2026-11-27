@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror MarketingCohortError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Marketing(@marketing.MarketingError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise MarketingCohortError {
@@ -358,27 +359,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: marketing_cohort <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       MarketingCohortError::InvalidInput => {
         println("marketing cohort failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       MarketingCohortError::Io(_) => {
         println("marketing cohort failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       MarketingCohortError::Money(_) => {
         println("marketing cohort failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       MarketingCohortError::Marketing(_) => {
         println("marketing cohort failed: marketing validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

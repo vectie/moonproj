@@ -1,10 +1,12 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct MarketQuote {
   instrument : String
   price : @finance.Money
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Portfolio {
   portfolio_id : String
   mandate_id : String
@@ -14,26 +16,29 @@ pub(all) struct Portfolio {
   max_exposure : @finance.Money
   max_single_position : @finance.Money
   positions : Array[@domain.InvestmentPosition]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ValuationReport {
   portfolio_id : String
   total_market_value : @finance.Money
   largest_position_value : @finance.Money
-  position_count : Int
+  position_count : Int32
   within_mandate : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct RiskScenario {
   scenario_id : String
   name : String
   shock_bps : Int64
   max_loss_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct StressReport {
   portfolio_id : String
   scenario_id : String
@@ -41,9 +46,10 @@ pub(all) struct StressReport {
   loss_minor : Int64
   within_mandate : Bool
   within_loss_limit : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror PortfolioError {
   EmptyIdentifier
   InvalidAmount
@@ -58,7 +64,7 @@ pub(all) suberror PortfolioError {
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn RiskScenario::new(
@@ -73,7 +79,7 @@ pub fn RiskScenario::new(
   if shock_bps < -10000L || shock_bps > 10000L || max_loss_minor < 0L {
     raise PortfolioError::InvalidScenario
   }
-  { scenario_id, name, shock_bps, max_loss_minor }
+  { scenario_id, name, shock_bps, max_loss_minor, }
 }
 
 ///|

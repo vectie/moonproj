@@ -34,7 +34,7 @@ test "Markdown checklist preserves heading and nested context with exact source 
     result.draft.notes.contains("Line 5 → import-a-line-5 (source unchecked)"),
   )
   assert_eq({ ..result.draft, tasks: d.tasks, notes: d.notes, }, d)
-  assert_eq(result.draft.tasks[:3].to_array(), d.tasks)
+  assert_eq(result.draft.tasks[:3].to_owned(), d.tasks)
   assert_eq(d, update_table_draft())
   assert_eq(
     @plan_workbench.budget_breakdown(result.draft).known_minor,
@@ -119,9 +119,13 @@ test "Markdown checklist rejects empty invalid or ambiguous inputs without parti
       "<!--\n- [ ] comment", "- [x] checked only",
     ] {
     assert_true(
-      (try Ok(@plan_workbench.preview_markdown_checklist(
-        d, source, "alex", "release", "new", false,
-      )) catch { e => Err(e) })
+      (Ok(
+        @plan_workbench.preview_markdown_checklist(
+          d, source, "alex", "release", "new", false,
+        ),
+      ) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
     assert_eq(d, table_draft())
@@ -133,26 +137,38 @@ test "Markdown checklist rejects empty invalid or ambiguous inputs without parti
       ("alex", "release", " "),
     ] {
     assert_true(
-      (try Ok(@plan_workbench.preview_markdown_checklist(
-        d, "- [ ] Good", owner, milestone, prefix, false,
-      )) catch { e => Err(e) })
+      (Ok(
+        @plan_workbench.preview_markdown_checklist(
+          d, "- [ ] Good", owner, milestone, prefix, false,
+        ),
+      ) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
   let duplicate = { ..d, owners: [..d.owners, d.owners[0]], }
   assert_true(
-    (try Ok(@plan_workbench.preview_markdown_checklist(
-      duplicate, "- [ ] Good", "alex", "release", "n", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_markdown_checklist(
+        duplicate, "- [ ] Good", "alex", "release", "n", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let first = @plan_workbench.preview_markdown_checklist(
       d, "- [ ] Good", "alex", "release", "new", false,
     ).draft
   assert_true(
-    (try Ok(@plan_workbench.preview_markdown_checklist(
-      first, "- [ ] Good", "alex", "release", "new", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_markdown_checklist(
+        first, "- [ ] Good", "alex", "release", "new", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let dangling = {
@@ -160,9 +176,13 @@ test "Markdown checklist rejects empty invalid or ambiguous inputs without parti
     tasks: [{ ..first.tasks[0], id: "other", dependencies: ["new-line-1"], }],
   }
   assert_true(
-    (try Ok(@plan_workbench.preview_markdown_checklist(
-      dangling, "- [ ] Good", "alex", "release", "new", false,
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_markdown_checklist(
+        dangling, "- [ ] Good", "alex", "release", "new", false,
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }

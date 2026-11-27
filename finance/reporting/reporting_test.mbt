@@ -28,7 +28,7 @@ fn balanced_report(
 
 ///|
 test "consolidated report combines balanced sections under one snapshot" {
-  let report = ConsolidatedReport::new(
+  let report = @reporting.ConsolidatedReport::new(
     report_id="consolidated-2026-Q1",
     period_id="2026-Q1",
     principal_id="co-001",
@@ -44,7 +44,7 @@ test "consolidated report combines balanced sections under one snapshot" {
     actor_id="alice",
     grant=report_grant(),
   )
-  assert_true(report.state == ConsolidatedReportState::Reconciled)
+  assert_true(report.state == @reporting.ConsolidatedReportState::Reconciled)
   assert_eq(report.expected_total.minor, 200000L)
   assert_eq(report.actual_total.minor, 200000L)
   assert_eq(report.sections.length(), 2)
@@ -64,7 +64,7 @@ test "consolidated report rejects unbalanced or duplicate sections" {
     ],
   )
   try
-    ConsolidatedReport::new(
+    @reporting.ConsolidatedReport::new(
       report_id="consolidated-bad",
       period_id="2026-Q1",
       principal_id="co-001",
@@ -78,13 +78,13 @@ test "consolidated report rejects unbalanced or duplicate sections" {
       grant=report_grant(),
     )
   catch {
-    ReportingError::Reconciliation(_) => ()
+    @reporting.ReportingError::Reconciliation(_) => ()
     _ => fail("wrong consolidated report error")
   } noraise {
     _ => fail("expected unbalanced report rejection")
   }
   try
-    ConsolidatedReport::new(
+    @reporting.ConsolidatedReport::new(
       report_id="consolidated-duplicate",
       period_id="2026-Q1",
       principal_id="co-001",
@@ -101,7 +101,7 @@ test "consolidated report rejects unbalanced or duplicate sections" {
       grant=report_grant(),
     )
   catch {
-    ReportingError::DuplicateSection => ()
+    @reporting.ReportingError::DuplicateSection => ()
     _ => fail("wrong duplicate section error")
   } noraise {
     _ => fail("expected duplicate section rejection")
@@ -110,7 +110,7 @@ test "consolidated report rejects unbalanced or duplicate sections" {
 
 ///|
 test "consolidated report projection keeps non-posting controls" {
-  let report = ConsolidatedReport::new(
+  let report = @reporting.ConsolidatedReport::new(
     report_id="consolidated-projection",
     period_id="2026-Q1",
     principal_id="co-001",

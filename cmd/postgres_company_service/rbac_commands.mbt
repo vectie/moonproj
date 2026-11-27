@@ -40,7 +40,7 @@ async fn rbac_projection_payloads(
 async fn rbac_latest_projection(
   aggregate_type : String,
   aggregate_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
     @postgres.sql_literal(aggregate_type) +
@@ -185,7 +185,7 @@ async fn rbac_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !["role_upsert", "role_delete", "user_roles"].contains(command_type) {
     raise reject(404, "unsupported RBAC command")
   }
@@ -343,7 +343,7 @@ async fn rbac_command(
       Object(fields) => fields.get("changes").unwrap_or(Json::null())
       _ => Json::null()
     }
-    let fields : Map[String, Json] = {}
+    let fields : Map[String, Json] = Map([])
     match changes {
       Object(values) => values.each((key, value) => fields.set(key, value))
       _ => ()
@@ -538,7 +538,7 @@ async fn rbac_user_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

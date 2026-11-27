@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror PeriodCloseControlError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct Cohort {
@@ -11,7 +12,7 @@ struct Cohort {
   backends : Array[String]
   source_snapshot_id : String
   mapping_version : String
-  link_count : Int
+  link_count : Int32
   state : String
 }
 
@@ -66,7 +67,7 @@ fn string(
 }
 
 ///|
-fn integer(value : Json, path : String) -> Int raise PeriodCloseControlError {
+fn integer(value : Json, path : String) -> Int32 raise PeriodCloseControlError {
   match value {
     Number(number, ..) if number == number.trunc() => number.to_int()
     _ => raise fail("reconciliation has invalid link_count: " + path)
@@ -128,7 +129,7 @@ fn find_cohort(
   values : Array[Cohort],
   source : String,
   mapping : String,
-) -> Int? {
+) -> Int32? {
   for index in 0..<values.length() {
     if values[index].source_snapshot_id == source &&
       values[index].mapping_version == mapping {
@@ -287,12 +288,12 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println(
       "usage: period_close_control <output> <period_id> <reconciliation...>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     let paths : Array[String] = []
     for index in 3..<args.length() {
@@ -301,11 +302,11 @@ fn main {
     run(args[1], args[2], paths) catch {
       PeriodCloseControlError::InvalidInput(message) => {
         println("period close control failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
       }
       PeriodCloseControlError::Io(_) => {
         println("period close control failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

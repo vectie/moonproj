@@ -1,5 +1,6 @@
 ///|
 /// A dated planning assessment. It never authorizes execution or records company facts.
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Inventory {
   schema : String
   product_id : String
@@ -16,20 +17,22 @@ pub(all) struct Inventory {
   non_goals : Array[String]
   requirements : Array[Requirement]
   groups : Array[WorkGroup]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Milestone {
   title : String
-  estimate_low_days : Int?
-  estimate_high_days : Int?
+  estimate_low_days : Int32?
+  estimate_high_days : Int32?
   unit : String
   confidence : String
   scope : String
   linked_group_id : String?
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Requirement {
   id : String
   title : String
@@ -43,16 +46,18 @@ pub(all) struct Requirement {
   status : String
   reason : String
   evidence : Array[String]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct EffortItem {
   task : String
-  estimate_low_days : Int
-  estimate_high_days : Int
-} derive(Debug, Eq, ToJson, FromJson)
+  estimate_low_days : Int32
+  estimate_high_days : Int32
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct WorkGroup {
   id : String
   title : String
@@ -61,19 +66,20 @@ pub(all) struct WorkGroup {
   next_action : String
   acceptance : Array[String]
   dependencies : Array[String]
-  estimate_low_days : Int?
-  estimate_high_days : Int?
+  estimate_low_days : Int32?
+  estimate_high_days : Int32?
   estimate_scope : String
   effort_breakdown : Array[EffortItem]?
   confidence : String
   assumptions : Array[String]
   evidence : Array[String]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug)
 pub suberror InventoryError {
   Invalid(String)
-} derive(Debug)
+}
 
 ///|
 fn valid_status(value : String) -> Bool {
@@ -259,7 +265,7 @@ pub fn Inventory::projection(self : Inventory) -> Json {
 
 ///|
 /// Number of assessed requirements in one evidence state, not a completion rate.
-pub fn Inventory::count(self : Inventory, status : String) -> Int {
+pub fn Inventory::count(self : Inventory, status : String) -> Int32 {
   self.requirements.filter(row => row.status == status).length()
 }
 

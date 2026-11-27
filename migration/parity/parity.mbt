@@ -2,6 +2,7 @@
 /// A source-to-target comparison metric used during shadow migration. Values
 /// are integer-safe so counts and minor-unit financial totals can share the
 /// same deterministic gate.
+#derive(Debug, Eq)
 pub(all) struct ParityMetric {
   metric_id : String
   domain : String
@@ -9,44 +10,49 @@ pub(all) struct ParityMetric {
   source_value : Int64
   target_value : Int64
   tolerance : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ParityStatus {
   Exact
   WithinTolerance
   Mismatch
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ParityFinding {
   metric_id : String
   status : ParityStatus
   delta : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ParitySummary {
   findings : Array[ParityFinding]
-  exact_count : Int
-  within_tolerance_count : Int
-  mismatch_count : Int
+  exact_count : Int32
+  within_tolerance_count : Int32
+  mismatch_count : Int32
   accepted : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ParityReport {
   run_id : String
   source_snapshot_id : String
   metrics : Array[ParityMetric]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ParityError {
   EmptyIdentifier
   NegativeTolerance
   DuplicateMetric
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ParityReport::new(
@@ -56,7 +62,7 @@ pub fn ParityReport::new(
   if run_id.trim() == "" || source_snapshot_id.trim() == "" {
     raise ParityError::EmptyIdentifier
   }
-  { run_id, source_snapshot_id, metrics: [] }
+  { run_id, source_snapshot_id, metrics: [], }
 }
 
 ///|
@@ -110,7 +116,7 @@ pub fn ParityReport::evaluate(self : ParityReport) -> ParitySummary {
       ParityStatus::WithinTolerance => within_tolerance_count += 1
       ParityStatus::Mismatch => mismatch_count += 1
     }
-    findings.push({ metric_id: metric.metric_id, status, delta })
+    findings.push({ metric_id: metric.metric_id, status, delta, })
   }
   {
     findings,

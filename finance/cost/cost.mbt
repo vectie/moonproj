@@ -1,26 +1,29 @@
 ///|
 /// The four controllable components behind the ERP dynamic-cost total.
+#derive(Debug, Eq)
 pub(all) struct CostBreakdown {
   direct_minor : Int64
   indirect_minor : Int64
   contingency_minor : Int64
   other_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct DynamicCost {
   currency : String
   breakdown : CostBreakdown
   total_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror CostError {
   InvalidCurrency
   NegativeComponent
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn CostBreakdown::new(
@@ -35,7 +38,7 @@ pub fn CostBreakdown::new(
     other_minor < 0 {
     raise CostError::NegativeComponent
   }
-  { direct_minor, indirect_minor, contingency_minor, other_minor }
+  { direct_minor, indirect_minor, contingency_minor, other_minor, }
 }
 
 ///|
@@ -54,5 +57,5 @@ pub fn calculate_dynamic_cost(
   if currency.length() != 3 {
     raise CostError::InvalidCurrency
   }
-  { currency, breakdown, total_minor: breakdown.total_minor() }
+  { currency, breakdown, total_minor: breakdown.total_minor(), }
 }

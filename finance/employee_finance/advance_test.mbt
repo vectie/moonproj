@@ -21,7 +21,7 @@ test "employee advance repayment persists a projection" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let advance = EmployeeAdvance::new(
+  let advance = @employee_finance.EmployeeAdvance::new(
     advance_id="advance-projection",
     principal_id="co-001",
     employee_id="employee-001",
@@ -49,7 +49,7 @@ test "employee advance repayment persists a projection" {
 
 ///|
 test "employee advance builds a separate opening accounting link" {
-  let advance = EmployeeAdvance::new(
+  let advance = @employee_finance.EmployeeAdvance::new(
     advance_id="advance-accounting",
     principal_id="co-001",
     employee_id="employee-001",
@@ -77,7 +77,7 @@ test "employee advance builds a separate opening accounting link" {
 
 ///|
 test "employee advance offset builds a distinct expense link" {
-  let advance = EmployeeAdvance::new(
+  let advance = @employee_finance.EmployeeAdvance::new(
     advance_id="advance-offset-accounting",
     principal_id="co-001",
     employee_id="employee-001",

@@ -28,7 +28,7 @@ fn outcome_export_fields(
 fn outcome_export_text(
   value : Json,
   key : String,
-  limit : Int,
+  limit : Int32,
 ) -> String raise GatewayError {
   guard native_field(value, key) is String(text) &&
     !text.trim().is_empty() &&
@@ -41,7 +41,10 @@ fn outcome_export_text(
 }
 
 ///|
-fn outcome_export_integer(value : Json, key : String) -> Int raise GatewayError {
+fn outcome_export_integer(
+  value : Json,
+  key : String,
+) -> Int32 raise GatewayError {
   guard native_field(value, key) is Number(number, ..) &&
     number >= 0 &&
     number <= 2147483647 &&

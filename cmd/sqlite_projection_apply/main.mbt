@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteProjectionApplyError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct ProjectionItem {
@@ -25,7 +26,7 @@ struct Receipt {
 struct ProjectionRow {
   aggregate_type : String
   aggregate_id : String
-  revision : Int
+  revision : Int32
   payload : String
   source_event_id : String
 }
@@ -225,7 +226,7 @@ fn load_receipt(path : String) -> Receipt raise SqliteProjectionApplyError {
       ),
     })
   }
-  { source_snapshot_id: snapshot, mapping_version: mapping, items }
+  { source_snapshot_id: snapshot, mapping_version: mapping, items, }
 }
 
 ///|
@@ -250,7 +251,7 @@ fn decode_hex(value : String) -> String raise SqliteProjectionApplyError {
     raise fail("invalid SQLite hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -312,11 +313,11 @@ fn parse_rows(
 ///|
 fn parse_revisions(
   path : String,
-) -> Map[String, Int] raise SqliteProjectionApplyError {
+) -> Map[String, Int32] raise SqliteProjectionApplyError {
   let content = @fs.read_file_to_string(path) catch {
     error => raise SqliteProjectionApplyError::Io(error)
   }
-  let result : Map[String, Int] = {}
+  let result : Map[String, Int32] = Map([])
   for line_view in content.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
@@ -337,7 +338,7 @@ fn parse_revisions(
 }
 
 ///|
-fn parse_int(value : String) -> Int raise SqliteProjectionApplyError {
+fn parse_int(value : String) -> Int32 raise SqliteProjectionApplyError {
   let source = value.trim().to_owned()
   if source.is_empty() {
     raise fail("expected integer")
@@ -361,7 +362,7 @@ fn parse_int(value : String) -> Int raise SqliteProjectionApplyError {
 }
 
 ///|
-fn row_sort(left : ProjectionRow, right : ProjectionRow) -> Int {
+fn row_sort(left : ProjectionRow, right : ProjectionRow) -> Int32 {
   let first = left.aggregate_type.lexical_compare(right.aggregate_type)
   if first != 0 {
     first
@@ -469,7 +470,7 @@ fn write_plan(
   let before = parse_rows(before_path)
   let revisions = parse_revisions(revisions_path)
   let baseline_hash = hash_rows(before)
-  let existing_events : Map[String, Bool] = {}
+  let existing_events : Map[String, Bool] = Map([])
   for row in before {
     existing_events.set(row.source_event_id, true)
   }
@@ -555,8 +556,8 @@ fn report(
   work_dir : String,
   after_path : String,
   integrity : String,
-  projection_count : Int,
-  receipt_count : Int,
+  projection_count : Int32,
+  receipt_count : Int32,
   receipt_inserted : Bool,
   database : String,
   output_path : String,
@@ -639,15 +640,15 @@ fn run(args : Array[String]) -> Unit raise SqliteProjectionApplyError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     SqliteProjectionApplyError::InvalidInput(message) => {
       println("company SQLite projection apply failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     SqliteProjectionApplyError::Io(_) => {
       println("company SQLite projection apply failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

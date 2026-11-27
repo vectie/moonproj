@@ -6,11 +6,12 @@
 /// envelope transaction, and finalizes a migration receipt. Shell remains
 /// orchestration only; the validation, SQL contract, and result envelope live
 /// in MoonBit.
+#derive(Debug)
 pub(all) suberror PostgresTargetApplyError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 struct RawRecord {
@@ -93,7 +94,7 @@ fn required_int(
   fields : Map[String, Json],
   key : String,
   path : String,
-) -> Int raise PostgresTargetApplyError {
+) -> Int32 raise PostgresTargetApplyError {
   match required(fields, key, path) {
     Number(value, ..) if value == value.trunc() => value.to_int()
     _ => raise fail("expected integer at " + path + "." + key)
@@ -201,7 +202,7 @@ fn load_stage(stage_path : String) -> Stage raise PostgresTargetApplyError {
       }
       seen_sources.push(source_id)
       reject_secrets(payload, path + ".payload")
-      records.push({ record_type, record_id, source_id, payload })
+      records.push({ record_type, record_id, source_id, payload, })
     }
   }
   let mut expected_rows = 0
@@ -225,7 +226,7 @@ fn load_stage(stage_path : String) -> Stage raise PostgresTargetApplyError {
       records.length().to_string(),
     )
   }
-  { source_hash, records }
+  { source_hash, records, }
 }
 
 ///|
@@ -269,7 +270,7 @@ fn decode_hex(value : String) -> String raise PostgresTargetApplyError {
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -305,7 +306,7 @@ fn decode_hex(value : String) -> String raise PostgresTargetApplyError {
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresTargetApplyError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -315,7 +316,7 @@ fn fields(
 }
 
 ///|
-fn parse_decimal(value : String) -> Int raise PostgresTargetApplyError {
+fn parse_decimal(value : String) -> Int32 raise PostgresTargetApplyError {
   if value.is_empty() {
     raise fail("expected integer")
   }
@@ -345,7 +346,7 @@ fn parse_decimal(value : String) -> Int raise PostgresTargetApplyError {
 ///|
 fn row_hash_text(
   output : String,
-  expected : Int,
+  expected : Int32,
 ) -> String raise PostgresTargetApplyError {
   let mut text = ""
   for line_view in output.split("\n") {
@@ -396,7 +397,7 @@ async fn apply_rows(
   connection : @postgres.Connection,
   csv_path : String,
   sql_path : String,
-) -> Int raise PostgresTargetApplyError {
+) -> Int32 raise PostgresTargetApplyError {
   let copy_path = @postgres.sql_literal(csv_path)
   let sql = "BEGIN;\n" +
     "CREATE TEMP TABLE staging_company_record (record_type VARCHAR(128) NOT NULL, record_id VARCHAR(255) NOT NULL, schema_version INTEGER NOT NULL, payload JSONB NOT NULL, source_id VARCHAR(255) NOT NULL) ON COMMIT DROP;\n" +
@@ -415,8 +416,8 @@ async fn apply_rows(
 }
 
 ///|
-fn parse_last_count(output : String) -> Int raise PostgresTargetApplyError {
-  let mut result : Int? = None
+fn parse_last_count(output : String) -> Int32 raise PostgresTargetApplyError {
+  let mut result : Int32? = None
   for line_view in output.split("\n") {
     let line = line_view.trim().to_owned()
     if !line.is_empty() {
@@ -467,8 +468,8 @@ async fn finalize_receipt(
 async fn verify(
   connection : @postgres.Connection,
   run_id : String,
-  expected_records : Int,
-) -> (Int, Int, Int, Int, Int) raise PostgresTargetApplyError {
+  expected_records : Int32,
+) -> (Int32, Int32, Int32, Int32, Int32) raise PostgresTargetApplyError {
   let output = @postgres.run_sql(
     connection,
     "SELECT (SELECT max(version) FROM company_schema)::text, (SELECT count(*) FROM company_schema)::text, (SELECT count(*) FROM company_record)::text, (SELECT count(DISTINCT source_id) FROM company_record)::text, (SELECT count(*) FROM company_migration_receipt WHERE run_id = " +
@@ -479,7 +480,7 @@ async fn verify(
   }
   let line = output.trim().to_owned()
   let row = fields(line, 5)
-  let values : Array[Int] = []
+  let values : Array[Int32] = []
   for item in row {
     values.push(parse_decimal(item.trim().to_owned()))
   }
@@ -525,9 +526,7 @@ async fn run(
     apply_in_directory(stage, connection, run_id, directory)
   }) catch {
     error =>
-      raise fail(
-        "temporary PostgreSQL apply workspace failed: \{to_repr(error)}",
-      )
+      raise fail("temporary PostgreSQL apply workspace failed: \{Repr(error)}")
   }
   result
 }
@@ -574,12 +573,12 @@ async fn apply_in_directory(
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 2 {
     println(
       "usage: postgres_target_apply <stage> [--schema path] [--psql path] [--host host] [--port port] [--user user] [--database database] [--run-id id]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let schema_path = option(args, "--schema").unwrap_or(
     "scripts/postgres_target_schema.sql",
@@ -593,8 +592,8 @@ async fn main {
   )
   let report = run(args[1], schema_path, connection, option(args, "--run-id")) catch {
     error => {
-      println("company PostgreSQL target apply failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("company PostgreSQL target apply failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }

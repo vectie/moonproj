@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror BusinessAcceptanceError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> BusinessAcceptanceError {
@@ -159,7 +160,7 @@ fn validate(
   let shadow_ids = [
     "production-database-deployment", "accounting-reconciliation", "shadow-period",
   ]
-  let seen : Map[String, Map[String, Json]] = {}
+  let seen : Map[String, Map[String, Json]] = Map([])
   for index in 0..<decisions.length() {
     let path = "decisions[" + index.to_string() + "]"
     let decision = object(decisions[index], path)
@@ -248,8 +249,8 @@ fn validate(
     "shadow_authorized": Json::boolean(authorized),
     "cutover_authorized": Json::boolean(false),
     "required_decisions": Json::number(
-      required_roles.keys().length().to_double(),
-      repr=required_roles.keys().length().to_string(),
+      required_roles.keys().count().to_double(),
+      repr=required_roles.keys().count().to_string(),
     ),
     "pending_decisions": strings(pending),
     "rejected_decisions": strings(rejected),
@@ -289,27 +290,27 @@ fn result_array_count(result : Json, key : String) -> Json {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: business_acceptance_check <work_dir> <manifest> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     let result = validate(args[1], read_json(args[2])) catch {
       BusinessAcceptanceError::InvalidInput(message) => {
         println("business acceptance check failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
       BusinessAcceptanceError::Io(_) => {
         println("business acceptance check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
     }
     @fs.write_string_to_file(args[3], result.stringify(indent=2) + "\n") catch {
       _ => {
         println("business acceptance check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
     println(

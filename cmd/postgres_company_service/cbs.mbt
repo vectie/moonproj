@@ -9,7 +9,7 @@ fn cbs_tables() -> Array[String] {
 
 ///|
 async fn cbs_rows() -> Map[String, Array[SourceRow]] raise CompanyServiceError {
-  let rows : Map[String, Array[SourceRow]] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
   for table in cbs_tables() {
     rows.set(table, raw_source_rows(table, 500))
   }
@@ -17,8 +17,8 @@ async fn cbs_rows() -> Map[String, Array[SourceRow]] raise CompanyServiceError {
 }
 
 ///|
-fn cbs_coverage(rows : Map[String, Array[SourceRow]]) -> Map[String, Int] {
-  let coverage : Map[String, Int] = {}
+fn cbs_coverage(rows : Map[String, Array[SourceRow]]) -> Map[String, Int32] {
+  let coverage : Map[String, Int32] = Map([])
   for table in cbs_tables() {
     coverage.set(table, rows.get_or_default(table, []).length())
   }
@@ -26,7 +26,7 @@ fn cbs_coverage(rows : Map[String, Array[SourceRow]]) -> Map[String, Int] {
 }
 
 ///|
-fn cbs_missing(coverage : Map[String, Int]) -> Array[Json] {
+fn cbs_missing(coverage : Map[String, Int32]) -> Array[Json] {
   let values : Array[String] = []
   for table, count in coverage {
     if count == 0 {
@@ -38,7 +38,7 @@ fn cbs_missing(coverage : Map[String, Int]) -> Array[Json] {
 }
 
 ///|
-fn cbs_envelope(data : Json, coverage : Map[String, Int]) -> Json {
+fn cbs_envelope(data : Json, coverage : Map[String, Int32]) -> Json {
   Json::object({
     "success": Json::boolean(true),
     "code": Json::number(0),
@@ -195,7 +195,7 @@ async fn cbs_f_balance_response(
   proj_guid : String,
   l3_code : String,
   plan_version : String?,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(proj_guid) || !valid_identifier(l3_code) {
     raise reject(422, "invalid CBS identifier")
   }

@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror TaxFilingPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Money(@finance.MoneyError)
   Tax(@tax.TaxError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise TaxFilingPromotionError {
@@ -302,27 +303,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: tax_filing <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       TaxFilingPromotionError::InvalidInput => {
         println("tax filing promotion failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TaxFilingPromotionError::Io(_) => {
         println("tax filing promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TaxFilingPromotionError::Money(_) => {
         println("tax filing promotion failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       TaxFilingPromotionError::Tax(_) => {
         println("tax filing promotion failed: tax validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

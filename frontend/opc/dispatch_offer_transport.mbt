@@ -103,7 +103,7 @@ fn dispatch_offer_write(
 extern "js" fn dispatch_offer_put_request(
   url : String,
   body : String,
-  receive : (Int, String) -> Unit,
+  receive : (Int32, String) -> Unit,
 ) =
   #| (url,body,receive) => { fetch(url,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body}).then(response=>response.text().then(text=>receive(response.status,text))).catch(()=>receive(0,'')); }
 
@@ -132,7 +132,7 @@ fn dispatch_offer_read(
 ///|
 extern "js" fn dispatch_offer_get_request(
   url : String,
-  receive : (Int, String) -> Unit,
+  receive : (Int32, String) -> Unit,
 ) =
   #| (url,receive) => { fetch(url,{method:'GET',credentials:'same-origin',headers:{Accept:'application/json'}}).then(response=>response.text().then(text=>receive(response.status,text))).catch(()=>receive(0,'')); }
 

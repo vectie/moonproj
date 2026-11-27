@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum FacilityState {
   Draft
   Approved
@@ -7,17 +8,19 @@ pub(all) enum FacilityState {
   Closed
   Defaulted
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct FacilityEvent {
   from : FacilityState
   to : FacilityState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct FinancingFacility {
   facility_id : String
   principal_id : String
@@ -29,9 +32,10 @@ pub(all) struct FinancingFacility {
   annual_rate_bps : Int64
   state : FacilityState
   events : Array[FacilityEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror FinancingError {
   EmptyIdentifier
   InvalidAmount
@@ -45,7 +49,7 @@ pub(all) suberror FinancingError {
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn FinancingFacility::new(
@@ -137,8 +141,8 @@ fn FinancingFacility::transition(
     error => raise FinancingError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -272,7 +276,7 @@ pub fn FinancingFacility::repay(
     actor_id,
     capability: "financing:repay",
   })
-  { ..self, outstanding_principal: outstanding, state, events }
+  { ..self, outstanding_principal: outstanding, state, events, }
 }
 
 ///|

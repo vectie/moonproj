@@ -118,7 +118,7 @@ async fn investment_ai_explain(
 ///|
 async fn investment_ai_explain_status(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   (200, investment_ai_explain(project_id))
 }
 

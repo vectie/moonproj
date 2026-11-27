@@ -6,7 +6,7 @@
 ///|
 async fn latest_preference_payload(
   aggregate_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'user_preference' AND aggregate_id = " +
     @postgres.sql_literal(aggregate_id) +
@@ -51,7 +51,7 @@ async fn preference_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "set" && command_type != "delete" {
     raise reject(404, "unsupported preference command")
   }

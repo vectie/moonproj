@@ -1,14 +1,15 @@
 ///|
+#derive(Debug, Eq)
 struct PlanWorkbench {
   actor : String
-  epoch : Int
-  revision : Int
+  epoch : Int32
+  revision : Int32
   projects : Array[ProductCompanyProject]
   selected : String
   draft : @plan_workbench.Draft?
   prepared : Json?
   history : Array[Json]
-  history_request : Int
+  history_request : Int32
   comparison : PlanCompareState
   phase : String
   note : String
@@ -33,22 +34,23 @@ struct PlanWorkbench {
   breakdown : PlanBreakdownState
   transfer : PlanTransferState
   extract : PlanExtractState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanMsg {
   Refresh
-  PlanProjectsRead(String, Int, Int, String)
+  PlanProjectsRead(String, Int32, Int32, String)
   Choose(String)
   Edit(String, String, String, String)
   Add(String)
   Remove(String, String)
   Toggle(String, String, String)
-  ShiftTask(String, Int)
+  ShiftTask(String, Int32)
   Prepare
   Open(String)
-  Read(String, Int, Int, String, String, Int, String)
-  History(String, Int, String, Int, Int, String)
+  Read(String, Int32, Int32, String, String, Int32, String)
+  History(String, Int32, String, Int32, Int32, String)
   Download(Bool)
   Compare(PlanCompareMsg)
   ImportTasks
@@ -78,7 +80,7 @@ enum PlanMsg {
   Breakdown(PlanBreakdownMsg)
   Transfer(PlanTransferMsg)
   Extract(PlanExtractMsg)
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_initial() -> PlanWorkbench {
@@ -144,7 +146,7 @@ extern "js" fn plan_fetch(
   url : String,
   method : String,
   body : String,
-  receive : (Int, String) -> Unit,
+  receive : (Int32, String) -> Unit,
 ) =
   #| (url, method, body, receive) => fetch(url, {method, credentials: "same-origin", headers: {"Content-Type":"application/json"}, ...(method === "POST" ? {body} : {})}).then(async r => receive(r.status, await r.text())).catch(() => receive(0, ""))
 
@@ -843,7 +845,11 @@ fn plan_update(
           )
         _ => (d.key, "POST", plan_url(s.selected), "saving")
       }
-      let sent = if method == "POST" { ToJson::to_json(d).stringify() } else { "" }
+      let sent = if method == "POST" {
+        ToJson::to_json(d).stringify()
+      } else {
+        ""
+      }
       let cmd = @cmd.custom_cmd(scheduler => {
         plan_fetch(url, method, sent, (status, body) => {
           scheduler.add(

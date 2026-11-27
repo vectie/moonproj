@@ -1,10 +1,11 @@
 ///|
 /// Build a fail-closed plan for draft delivery-progress intake. A task report
 /// is evidence only; the native importer creates Draft progress reports.
+#derive(Debug)
 pub(all) suberror DeliveryProgressPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> DeliveryProgressPlanError {
@@ -212,7 +213,7 @@ fn run(
     read_json(export_root + "/tables/ep_project.json"),
     "projects",
   )
-  let task_by_id : Map[String, Json] = {}
+  let task_by_id : Map[String, Json] = Map([])
   for value in tasks {
     let _ = object(value, "task row")
     task_by_id.set(text(value, "task_guid"), value)
@@ -399,21 +400,21 @@ fn text_value(value : Json) -> String {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: delivery_progress_plan <export> <mapping.json> <output.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     DeliveryProgressPlanError::InvalidInput(message) => {
       println("delivery-progress promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     DeliveryProgressPlanError::Io(_) => {
       println("delivery-progress promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

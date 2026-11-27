@@ -1,7 +1,7 @@
 ///|
 fn accepted_human_test_model(
-  text? : String = "edited bytes",
-  task? : String = "task-1",
+  text~ : String = "edited bytes",
+  task~ : String = "task-1",
 ) -> Model {
   let model = human_revision_proj_model()
   let record = human_revision_proj_record()
@@ -56,8 +56,8 @@ extern "js" fn accepted_human_test_base64(text : String) -> String =
 
 ///|
 fn accepted_human_test_payload(
-  text? : String = "edited bytes",
-  task? : String = "task-1",
+  text~ : String = "edited bytes",
+  task~ : String = "task-1",
 ) -> Json {
   {
     "contract_version": "moonproj.accepted-human-result.v1",

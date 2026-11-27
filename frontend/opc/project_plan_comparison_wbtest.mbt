@@ -27,7 +27,9 @@ fn plan_compare_test_saved(d : @plan_workbench.Draft) -> Json {
       "unallocated_minor": "39975",
     },
     "tasks": Json::array(
-      d.tasks.map(t => ({ "task_id": t.id, "planned_cost_minor": "20025" } : Json)),
+      d.tasks.map(t => {
+        ({ "task_id": t.id, "planned_cost_minor": "20025" } : Json)
+      }),
     ),
   }
   {
@@ -77,7 +79,7 @@ fn plan_compare_test_reply(
   model : Model,
   before : Bool,
   body : String,
-  status? : Int = 200,
+  status~ : Int32 = 200,
 ) -> Model {
   let s = model.plan
   plan_update(
@@ -519,7 +521,10 @@ test "actual native saved pair enters compiled UI read-only comparison and downl
     ],
   }
   ignore(
-    plan_test_file("ui-compare-after-request.json", ToJson::to_json(after).stringify()),
+    plan_test_file(
+      "ui-compare-after-request.json",
+      ToJson::to_json(after).stringify(),
+    ),
   )
   if body.is_empty() || after_body.is_empty() {
     return

@@ -1,6 +1,6 @@
 ///|
 test "parity report classifies exact, tolerant, and mismatched metrics" {
-  let report = ParityReport::new(
+  let report = @parity.ParityReport::new(
       run_id="run-parity-001",
       source_snapshot_id="erp-snapshot-001",
     )
@@ -37,7 +37,7 @@ test "parity report classifies exact, tolerant, and mismatched metrics" {
 
 ///|
 test "parity report rejects duplicate metrics and negative tolerance" {
-  let report = ParityReport::new(
+  let report = @parity.ParityReport::new(
     run_id="run-parity-002",
     source_snapshot_id="erp-snapshot-001",
   ).add_metric({
@@ -58,7 +58,7 @@ test "parity report rejects duplicate metrics and negative tolerance" {
       tolerance: 0L,
     })
   catch {
-    ParityError::DuplicateMetric => ()
+    @parity.ParityError::DuplicateMetric => ()
     _ => fail("wrong parity error")
   } noraise {
     _ => fail("expected duplicate metric error")
@@ -73,7 +73,7 @@ test "parity report rejects duplicate metrics and negative tolerance" {
       tolerance: -1L,
     })
   catch {
-    ParityError::NegativeTolerance => ()
+    @parity.ParityError::NegativeTolerance => ()
     _ => fail("wrong tolerance error")
   } noraise {
     _ => fail("expected tolerance error")

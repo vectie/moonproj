@@ -1,5 +1,5 @@
 ///|
-fn continuation_test_task(state? : String = "in_progress") -> Json {
+fn continuation_test_task(state~ : String = "in_progress") -> Json {
   {
     "task_id": "T",
     "project_id": "P",
@@ -28,7 +28,7 @@ fn continuation_test_task(state? : String = "in_progress") -> Json {
 }
 
 ///|
-fn continuation_test_observation(state? : String = "completed") -> Json {
+fn continuation_test_observation(state~ : String = "completed") -> Json {
   {
     "continuation_id": "K",
     "original_run_id": "R",
@@ -69,7 +69,7 @@ fn continuation_test_observation(state? : String = "completed") -> Json {
 }
 
 ///|
-fn continuation_test_body(observation? : Json, select? : Bool = true) -> Json {
+fn continuation_test_body(observation? : Json, select~ : Bool = true) -> Json {
   {
     "continuation": observation.unwrap_or(continuation_test_observation()),
     "select_for_delivery": select,
@@ -87,7 +87,7 @@ fn continuation_test_body(observation? : Json, select? : Bool = true) -> Json {
 fn continuation_test_changed(value : Json, key : String, item : Json) -> Json {
   let fields = match value {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields.set(key, item)
   Json::object(fields)
@@ -151,20 +151,18 @@ test "continuations reject every cross-original lineage coordinate and forged ev
       "original_run_id", "task_id", "session_id", "original_command_id", "workspace",
     ] {
     assert_true(
-      (try
-        Ok(
-          plan_task_continuation_apply(
-            task,
-            continuation_test_body(
-              observation=continuation_test_changed(
-                continuation_test_observation(),
-                key,
-                "other",
-              ),
+      (Ok(
+        plan_task_continuation_apply(
+          task,
+          continuation_test_body(
+            observation=continuation_test_changed(
+              continuation_test_observation(),
+              key,
+              "other",
             ),
           ),
-        )
-      catch {
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -200,20 +198,18 @@ test "continuations reject every cross-original lineage coordinate and forged ev
         ("input", { "path": "input.md", "sha256": "wrong" }),
       ] : Array[(String, Json)]) {
     assert_true(
-      (try
-        Ok(
-          plan_task_continuation_apply(
-            task,
-            continuation_test_body(
-              observation=continuation_test_changed(
-                continuation_test_observation(),
-                key,
-                value,
-              ),
+      (Ok(
+        plan_task_continuation_apply(
+          task,
+          continuation_test_body(
+            observation=continuation_test_changed(
+              continuation_test_observation(),
+              key,
+              value,
             ),
           ),
-        )
-      catch {
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -230,20 +226,18 @@ test "continuation identity and input cannot be retargeted on later observation"
   for
     key in ["command_id", "client_turn_id", "prior_result_command_id", "model"] {
     assert_true(
-      (try
-        Ok(
-          plan_task_continuation_apply(
-            first,
-            continuation_test_body(
-              observation=continuation_test_changed(
-                continuation_test_observation(),
-                key,
-                "different",
-              ),
+      (Ok(
+        plan_task_continuation_apply(
+          first,
+          continuation_test_body(
+            observation=continuation_test_changed(
+              continuation_test_observation(),
+              key,
+              "different",
             ),
           ),
-        )
-      catch {
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -254,20 +248,18 @@ test "continuation identity and input cannot be retargeted on later observation"
     "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   }
   assert_true(
-    (try
-      Ok(
-        plan_task_continuation_apply(
-          first,
-          continuation_test_body(
-            observation=continuation_test_changed(
-              continuation_test_observation(),
-              "input",
-              input,
-            ),
+    (Ok(
+      plan_task_continuation_apply(
+        first,
+        continuation_test_body(
+          observation=continuation_test_changed(
+            continuation_test_observation(),
+            "input",
+            input,
           ),
         ),
-      )
-    catch {
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -279,14 +271,12 @@ test "continuation identity and input cannot be retargeted on later observation"
       "K2",
     )
     assert_true(
-      (try
-        Ok(
-          plan_task_continuation_apply(
-            first,
-            continuation_test_body(observation=duplicate),
-          ),
-        )
-      catch {
+      (Ok(
+        plan_task_continuation_apply(
+          first,
+          continuation_test_body(observation=duplicate),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -343,27 +333,23 @@ test "pending failed cancelled and control settled receipts never select or subm
     assert_eq(plan_task_continuations(attached).length(), 1)
     assert_eq(plan_task_delivery_source(attached), Json::null())
     assert_true(
-      (try
-        Ok(
-          plan_task_continuation_apply(
-            attached,
-            continuation_test_changed(body, "select_for_delivery", true),
-          ),
-        )
-      catch {
+      (Ok(
+        plan_task_continuation_apply(
+          attached,
+          continuation_test_changed(body, "select_for_delivery", true),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
     )
     assert_true(
-      (try
-        Ok(
-          plan_task_completed_source(
-            attached,
-            plan_task_continuation_source(continuation_test_observation()),
-          ),
-        )
-      catch {
+      (Ok(
+        plan_task_completed_source(
+          attached,
+          plan_task_continuation_source(continuation_test_observation()),
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -375,14 +361,12 @@ test "pending failed cancelled and control settled receipts never select or subm
     { "session_id": "S", "command_id": "C1", "status": "control-settled" },
   )
   assert_true(
-    (try
-      Ok(
-        plan_task_continuation_apply(
-          continuation_test_task(),
-          continuation_test_body(observation=control),
-        ),
-      )
-    catch {
+    (Ok(
+      plan_task_continuation_apply(
+        continuation_test_task(),
+        continuation_test_body(observation=control),
+      ),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -415,7 +399,7 @@ test "continuation authority retains creator signed actor capability and project
   let body = continuation_test_body()
   ignore(plan_task_continuation_request(task, body, "actor"))
   assert_true(
-    (try Ok(plan_task_continuation_request(task, body, "intruder")) catch {
+    (Ok(plan_task_continuation_request(task, body, "intruder")) catch {
       e => Err(e)
     })
     is Err(_),
@@ -435,15 +419,13 @@ test "continuation authority retains creator signed actor capability and project
       value,
     )
     assert_true(
-      (try
-        Ok(
-          plan_task_continuation_request(
-            task,
-            continuation_test_changed(body, "authority", authority),
-            "actor",
-          ),
-        )
-      catch {
+      (Ok(
+        plan_task_continuation_request(
+          task,
+          continuation_test_changed(body, "authority", authority),
+          "actor",
+        ),
+      ) catch {
         e => Err(e)
       })
       is Err(_),
@@ -477,7 +459,7 @@ test "idempotent request excludes mutable native observations but includes exact
   let receipt : Json = { "request": first }
   ignore(plan_task_applied_command(Some(receipt), refreshed))
   assert_true(
-    (try Ok(plan_task_applied_command(None, refreshed)) catch { e => Err(e) })
+    (Ok(plan_task_applied_command(None, refreshed)) catch { e => Err(e) })
     is Err(_),
   )
 }

@@ -1,6 +1,6 @@
 ///|
 async fn revised_fixture(
-  revision? : Int = 2,
+  revision~ : Int32 = 2,
 ) -> (String, String, String, FlowRequest) {
   let (root, request_ref, result_ref, original) = adapter_fixture()
   let snapshot : Json = @company_flow.snapshot(
@@ -32,7 +32,7 @@ async fn revised_fixture(
   write_test_text(
     root,
     "inputs/project-plan-request.json",
-    ToJson::to_json({ ..plan, source_evidence: sources }).stringify(),
+    ToJson::to_json({ ..plan, source_evidence: sources, }).stringify(),
   )
   let inputs = original.input_artifacts.copy()
   inputs.push(reference)
@@ -46,7 +46,7 @@ async fn revised_fixture(
 }
 
 ///|
-fn revised_approval(binding : Json, key? : String = "approve-r2") -> Json {
+fn revised_approval(binding : Json, key~ : String = "approve-r2") -> Json {
   let event = "flow_task_binding:approve:" + key
   {
     "command": {
@@ -257,11 +257,7 @@ async test "partial approval checkpoint repairs without inheriting approval acro
   }
   let child_request = "child/runtime/request.json"
   let child_result = "child/runtime/result.json"
-  write_test_text(
-    root,
-    child_request,
-    ToJson::to_json(child_flow).stringify(),
-  )
+  write_test_text(root, child_request, ToJson::to_json(child_flow).stringify())
   try record_company_task_approval(root, child_request, approval) catch {
     _ => ()
   } noraise {

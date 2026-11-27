@@ -132,7 +132,7 @@ fn sales_customer_update_request(
   if !valid_identifier(customer_id) {
     raise reject(422, "customer_guid is required")
   }
-  let changes : Map[String, Json] = {}
+  let changes : Map[String, Json] = Map([])
   let mut changed = false
   let add_text = fn(
     primary : String,
@@ -166,7 +166,7 @@ fn sales_customer_update_request(
 ///|
 async fn latest_sales_customer_payload(
   customer_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'customer' AND aggregate_id = " +
     @postgres.sql_literal(customer_id) +
@@ -202,7 +202,7 @@ async fn sales_customer_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "create" &&
     command_type != "update" &&
     command_type != "delete" {

@@ -69,7 +69,11 @@ fn charter_role_card(
       (!role.model.is_empty() && role.model != "human") {
       div(class="org-role-foot") <| [
         if !role.skill_ref.is_empty() {
-          span(class="org-skill-ref", attrs=@html.Attrs::build().title(role.skill_ref), role.skill_ref)
+          span(
+            class="org-skill-ref",
+            attrs=@html.Attrs::build().title(role.skill_ref),
+            role.skill_ref,
+          )
         } else {
           @html.nothing
         },
@@ -99,7 +103,10 @@ fn charter_role_form_view(
   ) <| [
     div(class="charter-form-grid") <| [
       div(class="field") <| [
-        label(attrs=@html.Attrs::build().for_("charter-role-name"), "角色名称"),
+        label(
+          attrs=@html.Attrs::build().for_("charter-role-name"),
+          "角色名称",
+        ),
         input(
           input_type=Text,
           attrs=@html.Attrs::build().id("charter-role-name"),
@@ -109,7 +116,10 @@ fn charter_role_form_view(
         ),
       ],
       div(class="field") <| [
-        label(attrs=@html.Attrs::build().for_("charter-role-tier"), "权力层级"),
+        label(
+          attrs=@html.Attrs::build().for_("charter-role-tier"),
+          "权力层级",
+        ),
         @html.select(
           attrs=@html.Attrs::build().id("charter-role-tier"),
           on_change=emit.map(v => CharterAction(InputRole("tier", v))),
@@ -132,7 +142,10 @@ fn charter_role_form_view(
         ],
       ],
       div(class="field") <| [
-        label(attrs=@html.Attrs::build().for_("charter-role-kind"), "执行主体"),
+        label(
+          attrs=@html.Attrs::build().for_("charter-role-kind"),
+          "执行主体",
+        ),
         @html.select(
           attrs=@html.Attrs::build().id("charter-role-kind"),
           on_change=emit.map(v => CharterAction(InputRole("kind", v))),
@@ -142,7 +155,11 @@ fn charter_role_form_view(
             selected=state.role_kind == "agent",
             "Agent",
           ),
-          @html.option(value="human", selected=state.role_kind == "human", "人"),
+          @html.option(
+            value="human",
+            selected=state.role_kind == "human",
+            "人",
+          ),
         ],
       ],
       div(class="field") <| [
@@ -250,7 +267,10 @@ fn charter_evo_form_view(
   ) <| [
     div(class="charter-form-grid") <| [
       div(class="field") <| [
-        label(attrs=@html.Attrs::build().for_("charter-evo-target"), "升级对象"),
+        label(
+          attrs=@html.Attrs::build().for_("charter-evo-target"),
+          "升级对象",
+        ),
         @html.select(
           attrs=@html.Attrs::build().id("charter-evo-target"),
           on_change=emit.map(v => CharterAction(InputEvo("target", v))),
@@ -281,7 +301,10 @@ fn charter_evo_form_view(
         ),
       ],
       div(class="field") <| [
-        label(attrs=@html.Attrs::build().for_("charter-evo-change"), "演化变更"),
+        label(
+          attrs=@html.Attrs::build().for_("charter-evo-change"),
+          "演化变更",
+        ),
         input(
           input_type=Text,
           attrs=@html.Attrs::build().id("charter-evo-change"),
@@ -401,55 +424,62 @@ fn workspace_org_view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
               ),
             ],
             if charter.evolution_log.is_empty() {
-              p(class="charter-muted-note", "尚未记录组织或 Agent 能力演化。")
+              p(
+                class="charter-muted-note",
+                "尚未记录组织或 Agent 能力演化。",
+              )
             } else {
               @html.ol(class="evolution-timeline") <| charter.evolution_log.map(entry => {
-                let target_label = charter_role_display_name(
-                  charter,
-                  entry.target_id,
-                )
-                li(
-                  class="evolution-item",
-                  attrs=@html.Attrs::build()
-                    .data_set("evo-id", entry.id)
-                    .data_set("target", entry.target),
-                ) <| [
-                  div(class="evolution-item-meta") <| [
-                    if !entry.date.is_empty() {
-                      span(class="evolution-date", entry.date)
-                    } else {
-                      @html.nothing
-                    },
-                    span(
-                      class="evolution-target-badge",
-                      attrs=@html.Attrs::build().data_set("target", entry.target),
-                      if entry.target == "company" {
-                        "公司规则"
+                  let target_label = charter_role_display_name(
+                    charter,
+                    entry.target_id,
+                  )
+                  li(
+                    class="evolution-item",
+                    attrs=@html.Attrs::build()
+                      .data_set("evo-id", entry.id)
+                      .data_set("target", entry.target),
+                  ) <| [
+                    div(class="evolution-item-meta") <| [
+                      if !entry.date.is_empty() {
+                        span(class="evolution-date", entry.date)
                       } else {
-                        "Agent 升级"
+                        @html.nothing
                       },
-                    ),
-                    if !target_label.is_empty() {
                       span(
-                        class="evolution-target-id",
-                        attrs=@html.Attrs::build().title(entry.target_id),
-                        target_label,
+                        class="evolution-target-badge",
+                        attrs=@html.Attrs::build().data_set(
+                          "target",
+                          entry.target,
+                        ),
+                        if entry.target == "company" {
+                          "公司规则"
+                        } else {
+                          "Agent 升级"
+                        },
+                      ),
+                      if !target_label.is_empty() {
+                        span(
+                          class="evolution-target-id",
+                          attrs=@html.Attrs::build().title(entry.target_id),
+                          target_label,
+                        )
+                      } else {
+                        @html.nothing
+                      },
+                    ],
+                    p(class="evolution-change", entry.change),
+                    if !entry.evidence.is_empty() {
+                      small(
+                        class="evolution-evidence",
+                        "依据：" + entry.evidence,
                       )
                     } else {
                       @html.nothing
                     },
-                  ],
-                  p(class="evolution-change", entry.change),
-                  if !entry.evidence.is_empty() {
-                    small(
-                      class="evolution-evidence",
-                      "依据：" + entry.evidence,
-                    )
-                  } else {
-                    @html.nothing
-                  },
-                ]
-              })
+                  ]
+                },
+              )
             },
           ],
         ]

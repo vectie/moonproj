@@ -5,11 +5,12 @@
 /// target. It reopens the immutable projection rows for one promotion receipt,
 /// compares source/target identities and multiplicities, and writes the same
 /// machine-readable parity envelope without changing the database.
+#derive(Debug)
 pub(all) suberror PostgresProjectionParityError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 struct Key {
@@ -118,7 +119,7 @@ fn load_receipt(path : String) -> Receipt raise PostgresProjectionParityError {
       source_id: required_string(item, "source_id", path),
     })
   }
-  { source_snapshot_id, mapping_version, expected }
+  { source_snapshot_id, mapping_version, expected, }
 }
 
 ///|
@@ -135,8 +136,8 @@ fn key_token(key : Key) -> String {
 }
 
 ///|
-fn counter(values : Array[Key]) -> (Map[String, Int], Array[Key]) {
-  let counts : Map[String, Int] = {}
+fn counter(values : Array[Key]) -> (Map[String, Int32], Array[Key]) {
+  let counts : Map[String, Int32] = Map([])
   let unique : Array[Key] = []
   for value in values {
     let token = key_token(value)
@@ -157,7 +158,7 @@ fn sorted_keys(values : Array[Key]) -> Array[Key] {
 }
 
 ///|
-fn key_count_json(key : Key, count : Int) -> Json {
+fn key_count_json(key : Key, count : Int32) -> Json {
   Json::array([
     Json::string(key.aggregate_type),
     Json::string(key.aggregate_id),
@@ -169,8 +170,8 @@ fn key_count_json(key : Key, count : Int) -> Json {
 
 ///|
 fn differences(
-  expected : Map[String, Int],
-  actual : Map[String, Int],
+  expected : Map[String, Int32],
+  actual : Map[String, Int32],
   keys : Array[Key],
 ) -> Array[Json] {
   let result : Array[Json] = []
@@ -186,7 +187,7 @@ fn differences(
 }
 
 ///|
-fn duplicates(counts : Map[String, Int], keys : Array[Key]) -> Array[Json] {
+fn duplicates(counts : Map[String, Int32], keys : Array[Key]) -> Array[Json] {
   let result : Array[Json] = []
   for key in sorted_keys(keys) {
     let count = counts.get(key_token(key)).unwrap_or(0)
@@ -198,8 +199,8 @@ fn duplicates(counts : Map[String, Int], keys : Array[Key]) -> Array[Json] {
 }
 
 ///|
-fn type_counts(values : Array[Key]) -> Map[String, Int] {
-  let result : Map[String, Int] = {}
+fn type_counts(values : Array[Key]) -> Map[String, Int32] {
+  let result : Map[String, Int32] = Map([])
   for value in values {
     let key = value.aggregate_type
     result.set(key, result.get(key).unwrap_or(0) + 1)
@@ -208,8 +209,8 @@ fn type_counts(values : Array[Key]) -> Map[String, Int] {
 }
 
 ///|
-fn counts_json(values : Map[String, Int]) -> Json {
-  let result : Map[String, Json] = {}
+fn counts_json(values : Map[String, Int32]) -> Json {
+  let result : Map[String, Json] = Map([])
   values.each((key, value) => result.set(key, Json::number(value.to_double())))
   Json::object(result)
 }
@@ -220,7 +221,7 @@ fn decode_hex(value : String) -> String raise PostgresProjectionParityError {
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -256,7 +257,7 @@ fn decode_hex(value : String) -> String raise PostgresProjectionParityError {
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresProjectionParityError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -361,18 +362,18 @@ fn option(args : Array[String], name : String) -> String? {
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println(
       "usage: postgres_projection_parity <receipt> <output> [--psql path] [--host host] [--port port] [--user user] [--database database]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let receipt = load_receipt(args[1]) catch {
     error => {
-      println("company PostgreSQL projection parity failed: \{to_repr(error)}")
-      @sys.exit(1)
-      { source_snapshot_id: "", mapping_version: "", expected: [] }
+      println("company PostgreSQL projection parity failed: \{Repr(error)}")
+      @env.exit(1)
+      { source_snapshot_id: "", mapping_version: "", expected: [], }
     }
   }
   let connection = @postgres.connection_from_env().with_overrides(
@@ -384,19 +385,19 @@ async fn main {
   )
   let report = compare(receipt, connection) catch {
     error => {
-      println("company PostgreSQL projection parity failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("company PostgreSQL projection parity failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
   @fs.write_string_to_file(args[2], report.stringify(indent=2) + "\n") catch {
     error => {
-      println("company PostgreSQL projection parity failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("company PostgreSQL projection parity failed: \{Repr(error)}")
+      @env.exit(1)
     }
   }
   println(report.stringify())
   if json_text(report, "state") != "shadow_verified" {
-    @sys.exit(1)
+    @env.exit(1)
   }
 }

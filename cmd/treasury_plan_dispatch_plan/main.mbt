@@ -1,10 +1,11 @@
 ///|
 /// Compile a reviewed cash-plan/fund-dispatch map without releasing bank cash
 /// or posting accounting.
+#derive(Debug)
 pub(all) suberror TreasuryPlanDispatchPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> TreasuryPlanDispatchPlanError {
@@ -281,19 +282,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: treasury_plan_dispatch_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     TreasuryPlanDispatchPlanError::InvalidInput(message) => {
       println("treasury plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     TreasuryPlanDispatchPlanError::Io(_) => {
       println("treasury plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

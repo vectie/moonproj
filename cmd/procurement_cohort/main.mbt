@@ -1,4 +1,5 @@
 ///|
+#derive(Debug)
 pub(all) suberror ProcurementCohortError {
   InvalidInput
   Io(@fs.IOError)
@@ -6,7 +7,7 @@ pub(all) suberror ProcurementCohortError {
   Supplier(@procurement.SupplierError)
   Tender(@procurement.TenderError)
   Commitment(@commitment.CommitmentError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise ProcurementCohortError {
@@ -490,41 +491,39 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: procurement_cohort <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       ProcurementCohortError::InvalidInput => {
         println("procurement cohort failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProcurementCohortError::Io(_) => {
         println("procurement cohort failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProcurementCohortError::Money(_) => {
         println("procurement cohort failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProcurementCohortError::Supplier(error) => {
         println(
-          "procurement cohort failed: supplier validation: \{to_repr(error)}",
+          "procurement cohort failed: supplier validation: \{Repr(error)}",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProcurementCohortError::Tender(error) => {
-        println(
-          "procurement cohort failed: tender validation: \{to_repr(error)}",
-        )
-        @sys.exit(1)
+        println("procurement cohort failed: tender validation: \{Repr(error)}")
+        @env.exit(1)
       }
       ProcurementCohortError::Commitment(error) => {
         println(
-          "procurement cohort failed: commitment validation: \{to_repr(error)}",
+          "procurement cohort failed: commitment validation: \{Repr(error)}",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

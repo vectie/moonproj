@@ -7,10 +7,11 @@ struct ProductResources {
 }
 
 ///|
+#derive(Debug)
 suberror ProductCatalogReadError {
   Missing
   Invalid
-} derive(Debug)
+}
 
 ///|
 async fn read_product_catalog(

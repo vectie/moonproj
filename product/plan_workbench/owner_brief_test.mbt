@@ -81,13 +81,20 @@ test "owner brief supports empty assignments and incomplete authored rows" {
       "无已分配任务。",
     ),
   )
-  assert_true((try Ok(@plan_workbench.owner_brief(d, "unknown", "P")) catch { e => Err(e) }) is Err(_))
   assert_true(
-    (try Ok(@plan_workbench.owner_brief(
-      { ..d, owners: [..d.owners, ..d.owners], },
-      "alex",
-      "P",
-    )) catch { e => Err(e) })
+    (Ok(@plan_workbench.owner_brief(d, "unknown", "P")) catch { e => Err(e) })
+    is Err(_),
+  )
+  assert_true(
+    (Ok(
+      @plan_workbench.owner_brief(
+        { ..d, owners: [..d.owners, ..d.owners], },
+        "alex",
+        "P",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let broken = {

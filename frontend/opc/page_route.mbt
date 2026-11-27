@@ -119,7 +119,14 @@ fn restore_page_route(
   product~ : String = "",
 ) -> (Cmd, Model) {
   let (page_command, next) = restore_page_task_route(emit, page, task_id, model)
-  let next = if page == Workspace { { ..next, workspace: { ..next.workspace, job: task_id, pane: "materials", }, } } else { next }
+  let next = if page == Workspace {
+    {
+      ..next,
+      workspace: { ..next.workspace, job: task_id, pane: "materials", },
+    }
+  } else {
+    next
+  }
   let (product_command, restored) = products_restore_route(emit, product, next)
   (@cmd.batch([page_command, product_command]), restored)
 }

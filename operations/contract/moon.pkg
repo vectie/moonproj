@@ -4,7 +4,6 @@ import {
   "vectie/moonproj/operations/commitment",
   "vectie/moonproj/operations/settlement",
   "vectie/moonproj/persistence/store",
-  "moonbitlang/core/json",
 }
 
 import {

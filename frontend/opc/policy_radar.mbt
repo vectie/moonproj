@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct PolicySourceView {
   source_id : String
   name : String
@@ -11,9 +12,10 @@ struct PolicySourceView {
   reviewed_at : String
   audit_id : String
   active : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct PolicyChangeView {
   change_id : String
   source_id : String
@@ -26,9 +28,10 @@ struct PolicyChangeView {
   reviewed_at : String
   audit_id : String
   notification_state : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct PolicyOpportunityView {
   opportunity_id : String
   lane : String
@@ -37,9 +40,10 @@ struct PolicyOpportunityView {
   next_validation : String
   gate : String
   source_change_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct PolicyRadarProjection {
   freshness : String
   capture_state : String
@@ -48,7 +52,7 @@ struct PolicyRadarProjection {
   opportunities : Array[PolicyOpportunityView]
   review_audit_ids : Array[String]
   boundary : String
-} derive(Debug, Eq)
+}
 
 ///|
 #cfg(target="js")

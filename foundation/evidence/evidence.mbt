@@ -1,20 +1,23 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum EvidenceState {
   Pending
   Verified
   Redacted
   Archived
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct EvidenceEvent {
   from : EvidenceState
   to : EvidenceState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Evidence {
   evidence_id : String
   principal_id : String
@@ -24,9 +27,10 @@ pub(all) struct Evidence {
   content_hash : String
   state : EvidenceState
   events : Array[EvidenceEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AuditRecord {
   audit_id : String
   principal_id : String
@@ -37,21 +41,23 @@ pub(all) struct AuditRecord {
   target_id : String
   outcome : String
   evidence_id : String?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AuditTrail {
   records : Array[AuditRecord]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror EvidenceError {
   EmptyIdentifier
   InvalidHash
   InvalidState
   DuplicateAudit
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Evidence::new(
@@ -135,8 +141,8 @@ fn Evidence::transition(
     error => raise EvidenceError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -183,7 +189,7 @@ pub fn Evidence::archive(
 
 ///|
 pub fn AuditTrail::empty() -> AuditTrail {
-  { records: [] }
+  { records: [], }
 }
 
 ///|

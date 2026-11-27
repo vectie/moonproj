@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ShadowStage {
   Draft
   Ready
@@ -6,25 +7,28 @@ pub(all) enum ShadowStage {
   WaitingForReview
   ShadowAccepted
   Archived
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ServiceRole {
   EngagementLead
   Researcher
   Producer
   IndependentReviewer
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ShadowWorkState {
   Planned
   Released
   Complete
   ReworkRequired
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ShadowWorkContract {
   work_id : String
   title : String
@@ -38,9 +42,10 @@ pub(all) struct ShadowWorkContract {
   attempt_id : String
   output_evidence : Array[String]
   findings : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ShadowActivity {
   activity_id : String
   work_id : String
@@ -48,11 +53,12 @@ pub(all) struct ShadowActivity {
   kind : String
   evidence : Array[String]
   at_epoch : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// A shadow engagement can prepare delivery evidence and an invoice proposal,
 /// but it cannot deliver externally, sign, post, or collect cash.
+#derive(Debug, Eq)
 pub(all) struct ProfessionalServiceShadow {
   engagement_id : String
   principal_id : String
@@ -63,7 +69,7 @@ pub(all) struct ProfessionalServiceShadow {
   proposed_fee_minor : Int64
   source_evidence : Array[String]
   stage : ShadowStage
-  revision : Int
+  revision : Int32
   work : Array[ShadowWorkContract]
   activities : Array[ShadowActivity]
   accepted_evidence : Array[String]
@@ -72,9 +78,10 @@ pub(all) struct ProfessionalServiceShadow {
   contract_signed : Bool
   accounting_posted : Bool
   payment_collected : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ProfessionalServiceError {
   Invalid(String)
   InvalidStage(ShadowStage)
@@ -85,4 +92,4 @@ pub(all) suberror ProfessionalServiceError {
   MissingRole(ServiceRole)
   ResultMismatch
   ReviewIndependenceRequired
-} derive(Debug, Eq)
+}

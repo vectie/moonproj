@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteAccountingReconciliationError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> SqliteAccountingReconciliationError {
@@ -102,7 +103,7 @@ fn decode_hex(
     raise fail("invalid SQLite hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -255,13 +256,13 @@ fn report(
     "validated_accounting_links" {
     raise fail("accounting-link receipt is not validated")
   }
-  let domain_map : Map[String, Map[String, Json]] = {}
+  let domain_map : Map[String, Map[String, Json]] = Map([])
   for value in array(domain, "accepted_items", "domain") {
     let item = object(value, "domain.accepted_items")
     domain_map.set(key(item, "domain.accepted_items"), item)
   }
   let plan_values = array(plan, "items", "plan")
-  let receipt_map : Map[String, Map[String, Json]] = {}
+  let receipt_map : Map[String, Map[String, Json]] = Map([])
   for value in array(receipt, "accepted_items", "receipt") {
     let item = object(value, "receipt.accepted_items")
     receipt_map.set(key(item, "receipt.accepted_items"), item)
@@ -415,17 +416,17 @@ fn run(args : Array[String]) -> Unit raise SqliteAccountingReconciliationError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     SqliteAccountingReconciliationError::InvalidInput(message) => {
       println("company SQLite accounting reconciliation failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     SqliteAccountingReconciliationError::Io(_) => {
       println(
         "company SQLite accounting reconciliation failed: filesystem error",
       )
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

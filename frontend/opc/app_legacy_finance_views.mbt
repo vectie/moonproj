@@ -750,4 +750,3 @@ fn extensions_view(_emit : @rabbita.Emit[Msg], _model : Model) -> @html.Html {
     ],
   ]
 }
-

@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror ShadowPeriodError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ShadowPeriodError {
@@ -93,9 +94,9 @@ fn reject_secrets(value : Json, path : String) -> Unit raise ShadowPeriodError {
 fn positive_int(
   fields : Map[String, Json],
   key : String,
-  maximum : Int,
+  maximum : Int32,
   path : String,
-) -> Int raise ShadowPeriodError {
+) -> Int32 raise ShadowPeriodError {
   let value = match required(fields, key, path) {
     Number(number, ..) if number == number.trunc() => number.to_int()
     _ => raise fail(key + " must be a positive integer")
@@ -259,12 +260,12 @@ fn result_field(result : Json, key : String) -> Json {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 5 {
     println(
       "usage: shadow_period_check <work_dir> <manifest> <output> <parity...> --reconciliations <reconciliation...>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     let mut marker = -1
     for index in 4..<args.length() {
@@ -274,7 +275,7 @@ fn main {
     }
     if marker < 0 {
       println("shadow-period check failed: missing reconciliation marker")
-      @sys.exit(2)
+      @env.exit(2)
     }
     let parity_paths : Array[String] = []
     for index in 4..<marker {
@@ -292,19 +293,19 @@ fn main {
     ) catch {
       ShadowPeriodError::InvalidInput(message) => {
         println("shadow-period check failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
       ShadowPeriodError::Io(_) => {
         println("shadow-period check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
     }
     @fs.write_string_to_file(args[3], result.stringify(indent=2) + "\n") catch {
       _ => {
         println("shadow-period check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
     println(

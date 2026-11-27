@@ -4,11 +4,12 @@
 /// Only explicit source/event/journal identity is persisted. This command
 /// never posts journals, releases cash, infers accounting policy, or closes a
 /// period.
+#derive(Debug)
 pub(all) suberror PostgresAccountingLinkApplyError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 struct LinkItem {
@@ -133,9 +134,9 @@ fn load_receipt(
     events.push(event_id)
     sources.push(source_key)
     journals.push(journal_id)
-    items.push({ event_id, source_type, source_id, journal_id, principal_id })
+    items.push({ event_id, source_type, source_id, journal_id, principal_id, })
   }
-  { source_snapshot_id, mapping_version, items }
+  { source_snapshot_id, mapping_version, items, }
 }
 
 ///|
@@ -181,7 +182,7 @@ fn decode_hex(value : String) -> String raise PostgresAccountingLinkApplyError {
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -215,7 +216,9 @@ fn decode_hex(value : String) -> String raise PostgresAccountingLinkApplyError {
 }
 
 ///|
-fn parse_decimal(value : String) -> Int raise PostgresAccountingLinkApplyError {
+fn parse_decimal(
+  value : String,
+) -> Int32 raise PostgresAccountingLinkApplyError {
   if value.is_empty() {
     raise fail("expected integer")
   }
@@ -232,7 +235,7 @@ fn parse_decimal(value : String) -> Int raise PostgresAccountingLinkApplyError {
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresAccountingLinkApplyError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -285,8 +288,8 @@ async fn logical_link_hash(
 ///|
 fn parse_last_count(
   output : String,
-) -> Int raise PostgresAccountingLinkApplyError {
-  let mut result : Int? = None
+) -> Int32 raise PostgresAccountingLinkApplyError {
+  let mut result : Int32? = None
   for line_view in output.split("\n") {
     let line = line_view.trim().to_owned()
     if !line.is_empty() {
@@ -306,7 +309,7 @@ async fn apply_rows(
   connection : @postgres.Connection,
   csv_path : String,
   sql_path : String,
-) -> Int raise PostgresAccountingLinkApplyError {
+) -> Int32 raise PostgresAccountingLinkApplyError {
   let sql = "BEGIN;\nLOCK TABLE company_accounting_event_link IN SHARE ROW EXCLUSIVE MODE;\nCREATE TEMP TABLE staging_company_accounting_link (event_id VARCHAR(255) NOT NULL, source_type VARCHAR(128) NOT NULL, source_id VARCHAR(255) NOT NULL, journal_id VARCHAR(255) NOT NULL, principal_id VARCHAR(255) NOT NULL) ON COMMIT DROP;\n\\copy staging_company_accounting_link(event_id, source_type, source_id, journal_id, principal_id) FROM " +
     @postgres.sql_literal(csv_path) +
     " WITH (FORMAT csv, HEADER true);\nDO $$ BEGIN IF EXISTS (SELECT 1 FROM staging_company_accounting_link s JOIN company_accounting_event_link l ON l.event_id = s.event_id WHERE l.source_type <> s.source_type OR l.source_id <> s.source_id OR l.journal_id <> s.journal_id OR l.principal_id <> s.principal_id) THEN RAISE EXCEPTION 'company accounting-link event conflict'; END IF; IF EXISTS (SELECT 1 FROM staging_company_accounting_link s JOIN company_accounting_event_link l ON l.source_type = s.source_type AND l.source_id = s.source_id WHERE l.event_id <> s.event_id) THEN RAISE EXCEPTION 'company accounting-link source conflict'; END IF; IF EXISTS (SELECT 1 FROM staging_company_accounting_link s JOIN company_accounting_event_link l ON l.journal_id = s.journal_id WHERE l.event_id <> s.event_id) THEN RAISE EXCEPTION 'company accounting-link journal conflict'; END IF; END $$;\nWITH inserted AS (INSERT INTO company_accounting_event_link(event_id, source_type, source_id, journal_id, principal_id) SELECT event_id, source_type, source_id, journal_id, principal_id FROM staging_company_accounting_link ON CONFLICT DO NOTHING RETURNING 1) SELECT count(*)::text FROM inserted;\nCOMMIT;\n"
@@ -400,7 +403,7 @@ async fn run(
   ) catch {
     error =>
       raise fail(
-        "temporary PostgreSQL accounting workspace failed: \{to_repr(error)}",
+        "temporary PostgreSQL accounting workspace failed: \{Repr(error)}",
       )
   }
   result
@@ -424,12 +427,12 @@ fn option(
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 2 {
     println(
       "usage: postgres_accounting_link_apply <receipt> [--schema path] [--psql path] [--host host] [--port port] [--user user] [--database database]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let schema_path = option(args, "--schema").unwrap_or(
     "scripts/postgres_target_schema.sql",
@@ -444,10 +447,8 @@ async fn main {
   )
   let report = run(args[1], schema_path, connection, database) catch {
     error => {
-      println(
-        "company PostgreSQL accounting-link apply failed: \{to_repr(error)}",
-      )
-      @sys.exit(1)
+      println("company PostgreSQL accounting-link apply failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }

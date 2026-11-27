@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum TaskState {
   Planned
   InProgress
   Completed
   Blocked
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ProjectTask {
   task_id : String
   project_id : String
@@ -17,16 +19,18 @@ pub(all) struct ProjectTask {
   dependencies : Array[String]
   progress_bps : Int64
   state : TaskState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ProjectPlan {
   project_id : String
   principal_id : String
   tasks : Array[ProjectTask]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror PlanError {
   EmptyIdentifier
   DuplicateTask
@@ -37,7 +41,7 @@ pub(all) suberror PlanError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ProjectPlan::new(project : Project) -> ProjectPlan {
@@ -108,7 +112,7 @@ pub fn ProjectPlan::add_task(
 }
 
 ///|
-fn find_task_index(tasks : Array[ProjectTask], task_id : String) -> Int? {
+fn find_task_index(tasks : Array[ProjectTask], task_id : String) -> Int32? {
   for i in 0..<tasks.length() {
     if tasks[i].task_id == task_id {
       return Some(i)
@@ -155,7 +159,7 @@ pub fn ProjectPlan::start_task(
     error => raise PlanError::NotAuthorized(error)
   }
   let tasks = self.tasks.copy()
-  tasks[index] = { ..task, state: TaskState::InProgress }
+  tasks[index] = { ..task, state: TaskState::InProgress, }
   { ..self, tasks, }
 }
 
@@ -197,7 +201,7 @@ pub fn ProjectPlan::report_progress(
     TaskState::InProgress
   }
   let tasks = self.tasks.copy()
-  tasks[index] = { ..task, progress_bps, state }
+  tasks[index] = { ..task, progress_bps, state, }
   { ..self, tasks, }
 }
 
@@ -227,6 +231,6 @@ pub fn ProjectPlan::block_task(
     error => raise PlanError::NotAuthorized(error)
   }
   let tasks = self.tasks.copy()
-  tasks[index] = { ..task, state: TaskState::Blocked }
+  tasks[index] = { ..task, state: TaskState::Blocked, }
   { ..self, tasks, }
 }

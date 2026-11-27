@@ -6,10 +6,7 @@ test "delivery permissions are explicit and captured workspace scope is stable" 
     "delivery_mode": "coordinated",
     "delivery_limits": "draft only",
   }
-  assert_eq(
-    plan_task_execution_workspace(task),
-    "/selected",
-  )
+  assert_eq(plan_task_execution_workspace(task), "/selected")
   assert_eq(
     plan_task_execution_workspace({ "execution_workspace": "/legacy" }),
     "/legacy",

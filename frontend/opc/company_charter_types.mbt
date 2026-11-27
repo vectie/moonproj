@@ -1,29 +1,32 @@
 ///|
 // Living Company Operating Charter: Mission Spine, Tiered Org & Power Structure,
 // Resource Registry, Evolution Ledger, and 80/20 Founder Focus classification.
+#derive(Debug, Eq)
 struct CharterMission {
   title : String
   north_star : String
   active_stage_id : String
   focus_ratio : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CharterStage {
   id : String
-  order : Int
+  order : Int32
   title : String
   status : String
-  weight_pct : Int
+  weight_pct : Int32
   outcome : String
   milestone_task_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CharterRole {
   id : String
   name : String
-  tier : Int
+  tier : Int32
   reports_to : String
   kind : String
   mission : String
@@ -33,9 +36,10 @@ struct CharterRole {
   model : String
   version : String
   status : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CharterResource {
   id : String
   name : String
@@ -45,9 +49,10 @@ struct CharterResource {
   access : String
   owner_role : String
   notes : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CharterEvolution {
   id : String
   date : String
@@ -55,12 +60,13 @@ struct CharterEvolution {
   target_id : String
   change : String
   evidence : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CompanyCharter {
   schema : String
-  revision : Int
+  revision : Int32
   updated_by : String
   mission : CharterMission
   stages : Array[CharterStage]
@@ -68,12 +74,13 @@ struct CompanyCharter {
   resources : Array[CharterResource]
   evolution_log : Array[CharterEvolution]
   critical_task_ids : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CompanyCharterState {
   status : String
-  request : Int
+  request : Int32
   saving : Bool
   error : String
   save_note : String
@@ -84,7 +91,7 @@ struct CompanyCharterState {
   init_north_star : String
   role_form_open : Bool
   role_name : String
-  role_tier : Int
+  role_tier : Int32
   role_kind : String
   role_reports_to : String
   role_mission : String
@@ -105,13 +112,14 @@ struct CompanyCharterState {
   resource_access : String
   resource_owner_role : String
   resource_notes : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum CharterMsg {
   Load
-  Loaded(Int, Int, String)
-  Saved(Int, Int, String)
+  Loaded(Int32, Int32, String)
+  Saved(Int32, Int32, String)
   ToggleInitForm
   InputInit(String, String)
   InitializeDefault
@@ -126,7 +134,7 @@ enum CharterMsg {
   ToggleResourceForm
   InputResource(String, String)
   SubmitResource
-} derive(Debug, Eq)
+}
 
 ///|
 fn charter_initial() -> CompanyCharterState {
@@ -168,20 +176,27 @@ fn charter_initial() -> CompanyCharterState {
 }
 
 ///|
-fn charter_achieved_pct(charter : CompanyCharter) -> Int {
+fn charter_achieved_pct(charter : CompanyCharter) -> Int32 {
   let mut total = 0
   for stage in charter.stages {
     if stage.status == "achieved" {
       total += stage.weight_pct
     }
   }
-  if total > 100 { 100 } else if total < 0 { 0 } else { total }
+  if total > 100 {
+    100
+  } else if total < 0 {
+    0
+  } else {
+    total
+  }
 }
 
 ///|
 fn charter_active_stage(charter : CompanyCharter) -> CharterStage? {
   if !charter.mission.active_stage_id.is_empty() {
-    match charter.stages.filter(s => s.id == charter.mission.active_stage_id).get(0) {
+    match
+      charter.stages.filter(s => s.id == charter.mission.active_stage_id).get(0) {
       Some(stage) => return Some(stage)
       None => ()
     }
@@ -301,7 +316,9 @@ fn charter_starter_template(
         reports_to: "",
         kind: "human",
         mission: "把关核心方向、关键 20% 拍板与最终成果签收。",
-        powers: ["定义使命与阶段权重", "审批关键交付与外部承诺", "授权或调整 Agent 边界"],
+        powers: [
+          "定义使命与阶段权重", "审批关键交付与外部承诺", "授权或调整 Agent 边界",
+        ],
         limits: ["不陷于可委派的重复执行细节"],
         skill_ref: "",
         model: "",
@@ -315,8 +332,12 @@ fn charter_starter_template(
         reports_to: "founder",
         kind: "agent",
         mission: "拆解阶段目标、编排专员并行产出并汇总可审查版本。",
-        powers: ["拆解任务并调度专业 Agent", "汇总交付草稿并提交审阅"],
-        limits: ["不得越权签收最终交付", "不得修改原始只读语料"],
+        powers: [
+          "拆解任务并调度专业 Agent", "汇总交付草稿并提交审阅",
+        ],
+        limits: [
+          "不得越权签收最终交付", "不得修改原始只读语料",
+        ],
         skill_ref: "skills/coordinator/SKILL.md",
         model: "",
         version: "v1",
@@ -329,7 +350,9 @@ fn charter_starter_template(
         reports_to: "coordinator",
         kind: "agent",
         mission: "对照原始证据与验收标准执行独立核验与反证检查。",
-        powers: ["审查引文与证据一致性", "提出阻断项与修改建议"],
+        powers: [
+          "审查引文与证据一致性", "提出阻断项与修改建议",
+        ],
         limits: ["不得自行修改执行者产出并直接验收"],
         skill_ref: "skills/reviewer/SKILL.md",
         model: "",
@@ -358,7 +381,7 @@ extern "js" fn charter_fetch(
   method_ : String,
   key : String,
   body : String,
-  receive : (Int, String) -> Unit,
+  receive : (Int32, String) -> Unit,
 ) =
   #| (url, method, key, body, receive) => {
   #|   const controller = typeof AbortController === "function" ? new AbortController() : null;
@@ -390,4 +413,3 @@ extern "js" fn charter_fetch(
   #|     finish(0, "");
   #|   }
   #| }
-

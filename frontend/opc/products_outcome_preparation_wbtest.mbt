@@ -16,7 +16,7 @@ test "chosen outcome survives the required project selection before preparing a 
 }
 
 ///|
-fn outcome_test_read(model : Model, status : Int, body : String) -> Model {
+fn outcome_test_read(model : Model, status : Int32, body : String) -> Model {
   products_test_update(
     model,
     ProjectsRead(

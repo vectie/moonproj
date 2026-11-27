@@ -163,7 +163,7 @@ async test "company report retries retain exact named output and report receipt 
     company_field(company_report_response(envelope, true), "command"),
     "command",
   )
-  let reordered : Map[String, Json] = {}
+  let reordered : Map[String, Json] = Map([])
   let keys = original_command.keys().to_array()
   for index in 0..<keys.length() {
     let key = keys[keys.length() - index - 1]

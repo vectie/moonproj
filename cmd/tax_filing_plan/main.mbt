@@ -4,10 +4,11 @@
 /// This is deliberately a narrow, deterministic boundary: it validates source
 /// identity, rates, filing authority and final state, but never pays tax,
 /// posts accounting, releases cash, or calls an external authority.
+#derive(Debug)
 pub(all) suberror TaxFilingPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> TaxFilingPlanError {
@@ -247,19 +248,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: tax_filing_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     TaxFilingPlanError::InvalidInput(message) => {
       println("tax-filing plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     TaxFilingPlanError::Io(_) => {
       println("tax-filing plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

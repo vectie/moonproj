@@ -1,16 +1,18 @@
 ///|
 /// Editable customer-facing text, separate from the captured result body.
+#derive(Debug, Eq)
 pub(all) struct Note {
   title : String
   summary : String
   review_request : String
   filename : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug)
 pub suberror InvalidPacket {
   Invalid(String)
-} derive(Debug)
+}
 
 ///|
 fn field(value : Json, key : String) -> Json {
@@ -157,7 +159,7 @@ pub fn readme(note : Note) -> String {
 }
 
 ///|
-fn crc32(bytes : Bytes) -> UInt {
+fn crc32(bytes : Bytes) -> UInt32 {
   let mut crc = 0xffffffffU
   for byte in bytes {
     crc = crc ^ byte.to_uint()
@@ -169,7 +171,7 @@ fn crc32(bytes : Bytes) -> UInt {
 }
 
 ///|
-fn short(buffer : @buffer.Buffer, value : Int) -> Unit {
+fn short(buffer : @buffer.Buffer, value : Int32) -> Unit {
   buffer.write_byte((value & 255).to_byte())
   buffer.write_byte(((value >> 8) & 255).to_byte())
 }
@@ -189,7 +191,7 @@ fn zip(files : Array[(String, Bytes)]) -> Bytes {
     short(extra, 5 + name.length())
     extra.write_byte(1)
     extra.write_uint_le(crc32(name))
-    extra.write_bytes(name)
+    extra.write_bytesview(name)
     let checksum = crc32(bytes)
     let offset = output.length()
     output.write_uint_le(0x04034b50U)
@@ -201,9 +203,9 @@ fn zip(files : Array[(String, Bytes)]) -> Bytes {
     output.write_int_le(bytes.length())
     short(output, name.length())
     short(output, extra.length())
-    output.write_bytes(name)
-    output.write_bytes(extra.to_bytes())
-    output.write_bytes(bytes)
+    output.write_bytesview(name)
+    output.write_bytesview(extra.to_bytes())
+    output.write_bytesview(bytes)
     directory.write_uint_le(0x02014b50U)
     for value in [20, 20, 2048, 0, 0, 33] {
       short(directory, value)
@@ -218,11 +220,11 @@ fn zip(files : Array[(String, Bytes)]) -> Bytes {
     }
     directory.write_int_le(0)
     directory.write_int_le(offset)
-    directory.write_bytes(name)
-    directory.write_bytes(extra.to_bytes())
+    directory.write_bytesview(name)
+    directory.write_bytesview(extra.to_bytes())
   }
   let offset = output.length()
-  output.write_bytes(directory.to_bytes())
+  output.write_bytesview(directory.to_bytes())
   output.write_uint_le(0x06054b50U)
   short(output, 0)
   short(output, 0)
@@ -239,7 +241,7 @@ fn zip(files : Array[(String, Bytes)]) -> Bytes {
 pub fn archive(
   source : String,
   note : Note,
-  include_source? : Bool = false,
+  include_source~ : Bool = false,
 ) -> Bytes raise InvalidPacket {
   let error = validate_note(note)
   if !error.is_empty() {

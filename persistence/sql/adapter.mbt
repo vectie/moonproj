@@ -1,35 +1,40 @@
 ///|
 /// A parameterized statement emitted by the persistence boundary. Values are
 /// kept out of `sql`; a concrete driver is responsible for binding `params`.
+#derive(Debug, Eq)
 pub(all) struct SqlCommand {
   sql : String
   params : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum SqlTransactionState {
   Prepared
   Committed
   RolledBack
-} derive(Debug, Eq)
+}
 
 ///|
 /// A driver-neutral transaction plan. The plan can be committed or rolled
 /// back exactly once; executing the commands is deliberately left to an
 /// application-owned database adapter.
+#derive(Debug, Eq)
 pub(all) struct SqlTransaction {
   commands : Array[SqlCommand]
   state : SqlTransactionState
-} derive(Debug, Eq)
+}
 
 ///|
 /// SQL adapter metadata and the schema version it has validated.
+#derive(Debug, Eq)
 pub(all) struct SqlAdapter {
   schema : @schema.SchemaState
   catalog : Array[SqlMigration]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror SqlAdapterError {
   EmptyBatch
   DuplicateRecord
@@ -40,7 +45,7 @@ pub(all) suberror SqlAdapterError {
   Store(@store.StoreError)
   Durable(@store.DurableStoreError)
   Catalog(SqlCatalogError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn SqlAdapter::new(
@@ -49,7 +54,7 @@ pub fn SqlAdapter::new(
   let schema = validate_catalog(@schema.SchemaState::initial(), catalog) catch {
     error => raise SqlAdapterError::Catalog(error)
   }
-  { schema, catalog: catalog.copy() }
+  { schema, catalog: catalog.copy(), }
 }
 
 ///|
@@ -110,7 +115,7 @@ pub fn SqlAdapter::prepare_batch(
     sources.push(record.source_id)
     commands.push(insert_command(record))
   }
-  { commands, state: SqlTransactionState::Prepared }
+  { commands, state: SqlTransactionState::Prepared, }
 }
 
 ///|
@@ -120,7 +125,7 @@ pub fn SqlTransaction::commit(
   if self.state != SqlTransactionState::Prepared {
     raise SqlAdapterError::InvalidTransactionState
   }
-  { ..self, state: SqlTransactionState::Committed }
+  { ..self, state: SqlTransactionState::Committed, }
 }
 
 ///|
@@ -130,7 +135,7 @@ pub fn SqlTransaction::rollback(
   if self.state != SqlTransactionState::Prepared {
     raise SqlAdapterError::InvalidTransactionState
   }
-  { ..self, state: SqlTransactionState::RolledBack }
+  { ..self, state: SqlTransactionState::RolledBack, }
 }
 
 ///|
@@ -140,7 +145,7 @@ fn command_record(
   if command.sql != insert_sql() || command.params.length() != 5 {
     raise SqlAdapterError::InvalidCommand
   }
-  let schema_version : Int = @string.from_str(command.params[2]) catch {
+  let schema_version : Int32 = @string.from_str(command.params[2]) catch {
     _ => raise SqlAdapterError::InvalidCommand
   }
   @store.StoredRecord::new(
@@ -180,7 +185,7 @@ pub fn SqlTransaction::apply_to_store(
   let next_store = store.append_batch(records) catch {
     error => raise SqlAdapterError::Store(error)
   }
-  ({ ..self, state: SqlTransactionState::Committed }, next_store)
+  ({ ..self, state: SqlTransactionState::Committed, }, next_store)
 }
 
 ///|
@@ -198,5 +203,5 @@ pub fn SqlTransaction::apply_to_durable_store(
   let next_durable = durable.transact(records) catch {
     error => raise SqlAdapterError::Durable(error)
   }
-  ({ ..self, state: SqlTransactionState::Committed }, next_durable)
+  ({ ..self, state: SqlTransactionState::Committed, }, next_durable)
 }

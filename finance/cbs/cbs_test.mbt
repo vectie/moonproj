@@ -13,7 +13,7 @@ fn cbs_grant(capability : String, scope : String) -> @foundation.AuthorityGrant 
 
 ///|
 test "CBS version protects subjects and freezes target cost" {
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
     version_id="cbs-v1",
     project_scope="project:p-001",
     actor_id="alice",
@@ -49,13 +49,13 @@ test "CBS version protects subjects and freezes target cost" {
     actor_id="alice",
     grant=cbs_grant("cbs:freeze", "project:p-001"),
   )
-  assert_true(frozen.state == CbsVersionState::Frozen)
+  assert_true(frozen.state == @cbs.CbsVersionState::Frozen)
   assert_eq(frozen.target_total_minor(), 120000)
 }
 
 ///|
 test "CBS version rejects duplicate subject codes" {
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
     version_id="cbs-v2",
     project_scope="project:p-001",
     actor_id="alice",
@@ -85,7 +85,7 @@ test "CBS version rejects duplicate subject codes" {
       grant=cbs_grant("cbs:edit", "project:p-001"),
     )
   catch {
-    CbsError::DuplicateCode => ()
+    @cbs.CbsError::DuplicateCode => ()
     _ => fail("wrong cbs error")
   } noraise {
     _ => fail("expected cbs error")
@@ -94,7 +94,7 @@ test "CBS version rejects duplicate subject codes" {
 
 ///|
 test "CBS activation rejects an unknown parent" {
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
     version_id="cbs-parent-missing",
     project_scope="project:p-001",
     actor_id="alice",
@@ -116,7 +116,7 @@ test "CBS activation rejects an unknown parent" {
       grant=cbs_grant("cbs:activate", "project:p-001"),
     )
   catch {
-    CbsError::UnknownParent => ()
+    @cbs.CbsError::UnknownParent => ()
     _ => fail("wrong CBS parent error")
   } noraise {
     _ => fail("expected unknown CBS parent")
@@ -125,7 +125,7 @@ test "CBS activation rejects an unknown parent" {
 
 ///|
 test "CBS activation rejects hierarchy cycles" {
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
       version_id="cbs-parent-cycle",
       project_scope="project:p-001",
       actor_id="alice",
@@ -159,7 +159,7 @@ test "CBS activation rejects hierarchy cycles" {
       grant=cbs_grant("cbs:activate", "project:p-001"),
     )
   catch {
-    CbsError::HierarchyCycle => ()
+    @cbs.CbsError::HierarchyCycle => ()
     _ => fail("wrong CBS cycle error")
   } noraise {
     _ => fail("expected CBS hierarchy cycle")
@@ -168,7 +168,7 @@ test "CBS activation rejects hierarchy cycles" {
 
 ///|
 test "active CBS version links a cost source to a governed subject" {
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
       version_id="cbs-link-v1",
       project_scope="project:p-001",
       actor_id="alice",
@@ -204,7 +204,7 @@ test "active CBS version links a cost source to a governed subject" {
 
 ///|
 test "CBS cost link rejects an unknown subject" {
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
       version_id="cbs-link-v2",
       project_scope="project:p-001",
       actor_id="alice",
@@ -235,7 +235,7 @@ test "CBS cost link rejects an unknown subject" {
       grant=cbs_grant("cbs:cost:link", "project:p-001"),
     )
   catch {
-    CbsError::UnknownSubject => ()
+    @cbs.CbsError::UnknownSubject => ()
     _ => fail("wrong cbs error")
   } noraise {
     _ => fail("expected unknown subject error")
@@ -244,7 +244,7 @@ test "CBS cost link rejects an unknown subject" {
 
 ///|
 test "CBS budget ledger reserves consumes and persists subject control" {
-  let active = CbsVersion::new(
+  let active = @cbs.CbsVersion::new(
       version_id="cbs-budget-v1",
       project_scope="project:p-001",
       actor_id="alice",
@@ -273,7 +273,7 @@ test "CBS budget ledger reserves consumes and persists subject control" {
     actor_id="alice",
     grant=cbs_grant("cbs:cost:link", "project:p-001"),
   )
-  let ledger = CbsBudgetLedger::new(
+  let ledger = @cbs.CbsBudgetLedger::new(
     active,
     principal_id="co-001",
     currency="CNY",
@@ -285,7 +285,7 @@ test "CBS budget ledger reserves consumes and persists subject control" {
     actor_id="alice",
     grant=cbs_grant("cbs:budget:reserve", "project:p-001"),
   )
-  assert_true(reservation.state == CbsBudgetReservationState::Reserved)
+  assert_true(reservation.state == @cbs.CbsBudgetReservationState::Reserved)
   assert_eq(reserved.reserved_minor(), 60000L)
   let consumed = reserved.consume(
     reservation_id="cbs-reservation-001",
@@ -311,7 +311,7 @@ test "CBS budget ledger reserves consumes and persists subject control" {
       grant=cbs_grant("cbs:budget:reserve", "project:p-001"),
     )
   catch {
-    CbsError::BudgetExceeded => ()
+    @cbs.CbsError::BudgetExceeded => ()
     _ => fail("wrong CBS budget error")
   } noraise {
     _ => fail("expected CBS budget error")
@@ -350,7 +350,7 @@ test "CBS versions persist subjects and target totals" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
       version_id="cbs-projection",
       project_scope="project:p-001",
       actor_id="alice",
@@ -396,7 +396,7 @@ test "CBS cost links persist source and subject identity" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let version = CbsVersion::new(
+  let version = @cbs.CbsVersion::new(
       version_id="cbs-link-projection",
       project_scope="project:p-001",
       actor_id="alice",

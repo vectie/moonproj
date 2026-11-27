@@ -1,24 +1,27 @@
 ///|
 /// Representative legacy project row from `ep_project` and lifecycle metadata.
+#derive(Debug, Eq)
 pub(all) struct LegacyProjectRow {
   proj_guid : String
   bu_guid : String
   proj_code : String
   proj_name : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative `mu_business_unit` row.
+#derive(Debug, Eq)
 pub(all) struct LegacyBusinessUnitRow {
   bu_guid : String
   parent_guid : String?
   bu_code : String
   bu_name : String
   bu_type : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative legacy contract row from `cb_contract`.
+#derive(Debug, Eq)
 pub(all) struct LegacyContractRow {
   contract_guid : String
   bu_guid : String
@@ -26,30 +29,33 @@ pub(all) struct LegacyContractRow {
   provider_guid : String
   ht_amount_minor : Int64
   currency : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative legacy dynamic-cost row after CBS classification.
+#derive(Debug, Eq)
 pub(all) struct LegacyCostRow {
   currency : String
   direct_minor : Int64
   indirect_minor : Int64
   contingency_minor : Int64
   other_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative `srm_provider` row.
+#derive(Debug, Eq)
 pub(all) struct LegacySupplierRow {
   provider_guid : String
   bu_guid : String
   provider_code : String
   provider_name : String
   category_code : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative `tender_plan` row.
+#derive(Debug, Eq)
 pub(all) struct LegacyTenderRow {
   tender_guid : String
   bu_guid : String
@@ -58,22 +64,24 @@ pub(all) struct LegacyTenderRow {
   category : String
   estimated_amount_minor : Int64
   currency : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative `cb_contract_milestone` row.
+#derive(Debug, Eq)
 pub(all) struct LegacyMilestoneRow {
   milestone_guid : String
   contract_guid : String
-  sequence : Int
+  sequence : Int32
   node_name : String
   trigger_type : String
   plan_amount_minor : Int64
   plan_pct_bps : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative invoice row normalized for the target.
+#derive(Debug, Eq)
 pub(all) struct LegacyInvoiceRow {
   invoice_guid : String
   bu_guid : String
@@ -81,10 +89,11 @@ pub(all) struct LegacyInvoiceRow {
   source_id : String
   amount_minor : Int64
   currency : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative expense row plus its primary split.
+#derive(Debug, Eq)
 pub(all) struct LegacyExpenseRow {
   expense_guid : String
   bu_guid : String
@@ -93,20 +102,22 @@ pub(all) struct LegacyExpenseRow {
   cost_subject : String
   amount_minor : Int64
   currency : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative `vcb_loan_simple` row.
+#derive(Debug, Eq)
 pub(all) struct LegacyAdvanceRow {
   loan_guid : String
   bu_guid : String
   employee_guid : String
   amount_minor : Int64
   currency : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Representative repayment/expense-offset row from `cb_loan_offset`.
+#derive(Debug, Eq)
 pub(all) struct LegacyAdvanceOffsetRow {
   offset_guid : String
   loan_guid : String
@@ -114,9 +125,10 @@ pub(all) struct LegacyAdvanceOffsetRow {
   offset_date : String
   related_expense_guid : String?
   operator_guid : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ErpImportError {
   MissingIdentifier
   InvalidValue
@@ -142,7 +154,7 @@ pub(all) suberror ErpImportError {
   Identity(@foundation.IdentityError)
   Evidence(@evidence.EvidenceError)
   Parameter(@foundation.ParameterError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn import_business_unit(

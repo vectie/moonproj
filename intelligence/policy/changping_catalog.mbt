@@ -4,7 +4,7 @@ fn changping_rule(
   phrases : Array[String],
   topic : String,
   lane : BusinessLane,
-  base_score : Int,
+  base_score : Int32,
   audience : String,
   proposed_offer : String,
   next_action : String,

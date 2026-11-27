@@ -2,24 +2,27 @@
 /// An append-only revision of a domain aggregate. The payload is an opaque
 /// domain snapshot; `source_event_id` makes replay and migration idempotency
 /// explicit at the persistence boundary.
+#derive(Debug, Eq)
 pub(all) struct AggregateRevision {
   aggregate_type : String
   aggregate_id : String
-  revision : Int
-  schema_version : Int
+  revision : Int32
+  schema_version : Int32
   payload : String
   source_event_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AggregateProjection {
   aggregate_type : String
   aggregate_id : String
-  revision : Int
+  revision : Int32
   store : RecordStore
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ProjectionError {
   EmptyAggregateType
   EmptyAggregateId
@@ -28,7 +31,7 @@ pub(all) suberror ProjectionError {
   RevisionConflict
   InvalidHistory
   Store(StoreError)
-} derive(Debug, Eq)
+}
 
 ///|
 fn projection_record_type(aggregate_type : String) -> String {
@@ -36,7 +39,7 @@ fn projection_record_type(aggregate_type : String) -> String {
 }
 
 ///|
-fn projection_record_id(aggregate_id : String, revision : Int) -> String {
+fn projection_record_id(aggregate_id : String, revision : Int32) -> String {
   aggregate_id + "@r" + revision.to_string()
 }
 
@@ -45,7 +48,7 @@ fn projection_count(
   store : RecordStore,
   aggregate_type : String,
   aggregate_id : String,
-) -> Int {
+) -> Int32 {
   let record_type = projection_record_type(aggregate_type)
   let prefix = aggregate_id + "@r"
   let mut count = 0
@@ -80,13 +83,13 @@ pub fn AggregateProjection::new(
       raise ProjectionError::InvalidHistory
     }
   }
-  { aggregate_type, aggregate_id, revision, store }
+  { aggregate_type, aggregate_id, revision, store, }
 }
 
 ///|
 pub fn AggregateProjection::append(
   self : AggregateProjection,
-  expected_revision~ : Int,
+  expected_revision~ : Int32,
   payload~ : String,
   source_event_id~ : String,
 ) -> AggregateProjection raise ProjectionError {
@@ -111,7 +114,7 @@ pub fn AggregateProjection::append(
   let store = self.store.append(record) catch {
     error => raise ProjectionError::Store(error)
   }
-  { ..self, revision: expected_revision, store }
+  { ..self, revision: expected_revision, store, }
 }
 
 ///|

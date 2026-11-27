@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror RelationshipAuditError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct Relation {
@@ -15,7 +16,7 @@ struct Relation {
 ///|
 struct Record {
   relation : Relation
-  references : Int
+  references : Int32
   orphans : Array[String]
 }
 
@@ -31,7 +32,7 @@ fn relation(
   target_table : String,
   target_column : String,
 ) -> Relation {
-  { source_table, source_column, target_table, target_column }
+  { source_table, source_column, target_table, target_column, }
 }
 
 ///|
@@ -219,7 +220,7 @@ fn write_sql(work_dir : String) -> Unit raise RelationshipAuditError {
 }
 
 ///|
-fn parse_int(value : String) -> Int raise RelationshipAuditError {
+fn parse_int(value : String) -> Int32 raise RelationshipAuditError {
   let source = value.trim().to_owned()
   if source.is_empty() {
     raise fail("invalid relationship reference count")
@@ -240,7 +241,7 @@ fn decode_hex(value : String) -> String raise RelationshipAuditError {
     raise fail("invalid relationship orphan value")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -313,7 +314,7 @@ fn parse_records(path : String) -> Array[Record] raise RelationshipAuditError {
           }
         }
         if !found {
-          records.push({ relation: rel, references: 0, orphans: [value] })
+          records.push({ relation: rel, references: 0, orphans: [value], })
         }
       } else {
         raise fail("unexpected relationship audit record type")
@@ -434,15 +435,15 @@ fn run(args : Array[String]) -> Unit raise RelationshipAuditError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     RelationshipAuditError::InvalidInput(message) => {
       println("ERP relationship audit failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     RelationshipAuditError::Io(_) => {
       println("ERP relationship audit failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

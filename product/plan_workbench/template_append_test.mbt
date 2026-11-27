@@ -117,26 +117,32 @@ test "phase append rejects currency identity mapping and combined limit mistakes
   let t = reusable_template()
   let target = phase_append_target()
   for bad in [{ ..t, currency: "EUR", }, { ..t, tasks: [], }] {
-    let result = try
-      Ok(@plan_workbench.append_template(bad, target, "alex", "lead", "fresh"))
-    catch {
+    let result = Ok(
+      @plan_workbench.append_template(bad, target, "alex", "lead", "fresh"),
+    ) catch {
       e => Err(e)
     }
     assert_true(result is Err(_))
   }
   assert_true(
-    (try Ok(@plan_workbench.append_template(t, target, "alex", "unknown", "fresh")) catch { e => Err(e) })
+    (Ok(@plan_workbench.append_template(t, target, "alex", "unknown", "fresh")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_true(
-    (try Ok(@plan_workbench.append_template(t, target, "missing", "lead", "fresh")) catch { e => Err(e) })
+    (Ok(@plan_workbench.append_template(t, target, "missing", "lead", "fresh")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let imported = @plan_workbench.append_template(
     t, target, "alex", "lead", "fresh",
   )
   assert_true(
-    (try Ok(@plan_workbench.append_template(t, imported, "alex", "lead", "fresh")) catch { e => Err(e) })
+    (Ok(@plan_workbench.append_template(t, imported, "alex", "lead", "fresh")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let many = {
@@ -148,7 +154,9 @@ test "phase append rejects currency identity mapping and combined limit mistakes
     risks: [],
   }
   assert_true(
-    (try Ok(@plan_workbench.append_template(t, many, "alex", "lead", "fresh")) catch { e => Err(e) })
+    (Ok(@plan_workbench.append_template(t, many, "alex", "lead", "fresh")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }
@@ -172,13 +180,17 @@ test "phase append retains incomplete authored dates costs and blank assignments
   assert_eq(after.tasks[1].owner, "")
   assert_eq(after.milestones[1].date, "target pending")
   assert_true(
-    (try Ok(@plan_workbench.request(
-      after,
-      "alex",
-      { "project_id": "project" },
-      "synthetic",
-      "digest",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.request(
+        after,
+        "alex",
+        { "project_id": "project" },
+        "synthetic",
+        "digest",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }

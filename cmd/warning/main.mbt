@@ -1,9 +1,10 @@
 ///|
+#derive(Debug)
 pub(all) suberror WarningPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Warning(@warning_domain.WarningError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise WarningPromotionError {
@@ -181,23 +182,23 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: warning <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       WarningPromotionError::InvalidInput => {
         println("warning promotion failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       WarningPromotionError::Io(_) => {
         println("warning promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       WarningPromotionError::Warning(_) => {
         println("warning promotion failed: warning validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

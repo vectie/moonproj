@@ -65,28 +65,36 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
   div(class="opc-app") <| [
     a(href="#main-content", class="skip-link", "跳到主要内容"),
     div(class="legacy-shell", hidden=model.page == Workspace) <| [
-    if model.mobile_nav {
-      button(
-        type_="button",
-        class="nav-scrim",
-        attrs=@html.Attrs::build().aria_label("关闭主导航"),
-        on_click=emit(ToggleMobileNav),
-        "",
-      )
-    } else {
-      @html.nothing
-    },
-    sidebar(emit, model),
-    div(class="app-shell") <| [
-      topbar(emit, model),
-      main_(
-        class="main-content",
-        attrs=@html.Attrs::build().id(if model.page == Workspace { "legacy-main-content" } else { "main-content" }).tabindex(-1),
-      ) <| [
-        notice_view(emit, model.notice),
-        page_view(emit, model),
+      if model.mobile_nav {
+        button(
+          type_="button",
+          class="nav-scrim",
+          attrs=@html.Attrs::build().aria_label("关闭主导航"),
+          on_click=emit(ToggleMobileNav),
+          "",
+        )
+      } else {
+        @html.nothing
+      },
+      sidebar(emit, model),
+      div(class="app-shell") <| [
+        topbar(emit, model),
+        main_(
+          class="main-content",
+          attrs=@html.Attrs::build()
+            .id(
+              if model.page == Workspace {
+                "legacy-main-content"
+              } else {
+                "main-content"
+              },
+            )
+            .tabindex(-1),
+        ) <| [
+          notice_view(emit, model.notice),
+          page_view(emit, model),
+        ],
       ],
-    ],
     ],
     workspace_shell_view(emit, model),
   ]
@@ -96,7 +104,7 @@ fn view(emit : @rabbita.Emit[Msg], model : Model) -> @html.Html {
 priv struct AppModel(Model)
 
 ///|
-impl Eq for AppModel with equal(_, _) {
+impl Eq for AppModel with fn equal(_, _) {
   false
 }
 

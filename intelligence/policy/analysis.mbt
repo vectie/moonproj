@@ -87,8 +87,8 @@ pub fn discover_policy_terms(text : String) -> Array[String] {
 fn matched_signal(
   document : PolicyDocument,
   rule : PolicySignalRule,
-) -> (Int, String)? {
-  let mut matched : (Int, String)? = None
+) -> (Int32, String)? {
+  let mut matched : (Int32, String)? = None
   for index, phrase in rule.phrases {
     if document.body.contains(phrase) {
       matched = Some((index, phrase))
@@ -122,7 +122,7 @@ fn push_node(
       return
     }
   }
-  nodes.push({ node_id, kind, label })
+  nodes.push({ node_id, kind, label, })
 }
 
 ///|
@@ -159,7 +159,7 @@ fn score_opportunity(
   document : PolicyDocument,
   rule : PolicySignalRule,
   momentum : SignalMomentum,
-) -> Int {
+) -> Int32 {
   let momentum_bonus = match momentum {
     New => 18
     Strengthened => 12

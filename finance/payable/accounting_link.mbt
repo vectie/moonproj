@@ -62,8 +62,8 @@ pub fn Payable::to_payment_event(
     entry_id: "payable/" + payment_id + "/payment",
     description: "Pay payable " + self.payable_id,
     postings: [
-      { account: payable_account, side: @finance.PostingSide::Debit, amount },
-      { account: cash_account, side: @finance.PostingSide::Credit, amount },
+      { account: payable_account, side: @finance.PostingSide::Debit, amount, },
+      { account: cash_account, side: @finance.PostingSide::Credit, amount, },
     ],
   }
   @accounting.AccountingEvent::new(

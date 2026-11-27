@@ -16,7 +16,7 @@ fn sql_test_record(
 
 ///|
 test "SQL adapter emits parameterized inserts and commits once" {
-  let adapter = SqlAdapter::new(initial_catalog())
+  let adapter = @sql.SqlAdapter::new(@sql.initial_catalog())
   let command = adapter.prepare_insert(
     sql_test_record("p-sql-001", "erp:ep_project:p-sql-001"),
   )
@@ -27,9 +27,9 @@ test "SQL adapter emits parameterized inserts and commits once" {
     sql_test_record("p-sql-002", "erp:ep_project:p-sql-002"),
   ])
   let committed = transaction.commit()
-  assert_true(committed.state is SqlTransactionState::Committed)
+  assert_true(committed.state is @sql.SqlTransactionState::Committed)
   try committed.commit() catch {
-    SqlAdapterError::InvalidTransactionState => ()
+    @sql.SqlAdapterError::InvalidTransactionState => ()
     _ => fail("wrong transaction error")
   } noraise {
     _ => fail("expected transaction error")
@@ -38,13 +38,13 @@ test "SQL adapter emits parameterized inserts and commits once" {
 
 ///|
 test "SQL adapter rejects duplicate keys and sources before execution" {
-  let adapter = SqlAdapter::new(initial_catalog())
+  let adapter = @sql.SqlAdapter::new(@sql.initial_catalog())
   let first = sql_test_record("p-sql-003", "erp:ep_project:p-sql-003")
   let duplicate_key = sql_test_record(
     "p-sql-003", "erp:ep_project:p-sql-003-replay",
   )
   try adapter.prepare_batch([first, duplicate_key]) catch {
-    SqlAdapterError::DuplicateRecord => ()
+    @sql.SqlAdapterError::DuplicateRecord => ()
     _ => fail("wrong duplicate key error")
   } noraise {
     _ => fail("expected duplicate key error")
@@ -56,7 +56,7 @@ test "SQL adapter rejects duplicate keys and sources before execution" {
     "p-sql-005", "erp:ep_project:p-sql-004",
   )
   try adapter.prepare_batch([duplicate_source, duplicate_source_again]) catch {
-    SqlAdapterError::DuplicateSource => ()
+    @sql.SqlAdapterError::DuplicateSource => ()
     _ => fail("wrong duplicate source error")
   } noraise {
     _ => fail("expected duplicate source error")
@@ -65,12 +65,12 @@ test "SQL adapter rejects duplicate keys and sources before execution" {
 
 ///|
 test "SQL adapter rollback is explicit and schema-bound" {
-  let adapter = SqlAdapter::new(initial_catalog())
+  let adapter = @sql.SqlAdapter::new(@sql.initial_catalog())
   let transaction = adapter.prepare_batch([
     sql_test_record("p-sql-006", "erp:ep_project:p-sql-006"),
   ])
   let rolled_back = transaction.rollback()
-  assert_true(rolled_back.state is SqlTransactionState::RolledBack)
+  assert_true(rolled_back.state is @sql.SqlTransactionState::RolledBack)
   try
     adapter.prepare_insert(
       @store.StoredRecord::new(
@@ -82,7 +82,7 @@ test "SQL adapter rollback is explicit and schema-bound" {
       ),
     )
   catch {
-    SqlAdapterError::RecordAheadOfSchema => ()
+    @sql.SqlAdapterError::RecordAheadOfSchema => ()
     _ => fail("wrong schema error")
   } noraise {
     _ => fail("expected schema error")
@@ -91,7 +91,7 @@ test "SQL adapter rollback is explicit and schema-bound" {
 
 ///|
 test "reference SQL executor applies a prepared plan atomically" {
-  let adapter = SqlAdapter::new(initial_catalog())
+  let adapter = @sql.SqlAdapter::new(@sql.initial_catalog())
   let schema = @schema.SchemaState::initial()
   let migration = @schema.MigrationStep::new(
     version=1,
@@ -104,10 +104,10 @@ test "reference SQL executor applies a prepared plan atomically" {
     sql_test_record("p-sql-exec", "erp:ep_project:p-sql-exec"),
   ])
   let (committed, next_store) = transaction.apply_to_store(store)
-  assert_true(committed.state is SqlTransactionState::Committed)
+  assert_true(committed.state is @sql.SqlTransactionState::Committed)
   assert_eq(next_store.count_type(record_type="project"), 1)
   try committed.apply_to_store(next_store) catch {
-    SqlAdapterError::InvalidTransactionState => ()
+    @sql.SqlAdapterError::InvalidTransactionState => ()
     _ => fail("wrong execution state error")
   } noraise {
     _ => fail("expected execution state error")
@@ -116,7 +116,7 @@ test "reference SQL executor applies a prepared plan atomically" {
 
 ///|
 test "SQL transaction applies through the durable file boundary" {
-  let adapter = SqlAdapter::new(initial_catalog())
+  let adapter = @sql.SqlAdapter::new(@sql.initial_catalog())
   let schema = @schema.SchemaState::initial()
   let migration = @schema.MigrationStep::new(
     version=1,
@@ -136,7 +136,7 @@ test "SQL transaction applies through the durable file boundary" {
     sql_test_record("p-sql-durable", "erp:ep_project:p-sql-durable"),
   ])
   let (committed, next) = transaction.apply_to_durable_store(durable)
-  assert_true(committed.state is SqlTransactionState::Committed)
+  assert_true(committed.state is @sql.SqlTransactionState::Committed)
   assert_eq(next.snapshot().count_type(record_type="project"), 1)
   let reopened = @store.DurableRecordStore::open(path, schema)
   assert_eq(reopened.snapshot().count_type(record_type="project"), 1)
@@ -145,7 +145,7 @@ test "SQL transaction applies through the durable file boundary" {
 
 ///|
 test "company SQL adapter accepts the latest projection schema" {
-  let adapter = SqlAdapter::new(company_catalog())
+  let adapter = @sql.SqlAdapter::new(@sql.company_catalog())
   let record = @store.StoredRecord::new(
     record_type="company/aggregate_projection",
     record_id="asset-001:r1",

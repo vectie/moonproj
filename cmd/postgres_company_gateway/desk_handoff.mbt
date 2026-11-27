@@ -102,7 +102,7 @@ fn desk_handoff_task_id(path : String) -> String? {
 fn desk_handoff_projection(
   task : Json,
   destination : String,
-  requested_mode? : String = "inspect",
+  requested_mode~ : String = "inspect",
 ) -> Json {
   let execution = native_field(task, "execution")
   let origin = desk_handoff_origin(destination)
@@ -178,7 +178,7 @@ async fn desk_handoff_task(
   bridge : NativeBridge,
   task_id : String,
   destination : String,
-  requested_mode? : String = "inspect",
+  requested_mode~ : String = "inspect",
 ) -> ProxyResult raise GatewayError {
   // Unlike native_refresh_task, this read never observes or resumes execution.
   let detail = native_company_request(

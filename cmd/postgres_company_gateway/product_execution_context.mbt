@@ -4,7 +4,7 @@ fn native_context_hash(bytes : Bytes) -> String {
 }
 
 ///|
-fn native_context_int(value : Json, key : String) -> Int {
+fn native_context_int(value : Json, key : String) -> Int32 {
   match native_field(value, key) {
     Number(number, ..) => number.to_int()
     _ => -1
@@ -12,7 +12,7 @@ fn native_context_int(value : Json, key : String) -> Int {
 }
 
 ///|
-async fn native_context_read(path : String, limit : Int) -> Bytes? {
+async fn native_context_read(path : String, limit : Int32) -> Bytes? {
   try {
     let file = @fs.open(path, mode=@fs.ReadOnly)
     defer file.close()
@@ -124,7 +124,7 @@ async fn native_context_prd(
   }
   let fields = match base {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   for key in ["text_sha256", "extraction_version", "coverage", "limitations"] {
     fields.set(key, native_field(extraction, key))

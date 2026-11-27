@@ -1,14 +1,16 @@
 ///|
 /// The three circuits that must remain healthy for a viable OPC.
+#derive(Debug, Eq)
 pub(all) enum OperatingCircuit {
   Economic
   Operating
   Governance
-} derive(Debug, Eq)
+}
 
 ///|
 /// The minimum organizational systems that exist even when one person holds
 /// several roles.
+#derive(Debug, Eq)
 pub(all) enum CompanySystem {
   Principal
   Market
@@ -16,30 +18,33 @@ pub(all) enum CompanySystem {
   Control
   Learning
   Continuity
-} derive(Debug, Eq)
+}
 
 ///|
 /// A stable product capability. IDs are the compatibility contract used by
 /// profiles and extension packs; labels may evolve without changing the ID.
+#derive(Debug, Eq)
 pub(all) struct Capability {
   id : String
   label : String
   circuit : OperatingCircuit
   system : CompanySystem
-} derive(Debug, Eq)
+}
 
 ///|
 /// A standalone product profile. The base OPC profile has no active extension.
+#derive(Debug, Eq)
 pub(all) struct ProductProfile {
   profile_id : String
   name : String
   capabilities : Array[Capability]
   active_extensions : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 /// A domain pack that adds capability without becoming a dependency of the
 /// generic OPC core.
+#derive(Debug, Eq)
 pub(all) struct ExtensionPack {
   extension_id : String
   name : String
@@ -48,15 +53,16 @@ pub(all) struct ExtensionPack {
   mount_path : String
   capabilities : Array[Capability]
   route_prefixes : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ProductCatalogError {
   EmptyIdentifier
   DuplicateCapability(String)
   IncompatibleBase(expected~ : String, actual~ : String)
   ExtensionAlreadyActive(String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn validate_capabilities(
@@ -84,7 +90,7 @@ pub fn ProductProfile::new(
     raise EmptyIdentifier
   }
   validate_capabilities(capabilities)
-  { profile_id, name, capabilities, active_extensions: [] }
+  { profile_id, name, capabilities, active_extensions: [], }
 }
 
 ///|
@@ -167,5 +173,5 @@ pub fn ProductProfile::activate(
   }
   let active_extensions = self.active_extensions.copy()
   active_extensions.push(extension.extension_id)
-  { ..self, capabilities, active_extensions }
+  { ..self, capabilities, active_extensions, }
 }

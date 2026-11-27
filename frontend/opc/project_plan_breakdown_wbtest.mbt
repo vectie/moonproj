@@ -137,7 +137,10 @@ test "breakdown UI previews applies persists exports and prepares complete rewir
     ToJson::to_json(edited),
   )
   ignore(
-    plan_test_file("breakdown-after.json", ToJson::to_json(edited).stringify(indent=2)),
+    plan_test_file(
+      "breakdown-after.json",
+      ToJson::to_json(edited).stringify(indent=2),
+    ),
   )
   let (_, repeated) = plan_update(_ => none, Breakdown(Apply), applied)
   assert_eq(repeated.plan, applied.plan)

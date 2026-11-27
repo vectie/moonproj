@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror CutoverGateError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> CutoverGateError {
@@ -75,7 +76,7 @@ fn get_string(value : Json, key : String) -> String? {
 }
 
 ///|
-fn get_int(value : Json, key : String, default : Int) -> Int {
+fn get_int(value : Json, key : String, default : Int32) -> Int32 {
   match get(value, key) {
     Number(number, ..) if number == number.trunc() => number.to_int()
     _ => default
@@ -92,7 +93,7 @@ fn get_bool(value : Json, key : String) -> Bool? {
 }
 
 ///|
-fn json_int(value : Int) -> Json {
+fn json_int(value : Int32) -> Json {
   Json::number(value.to_double(), repr=value.to_string())
 }
 
@@ -102,7 +103,7 @@ fn eq_string(value : Json, expected : String) -> Bool {
 }
 
 ///|
-fn eq_int(value : Json, expected : Int) -> Bool {
+fn eq_int(value : Json, expected : Int32) -> Bool {
   match value {
     Number(number, ..) => number == expected.to_double()
     _ => false
@@ -162,7 +163,7 @@ fn mapping_check(
   file : String,
   name : String,
   wave : String,
-  mapped_tables : Int,
+  mapped_tables : Int32,
 ) -> Unit {
   let path = work_dir + "/" + file
   match try_json(path) {
@@ -199,15 +200,15 @@ fn mapping_check(
 fn run(
   work_dir : String,
   output : String,
-  expected_raw : Int,
-  expected_projections : Int,
-  expected_links : Int,
+  expected_raw : Int32,
+  expected_projections : Int32,
+  expected_links : Int32,
   integrity : String,
-  schema_version : Int,
-  raw_count : Int,
-  projection_count : Int,
-  link_count : Int,
-  receipt_count : Int,
+  schema_version : Int32,
+  raw_count : Int32,
+  projection_count : Int32,
+  link_count : Int32,
+  receipt_count : Int32,
 ) -> Unit raise CutoverGateError {
   let checks : Array[Json] = []
   let staging = required_object(work_dir + "/raw-staging.ndjson.manifest.json")
@@ -958,12 +959,12 @@ fn run(
     }).stringify(),
   )
   if !technical_passed {
-    @sys.exit(1)
+    @env.exit(1)
   }
 }
 
 ///|
-fn parse_int(value : String) -> Int raise CutoverGateError {
+fn parse_int(value : String) -> Int32 raise CutoverGateError {
   let text = value.trim().to_owned()
   if text.is_empty() {
     raise fail("expected integer")
@@ -988,12 +989,12 @@ fn parse_int(value : String) -> Int raise CutoverGateError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 12 {
     println(
       "usage: cutover_gate WORK_DIR OUTPUT EXPECTED_RAW EXPECTED_PROJECTIONS EXPECTED_LINKS INTEGRITY SCHEMA RAW PROJECTIONS LINKS RECEIPTS",
     )
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(
       args[1],
@@ -1010,11 +1011,11 @@ fn main {
     ) catch {
       CutoverGateError::InvalidInput(message) => {
         println("company cutover gate failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
       }
       CutoverGateError::Io(_) => {
         println("company cutover gate failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

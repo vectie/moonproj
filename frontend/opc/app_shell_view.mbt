@@ -371,4 +371,3 @@ fn empty_table(
     ],
   ]
 }
-

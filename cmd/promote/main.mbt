@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror PromotionError {
   InvalidArguments
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Erp(@erp.ErpImportError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise PromotionError {
@@ -76,7 +77,7 @@ fn required_int64(
 fn optional_int(
   obj : Map[String, Json],
   key : String,
-) -> Int? raise PromotionError {
+) -> Int32? raise PromotionError {
   match obj.get(key) {
     None | Some(Null) => None
     Some(Number(value, ..)) if value == value.trunc() => Some(value.to_int())
@@ -125,7 +126,7 @@ fn strings_json(values : Array[String]) -> Json {
 }
 
 ///|
-fn ints_json(values : Array[Int]) -> Json {
+fn ints_json(values : Array[Int32]) -> Json {
   let encoded : Array[Json] = []
   for value in values {
     encoded.push(Json::number(value.to_double(), repr=value.to_string()))
@@ -219,7 +220,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
   let advance_offset_mappings : Array[@erp.LegacyAdvanceOffsetMapping] = []
   let advance_offset_grants : Array[@foundation.AuthorityGrant] = []
   let advance_offset_ids : Array[String] = []
-  let advance_offset_amounts : Array[Int] = []
+  let advance_offset_amounts : Array[Int32] = []
   let workflow_definitions : Array[@erp.LegacyWorkflowDefinitionRow] = []
   let workflow_steps : Array[@erp.LegacyWorkflowStepRow] = []
   let workflow_capabilities : Array[@erp.LegacyWorkflowCapability] = []
@@ -231,7 +232,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
   let task_rows : Array[Array[@erp.LegacyTaskRow]] = []
   let task_grants : Array[@foundation.AuthorityGrant] = []
   let task_plan_project_ids : Array[String] = []
-  let task_plan_task_counts : Array[Int] = []
+  let task_plan_task_counts : Array[Int32] = []
   let task_plans : Array[@project.ProjectPlan] = []
   let task_state_project_ids : Array[String] = []
   let task_state_rows : Array[Array[@erp.LegacyTaskRow]] = []
@@ -307,7 +308,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
           fail_login_count: 0,
           last_login_time: None,
         })
-        user_mappings.push({ user_id, principal_id, authority_scope: scope })
+        user_mappings.push({ user_id, principal_id, authority_scope: scope, })
         user_grants.push(
           grant(
             "promotion/" + source_id,
@@ -371,7 +372,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
           })
         }
         parameter_rows.push(options)
-        parameter_mappings.push({ parameter_name, principal_id, scope })
+        parameter_mappings.push({ parameter_name, principal_id, scope, })
         parameter_grants.push(
           grant(
             "promotion/" + source_id + "/create",
@@ -873,7 +874,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
   let promoted_commitments = imported_contracts.copy()
   for index in 0..<commitment_state_ids.length() {
     let commitment_id = commitment_state_ids[index]
-    let mut found_index : Int? = None
+    let mut found_index : Int32? = None
     for position in 0..<promoted_commitments.length() {
       if promoted_commitments[position].commitment_id == commitment_id {
         found_index = Some(position)
@@ -1003,7 +1004,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
     task_plan_task_counts.push(plan.tasks.length())
     task_plans.push(plan)
   }
-  let task_state_project_counts : Array[Int] = []
+  let task_state_project_counts : Array[Int32] = []
   for index in 0..<task_state_project_ids.length() {
     let project_id = task_state_project_ids[index]
     let mut found : @project.ProjectPlan? = None
@@ -1037,7 +1038,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
     error => raise PromotionError::Erp(error)
   }
   let promoted_investment_ids : Array[String] = []
-  let promoted_investment_counts : Array[Int] = []
+  let promoted_investment_counts : Array[Int32] = []
   for model in imported_investment_models {
     promoted_investment_ids.push(model.version.version_id)
     promoted_investment_counts.push(model.indexes.length())
@@ -1080,7 +1081,7 @@ fn run(plan_path : String, output_path : String) -> Unit raise PromotionError {
     audit_ids.push(record.audit_id)
   }
   let parameter_names : Array[String] = []
-  let parameter_option_counts : Array[Int] = []
+  let parameter_option_counts : Array[Int32] = []
   for dictionary in imported_parameters {
     parameter_names.push(dictionary.parameter_name)
     parameter_option_counts.push(dictionary.options.length())
@@ -1264,31 +1265,31 @@ fn project_id_from_scope(scope : String) -> String raise PromotionError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: promote <promotion-plan.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       PromotionError::Quarantined(source) => {
         println("promotion refused quarantined item: " + source)
-        @sys.exit(1)
+        @env.exit(1)
       }
       PromotionError::InvalidInput => {
         println("promotion failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       PromotionError::Io(_) => {
         println("promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       PromotionError::Erp(error) => {
-        println("promotion failed: domain invariant \{to_repr(error)}")
-        @sys.exit(1)
+        println("promotion failed: domain invariant \{Repr(error)}")
+        @env.exit(1)
       }
       _ => {
         println("promotion failed")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

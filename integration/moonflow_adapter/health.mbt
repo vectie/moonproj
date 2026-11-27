@@ -7,8 +7,10 @@ fn health_window_seconds(
     !canonical_utc_timestamp(valid_until) {
     fail("MoonProj adapter health requires canonical UTC timestamps")
   }
-  let checked = @time.PlainDateTime::from_str(checked_at[0:19])
-  let until = @time.PlainDateTime::from_str(valid_until[0:19])
+  let checked : @time.PlainDateTime = @string.FromStr::from_str(
+    checked_at[0:19],
+  )
+  let until : @time.PlainDateTime = @string.FromStr::from_str(valid_until[0:19])
   let seconds = until.to_unix_second() - checked.to_unix_second()
   if seconds <= 0L || seconds > 3600L {
     fail("MoonProj adapter health must expire within one hour")

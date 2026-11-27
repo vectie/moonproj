@@ -2,7 +2,7 @@
 fn delivery_test_task() -> Json {
   let fields = match native_test_task() {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields["delivery_mode"] = Json::string("coordinated")
   fields["delivery_limits"] = Json::string("Local draft only; no publishing")

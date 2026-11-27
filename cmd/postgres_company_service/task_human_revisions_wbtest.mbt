@@ -1,5 +1,5 @@
 ///|
-fn human_revision_service_fixture(id? : String = "H1") -> Json {
+fn human_revision_service_fixture(id~ : String = "H1") -> Json {
   {
     "schema": "moonproj.human-revision.v1",
     "capture_scope": "immutable_human_revision",
@@ -29,7 +29,7 @@ fn human_revision_service_fixture(id? : String = "H1") -> Json {
 }
 
 ///|
-fn human_revision_service_body(revision? : Json, select? : Bool = true) -> Json {
+fn human_revision_service_body(revision? : Json, select~ : Bool = true) -> Json {
   {
     "human_revision": revision.unwrap_or(human_revision_service_fixture()),
     "select_for_delivery": select,
@@ -69,7 +69,10 @@ test "human revision explicit selection remains a sibling and preserves native e
     true,
     [],
   )
-  assert_eq(json_field(public, "human_revisions"), Some(Json::array([revision])))
+  assert_eq(
+    json_field(public, "human_revisions"),
+    Some(Json::array([revision])),
+  )
   assert_false(public.stringify().contains("PRIVATE"))
   let response = plan_task_continuation_operation_response(
     next, false, "human-select-1", request, true, 5,

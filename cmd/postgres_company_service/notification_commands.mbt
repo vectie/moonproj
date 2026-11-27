@@ -43,7 +43,7 @@ async fn notification_projection_payloads(
 async fn notification_latest_projection(
   aggregate_type : String,
   aggregate_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
     @postgres.sql_literal(aggregate_type) +
@@ -177,7 +177,7 @@ fn notification_request(
   } else {
     []
   }
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string(command_type))
   request.set("actor_id", Json::string(actor_id))
   request.set("target_id", Json::string(target_id))
@@ -207,7 +207,7 @@ fn notification_command_result(
   actor_id : String,
   target_id : String,
   state : String,
-  revision : Int,
+  revision : Int32,
   event_id : String,
   audit_id : String,
   body : Json,
@@ -304,7 +304,7 @@ async fn notification_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -475,7 +475,7 @@ async fn notification_messages_response_native(
     notification_actor(actor_id)
   }
   let coverage = observation_coverage(notification_tables())
-  let message_states : Map[String, Json] = {}
+  let message_states : Map[String, Json] = Map([])
   let mut read_all = false
   let mut command_count = 0
   for command in notification_projection_payloads("notification_message") {
@@ -567,7 +567,7 @@ async fn notification_unread_response_native(
     notification_actor(actor_id)
   }
   let coverage = observation_coverage(notification_tables())
-  let message_states : Map[String, Bool] = {}
+  let message_states : Map[String, Bool] = Map([])
   let mut read_all = false
   let mut command_count = 0
   for command in notification_projection_payloads("notification_message") {
@@ -651,8 +651,8 @@ async fn notification_subscriptions_response_native(
 ///|
 fn notification_command_envelope(
   data : Json,
-  coverage : Map[String, Int],
-  count : Int,
+  coverage : Map[String, Int32],
+  count : Int32,
 ) -> Json {
   Json::object({
     "success": Json::boolean(true),
@@ -720,7 +720,7 @@ async fn notification_config_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

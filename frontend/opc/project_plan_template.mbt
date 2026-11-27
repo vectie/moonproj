@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct PlanTemplateState {
   source : String
   trello : Bool
@@ -8,9 +9,10 @@ struct PlanTemplateState {
   note : String
   append_before : @plan_workbench.Draft?
   append_after : @plan_workbench.Draft?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanTemplateMsg {
   Source(String)
   Preview
@@ -24,7 +26,7 @@ enum PlanTemplateMsg {
   DownloadReview
   PreviewAppend
   ApplyAppend
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_template_initial() -> PlanTemplateState {

@@ -362,7 +362,7 @@ fn validate_legacy_engineering_envelope(
 fn validate_unified_gate_set(
   values : Array[Json],
   prefix : String,
-  expected_count : Int,
+  expected_count : Int32,
 ) -> Unit raise CompanyServiceError {
   if values.length() != expected_count {
     raise fail(
@@ -766,7 +766,7 @@ fn engineering_projection(
 ///|
 async fn latest_engineering_projection(
   project : String,
-) -> (Int, String, Json)? raise CompanyServiceError {
+) -> (Int32, String, Json)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(source_event_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'engineering_project' AND aggregate_id = " +
     @postgres.sql_literal(project) +
@@ -788,7 +788,7 @@ async fn ingest_engineering_audit(
   body : Json,
   actor : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let request = engineering_object(body, "engineering audit ingest")
   engineering_exact_keys(
     request,
@@ -928,7 +928,7 @@ fn engineering_unknown_projection(project : String) -> Json {
 ///|
 async fn engineering_project_response(
   project : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(project) {
     raise fail("invalid engineering project identifier")
   }
@@ -965,7 +965,7 @@ async fn create_engineering_remediation(
   project : String,
   actor : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let latest = match latest_engineering_projection(project) {
     Some(value) => value
     None => raise reject(409, "accepted engineering evidence is required")

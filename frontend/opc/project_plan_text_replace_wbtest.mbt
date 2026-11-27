@@ -72,7 +72,9 @@ test "text replacement preview apply reload export and prepare use the edited dr
   }
   let body = products_text(request, "body")
   assert_true(body.contains("Launch <script>界面"))
-  let before_json = ToJson::to_json(original.plan.draft.unwrap()).stringify(indent=2)
+  let before_json = ToJson::to_json(original.plan.draft.unwrap()).stringify(
+    indent=2,
+  )
   let after_json = ToJson::to_json(after).stringify(indent=2)
   assert_eq(
     plan_test_file("text-replace-before.json", before_json),

@@ -38,7 +38,7 @@ fn dispatch_continuation_attach_body(
   model : Model,
   original : Bool,
   idempotency_key : String,
-  human_revision? : Bool = false,
+  human_revision~ : Bool = false,
 ) -> Json {
   let run = model.dispatch_run.unwrap()
   let candidate = model.dispatch_continuation.candidate
@@ -72,7 +72,7 @@ fn dispatch_continuation_attach_body(
 fn dispatch_attach_continuation(
   emit : @rabbita.Emit[Msg],
   model : Model,
-  request : Int,
+  request : Int32,
   body : Json,
 ) -> Cmd {
   let page = dispatch_handoff_current_page()

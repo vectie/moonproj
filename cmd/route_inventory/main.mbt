@@ -1,9 +1,10 @@
 ///|
 /// MoonBit inventory of the ERP route-handler surface.
+#derive(Debug)
 pub(all) suberror RouteInventoryError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct Handler {
@@ -17,8 +18,8 @@ struct Handler {
 struct FileReport {
   file : String
   capability_id : String
-  handler_count : Int
-  middleware_count : Int
+  handler_count : Int32
+  middleware_count : Int32
 }
 
 ///|
@@ -85,15 +86,15 @@ fn route_from_tail(tail : String) -> String? {
   if !trimmed.has_prefix("(") {
     return None
   }
-  let argument = trimmed.sub(start=1).trim_start().to_owned()
+  let argument = trimmed.exact_view(start=1).trim_start().to_owned()
   match argument.get_char(0) {
     Some('\'') =>
-      match argument.sub(start=1).before("'") {
+      match argument.exact_view(start=1).before("'") {
         Some(value) => Some(value.to_owned())
         None => None
       }
     Some('"') =>
-      match argument.sub(start=1).before("\"") {
+      match argument.exact_view(start=1).before("\"") {
         Some(value) => Some(value.to_owned())
         None => None
       }
@@ -118,7 +119,7 @@ fn handlers_in_line(
     let marker = "r." + verb
     let mut cursor = 0
     while cursor < line.length() {
-      let remaining = line.sub(start=cursor)
+      let remaining = line.exact_view(start=cursor)
       match remaining.find(marker) {
         Some(offset) => {
           let start = cursor + offset
@@ -129,7 +130,7 @@ fn handlers_in_line(
           if boundary_ok {
             match
               route_from_tail(
-                line.sub(start=start + marker.length()).to_owned(),
+                line.exact_view(start=start + marker.length()).to_owned(),
               ) {
               Some(path) =>
                 result.push(Handler::{
@@ -151,12 +152,12 @@ fn handlers_in_line(
 }
 
 ///|
-fn middleware_count(line : String) -> Int {
+fn middleware_count(line : String) -> Int32 {
   let marker = "r.use"
   let mut count = 0
   let mut cursor = 0
   while cursor < line.length() {
-    let remaining = line.sub(start=cursor)
+    let remaining = line.exact_view(start=cursor)
     match remaining.find(marker) {
       Some(offset) => {
         let start = cursor + offset
@@ -164,7 +165,7 @@ fn middleware_count(line : String) -> Int {
           Some(value) => !is_identifier_char(value)
           None => true
         }
-        let tail = line.sub(start=start + marker.length()).trim_start()
+        let tail = line.exact_view(start=start + marker.length()).trim_start()
         if boundary_ok && tail.has_prefix("(") {
           count += 1
         }
@@ -233,7 +234,7 @@ fn run(
       middleware_total.to_string(),
     )
   }
-  let capability_counts : Map[String, Int] = Map::Map([])
+  let capability_counts : Map[String, Int32] = Map::Map([])
   for handler in handlers {
     capability_counts.set(
       handler.capability_id,
@@ -272,10 +273,10 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: route_inventory <routes_dir> <output> <route.js>...")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let files : Array[String] = []
   for index in 3..<args.length() {
@@ -283,8 +284,8 @@ fn main {
   }
   let report = run(args[1], files) catch {
     error => {
-      println("ERP route inventory failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("ERP route inventory failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
@@ -292,7 +293,7 @@ fn main {
   @fs.write_string_to_file(args[2], output) catch {
     _ => {
       println("ERP route inventory failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   println(output)

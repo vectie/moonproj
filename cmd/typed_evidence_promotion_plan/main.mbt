@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror TypedEvidencePromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct TableSpec {
@@ -151,8 +152,8 @@ fn number_tokens(source : String) -> Array[String] {
 fn restore_numbers(
   value : Json,
   tokens : Array[String],
-  index : Int,
-) -> (Json, Int) {
+  index : Int32,
+) -> (Json, Int32) {
   match value {
     Number(number, ..) =>
       if index < tokens.length() {
@@ -171,7 +172,7 @@ fn restore_numbers(
       (Json::array(restored), next)
     }
     Object(fields) => {
-      let restored : Map[String, Json] = {}
+      let restored : Map[String, Json] = Map([])
       let mut next = index
       for key in fields.keys() {
         let child = fields.get(key).unwrap()
@@ -258,7 +259,7 @@ fn run(
     if !class_valid {
       base_reasons.push("missing_or_invalid_evidence_class:" + spec.table)
     }
-    let seen : Map[String, Bool] = {}
+    let seen : Map[String, Bool] = Map([])
     for row in rows {
       let source_id = text(field(row, spec.primary_key))
       let reasons = base_reasons.copy()
@@ -353,19 +354,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: typed_evidence_promotion_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     TypedEvidencePromotionPlanError::InvalidInput(message) => {
       println("typed-evidence promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     TypedEvidencePromotionPlanError::Io(_) => {
       println("typed-evidence promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

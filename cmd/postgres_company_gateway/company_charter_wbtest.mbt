@@ -16,8 +16,7 @@ test "isolated worker books stay disjoint from registered parent MoonBook root" 
   let workers_base = native_delivery_workers_base(task)
   assert_eq(parent_book, "/Users/example/workspace/books/opc-doctoral-research")
   assert_eq(
-    workers_base,
-    "/Users/example/workspace/books/.moonproj-workers/PT-native",
+    workers_base, "/Users/example/workspace/books/.moonproj-workers/PT-native",
   )
   assert_false(workers_base == parent_book)
   assert_false(workers_base.has_prefix(parent_book + "/"))

@@ -1,23 +1,25 @@
 ///|
 /// Fixed-point monetary value. `minor` is the smallest currency unit.
+#derive(Debug, Eq)
 pub(all) struct Money {
   minor : Int64
   currency : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror MoneyError {
   InvalidCurrency(String)
   CurrencyMismatch
   NegativeResult
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Money::new(minor~ : Int64, currency~ : String) -> Money raise MoneyError {
   if currency.length() != 3 {
     raise MoneyError::InvalidCurrency(currency)
   }
-  { minor, currency }
+  { minor, currency, }
 }
 
 ///|
@@ -30,7 +32,7 @@ pub fn Money::add(self : Money, other : Money) -> Money raise MoneyError {
   if self.currency != other.currency {
     raise MoneyError::CurrencyMismatch
   }
-  { minor: self.minor + other.minor, currency: self.currency }
+  { minor: self.minor + other.minor, currency: self.currency, }
 }
 
 ///|
@@ -42,7 +44,7 @@ pub fn Money::subtract(self : Money, other : Money) -> Money raise MoneyError {
   if result < 0 {
     raise MoneyError::NegativeResult
   }
-  { minor: result, currency: self.currency }
+  { minor: result, currency: self.currency, }
 }
 
 ///|

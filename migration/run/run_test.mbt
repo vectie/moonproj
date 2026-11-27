@@ -60,7 +60,7 @@ fn run_record() -> @store.StoredRecord {
 
 ///|
 test "migration receipt certifies parity and rolls back the unchanged apply" {
-  let receipt = MigrationReceipt::apply(
+  let receipt = @run.MigrationReceipt::apply(
     run_manifest(),
     run_baseline(),
     [run_record()],
@@ -79,19 +79,19 @@ test "migration receipt certifies parity and rolls back the unchanged apply" {
     tolerance: 0L,
   })
   let receipt = receipt.record_parity(report).certify()
-  assert_true(receipt.state is MigrationReceiptState::Certified)
+  assert_true(receipt.state is @run.MigrationReceiptState::Certified)
   let (restored, rolled_back) = receipt.rollback(
     receipt.applied,
     actor_id="migration",
     grant=run_grant("migration:run:rollback"),
   )
   assert_eq(restored.records.length(), 0)
-  assert_true(rolled_back.state is MigrationReceiptState::RolledBack)
+  assert_true(rolled_back.state is @run.MigrationReceiptState::RolledBack)
 }
 
 ///|
 test "migration receipt fails closed on parity and rollback conflicts" {
-  let receipt = MigrationReceipt::apply(
+  let receipt = @run.MigrationReceipt::apply(
     run_manifest(),
     run_baseline(),
     [run_record()],
@@ -99,7 +99,7 @@ test "migration receipt fails closed on parity and rollback conflicts" {
     grant=run_grant("migration:run:apply"),
   )
   try receipt.certify() catch {
-    MigrationRunError::ParityRequired => ()
+    @run.MigrationRunError::ParityRequired => ()
     _ => fail("wrong parity error")
   } noraise {
     _ => fail("expected parity requirement")
@@ -120,7 +120,7 @@ test "migration receipt fails closed on parity and rollback conflicts" {
       grant=run_grant("migration:run:rollback"),
     )
   catch {
-    MigrationRunError::RollbackConflict => ()
+    @run.MigrationRunError::RollbackConflict => ()
     _ => fail("wrong rollback error")
   } noraise {
     _ => fail("expected rollback conflict")

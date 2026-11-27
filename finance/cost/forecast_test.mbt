@@ -1,6 +1,6 @@
 ///|
 test "cost forecast links accepted progress to an expected overrun" {
-  let forecast = CostForecast::new(
+  let forecast = @cost.CostForecast::new(
     project_scope="project:p-001",
     target=@finance.Money::new(minor=1000000, currency="CNY"),
     committed=@finance.Money::new(minor=100000, currency="CNY"),
@@ -13,7 +13,7 @@ test "cost forecast links accepted progress to an expected overrun" {
 
 ///|
 test "cost forecast uses target before progress is accepted" {
-  let forecast = CostForecast::new(
+  let forecast = @cost.CostForecast::new(
     project_scope="project:p-001",
     target=@finance.Money::new(minor=1000000, currency="CNY"),
     committed=@finance.Money::new(minor=100000, currency="CNY"),
@@ -34,7 +34,7 @@ test "cost forecast persists progress-linked variance" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let forecast = CostForecast::new(
+  let forecast = @cost.CostForecast::new(
     project_scope="project:p-001",
     target=@finance.Money::new(minor=1000000, currency="CNY"),
     committed=@finance.Money::new(minor=100000, currency="CNY"),

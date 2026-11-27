@@ -1,6 +1,7 @@
 ///|
 // A browser observation of one explicitly selected company project. These
 // counts are never a whole-company catalog, approvals, revenue or execution.
+#derive(Debug, Eq)
 struct TodayTask {
   id : String
   project_id : String
@@ -11,9 +12,10 @@ struct TodayTask {
   status : String
   execution_state : String
   execution_error : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct TodayState {
   actor : String
   epoch : Int32
@@ -30,9 +32,10 @@ struct TodayState {
   project_reads : Array[TodayProjectRead]
   filters : TodayFilters
   task_metadata : Map[String, Json]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum TodayMsg {
   NewObjective
   DelegateObjective(String)
@@ -49,7 +52,7 @@ enum TodayMsg {
   TasksRead(String, Int32, String, Int32, Int32, String, String)
   OpenTask(String)
   Filter(String, Int32, Int32, String, String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn today_initial() -> TodayState {

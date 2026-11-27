@@ -96,7 +96,7 @@ async fn supplier_direct_read_response(
 ///|
 async fn supplier_direct_detail_response(
   supplier_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let items = supplier_projection_items(Some(supplier_id))
   if items.is_empty() {
     (404, Json::object({ "error": Json::string("supplier not found") }))
@@ -126,7 +126,7 @@ fn supplier_risk_tags(state : String, evaluation : String) -> Array[Json] {
 ///|
 async fn supplier_direct_risk_response(
   supplier_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let items = supplier_projection_items(Some(supplier_id))
   if items.is_empty() {
     return (404, Json::object({ "error": Json::string("supplier not found") }))

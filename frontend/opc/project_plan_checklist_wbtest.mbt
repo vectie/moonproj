@@ -124,7 +124,10 @@ test "checklist UI previews appends persists reloads and exports source-backed p
   )
   assert_eq(@plan_workbench.items(request, "tasks").length(), 5)
   ignore(
-    plan_test_file("checklist-after.json", ToJson::to_json(after).stringify(indent=2)),
+    plan_test_file(
+      "checklist-after.json",
+      ToJson::to_json(after).stringify(indent=2),
+    ),
   )
   ignore(plan_test_file("checklist-tasks.csv", csv))
   ignore(

@@ -1,27 +1,29 @@
 ///|
 // Private working content stays in this tab, never in ordinary task projections.
+#derive(Debug, Eq, ToJson, FromJson)
 struct DispatchReplyDraft {
   task_id : String
   project_id : String
   value : Json
-  base_revision : Int
+  base_revision : Int32
   state : String
   operation_key : String
   operation_reply : Json?
-  operation_revision : Int
-  saved_revision : Int
+  operation_revision : Int32
+  saved_revision : Int32
   note : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(ToJson, FromJson)
 struct DispatchReplyStore {
-  version : Int
+  version : Int32
   drafts : Array[DispatchReplyDraft]
-} derive(ToJson, FromJson)
+}
 
 ///|
 enum DispatchReplyMsg {
-  Scoped(Int, DispatchReplyMsg)
+  Scoped(Int32, DispatchReplyMsg)
   StorageStatus(String, String)
   Begin
   Correct(String)
@@ -33,12 +35,12 @@ enum DispatchReplyMsg {
   Discard
   ReplyStored(String, String, String, Bool)
   ReplyRestored(String, String)
-  Written(String, String, String, Int, String)
-  Read(String, String, String, Int, String)
+  Written(String, String, String, Int32, String)
+  Read(String, String, String, Int32, String)
 }
 
 ///|
-fn dispatch_reply_number(value : Json, field : String) -> Int {
+fn dispatch_reply_number(value : Json, field : String) -> Int32 {
   dispatch_offer_revision({ "revision": dispatch_json_field(value, field) })
 }
 
@@ -615,7 +617,7 @@ fn dispatch_reply_receipt_revision(
   commitment : Json,
   draft : DispatchReplyDraft,
   actor : String,
-) -> Int {
+) -> Int32 {
   if dispatch_json_text(commitment, "task_id") != draft.task_id {
     return 0
   }

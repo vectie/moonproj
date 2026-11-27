@@ -10,18 +10,18 @@ extern "js" fn setup_transport_expire() =
   #| }
 
 ///|
-extern "js" fn setup_transport_headers(index : Int, status : Int) =
+extern "js" fn setup_transport_headers(index : Int32, status : Int32) =
   #| (index, status) => {
   #|   const request = globalThis.__setupTransport.requests[index];
   #|   request.resolve({status, text: () => ({then: resolve => {request.resolveBody = resolve;}})});
   #| }
 
 ///|
-extern "js" fn setup_transport_body(index : Int, body : String) =
+extern "js" fn setup_transport_body(index : Int32, body : String) =
   #| (index, body) => globalThis.__setupTransport.requests[index].resolveBody(body)
 
 ///|
-extern "js" fn setup_transport_aborted(index : Int) -> Bool =
+extern "js" fn setup_transport_aborted(index : Int32) -> Bool =
   #| index => !!globalThis.__setupTransport.requests[index].options.signal.aborted
 
 ///|

@@ -1,6 +1,7 @@
 ///|
 // Ordinary local draft data only. Never store authority, credentials, headers,
 // session cookies, or a signed request. Once attempted, fields are immutable.
+#derive(Debug, Eq, ToJson, FromJson)
 struct DispatchDraft {
   id : String
   task_id : String
@@ -27,16 +28,18 @@ struct DispatchDraft {
   attempted : Bool
   recovery_required : Bool
   note : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 struct DispatchDraftStore {
   version : Int32
   drafts : Array[DispatchDraft]
   recent_tasks : Array[String]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq)
 enum DispatchDraftMsg {
   Input(String, String)
   Resume(String)
@@ -50,7 +53,7 @@ enum DispatchDraftMsg {
   Restored(String, String)
   CreateRead(String, String, Int32, String)
   RecoveryRead(String, String, Int32, String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn dispatch_active_draft(model : Model) -> DispatchDraft? {
@@ -555,7 +558,8 @@ fn dispatch_draft_update(
         Some(saved) if saved.version == 1 => {
           for draft in saved.drafts {
             if draft.research_brief is Some(brief) &&
-              @research_handoff.decode(ToJson::to_json(brief).stringify()) is Err(_) {
+              @research_handoff.decode(ToJson::to_json(brief).stringify())
+              is Err(_) {
               invalid_research = true
               continue
             }

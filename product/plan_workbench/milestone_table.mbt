@@ -1,16 +1,18 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct MilestoneTableChange {
   before : Milestone
   after : Milestone
   fields : Array[String]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MilestoneTableUpdate {
   draft : Draft
   changes : Array[MilestoneTableChange]
   ignored : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 fn milestone_column(header : String) -> String {
@@ -63,14 +65,14 @@ pub fn preview_milestone_table_updates(
   if draft.milestones.is_empty() || draft.milestones.length() > 40 {
     raise Invalid("Milestone table editing needs 1–40 existing milestones")
   }
-  let originals : Map[String, Milestone] = {}
+  let originals : Map[String, Milestone] = Map([])
   for milestone in draft.milestones {
     if milestone.id.trim().is_empty() || originals.contains(milestone.id) {
       raise Invalid("Current draft has empty or duplicate milestone IDs")
     }
     originals[milestone.id] = milestone
   }
-  let replacements : Map[String, Milestone] = {}
+  let replacements : Map[String, Milestone] = Map([])
   let owners = draft.owners.map(o => (o.id, o.name))
   for index = 1; index < rows.length(); index = index + 1 {
     let row = rows[index]
@@ -78,7 +80,7 @@ pub fn preview_milestone_table_updates(
     if row.length() != headers.length() {
       raise Invalid(label + ": column count differs from header")
     }
-    let values : Map[String, String] = {}
+    let values : Map[String, String] = Map([])
     for i, header in headers {
       if !header.is_empty() {
         values[header] = row[i]
@@ -189,12 +191,13 @@ pub fn export_milestone_table(draft : Draft) -> String {
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MilestoneTableImport {
   draft : Draft
   additions : Array[Milestone]
   unchanged : Array[String]
   ignored : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Preview new roadmap rows, preserving supplied IDs for later task imports.
@@ -219,7 +222,7 @@ pub fn preview_milestone_table_import(
       raise Invalid("New milestone import requires column: " + key)
     }
   }
-  let originals : Map[String, Milestone] = {}
+  let originals : Map[String, Milestone] = Map([])
   for milestone in draft.milestones {
     if milestone.id.trim().is_empty() ||
       milestone.id != milestone.id.trim().to_owned() ||

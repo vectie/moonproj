@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror MappingVariantError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn run(
@@ -38,21 +39,21 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: mapping_variant <mapping.json> <output.json> <mapping-version>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     MappingVariantError::InvalidInput(message) => {
       println("mapping variant failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     MappingVariantError::Io(_) => {
       println("mapping variant failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

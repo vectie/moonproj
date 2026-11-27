@@ -74,7 +74,7 @@ async fn webhook_projection_payloads() -> Array[Json] raise CompanyServiceError 
 ///|
 async fn webhook_latest_projection(
   platform : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'webhook_config' AND aggregate_id = " +
     @postgres.sql_literal(platform) +
@@ -95,7 +95,7 @@ async fn webhook_latest_projection(
 fn webhook_body_text(
   body : Map[String, Json],
   key : String,
-  max_length : Int,
+  max_length : Int32,
   trim_value : Bool,
 ) -> String? raise CompanyServiceError {
   match body.get(key) {
@@ -169,7 +169,7 @@ fn webhook_mask_secret(value : String) -> String {
 
 ///|
 async fn webhook_source_params() -> Map[String, String] raise CompanyServiceError {
-  let values : Map[String, String] = {}
+  let values : Map[String, String] = Map([])
   for row in raw_source_rows("sys_param", 500) {
     let key = webhook_param_value(row.payload, "pk")
     if !key.is_empty() {
@@ -209,7 +209,7 @@ fn webhook_config_entry(
 ///|
 async fn webhook_config_response_native() -> Json raise CompanyServiceError {
   let latest = webhook_projection_payloads()
-  let by_platform : Map[String, Json] = {}
+  let by_platform : Map[String, Json] = Map([])
   let source_values = webhook_source_params()
   for payload in latest {
     let platform = json_text(payload, "platform", "")
@@ -232,7 +232,7 @@ async fn webhook_config_response_native() -> Json raise CompanyServiceError {
       )
     }
   }
-  let data : Map[String, Json] = {}
+  let data : Map[String, Json] = Map([])
   for platform in webhook_platforms() {
     let imported_enabled = webhook_text_bool(
       source_values.get("notify.webhook." + platform + ".enabled").unwrap_or(""),
@@ -288,7 +288,7 @@ async fn webhook_config_command(
   platform : String,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -485,7 +485,7 @@ struct WebhookOverdueTicket {
   title : String
   assignee : String
   due_date : String
-  days_overdue : Int
+  days_overdue : Int32
 }
 
 ///|
@@ -515,7 +515,7 @@ fn webhook_payload_text(
 }
 
 ///|
-fn webhook_positive_int(value : String) -> Int? {
+fn webhook_positive_int(value : String) -> Int32? {
   if value.is_empty() {
     return None
   }
@@ -530,7 +530,7 @@ fn webhook_positive_int(value : String) -> Int? {
 }
 
 ///|
-fn webhook_civil_days(year : Int, month : Int, day : Int) -> Int {
+fn webhook_civil_days(year : Int32, month : Int32, day : Int32) -> Int32 {
   let mut adjusted_year = year
   if month <= 2 {
     adjusted_year -= 1
@@ -547,7 +547,7 @@ fn webhook_civil_days(year : Int, month : Int, day : Int) -> Int {
 }
 
 ///|
-fn webhook_date_days(value : String) -> Int? {
+fn webhook_date_days(value : String) -> Int32? {
   if value.length() < 10 {
     return None
   }
@@ -570,7 +570,7 @@ fn webhook_date_days(value : String) -> Int? {
 }
 
 ///|
-fn webhook_overdue_days(today : String, due_date : String) -> Int {
+fn webhook_overdue_days(today : String, due_date : String) -> Int32 {
   match (webhook_date_days(today), webhook_date_days(due_date)) {
     (Some(today_days), Some(due_days)) if today_days > due_days =>
       today_days - due_days
@@ -590,14 +590,14 @@ async fn webhook_overdue_tickets() -> Array[WebhookOverdueTicket] raise CompanyS
   )
   let today : String = time_row[0]
   let cutoff : String = time_row[1]
-  let warnings : Map[String, Json] = {}
+  let warnings : Map[String, Json] = Map([])
   for row in raw_source_rows("sys_warning", 500) {
     let guid = webhook_payload_text(row.payload, "warning_guid", "guid")
     if !guid.is_empty() {
       warnings.set(guid, row.payload)
     }
   }
-  let users : Map[String, Json] = {}
+  let users : Map[String, Json] = Map([])
   for row in raw_source_rows("sys_user", 500) {
     let user_id = webhook_payload_text(row.payload, "user_id", "userId")
     if !user_id.is_empty() {

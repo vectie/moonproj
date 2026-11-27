@@ -48,12 +48,11 @@ test "formal dispatch optional model resolves the existing MoonGate route once" 
   assert_eq(native_model(route, ""), "moongate/default")
   assert_eq(native_model(route, "moongate/other"), "moongate/other")
   assert_true(
-    (try Ok(native_model(route, "codex/not-native")) catch { e => Err(e) })
+    (Ok(native_model(route, "codex/not-native")) catch { e => Err(e) })
     is Err(_),
   )
   assert_true(
-    (try Ok(native_model({ "ready": false }, "")) catch { e => Err(e) })
-    is Err(_),
+    (Ok(native_model({ "ready": false }, "")) catch { e => Err(e) }) is Err(_),
   )
 }
 
@@ -147,9 +146,9 @@ test "formal task completion requires exact command terminal receipt" {
   assert_eq(native_text(unrelated, "state"), "unknown")
   assert_eq(native_text(unrelated, "summary"), "")
   assert_true(
-    (try
-      Ok(native_execution_readback(run, { "session_id": "other" }, events, service))
-    catch {
+    (Ok(
+      native_execution_readback(run, { "session_id": "other" }, events, service),
+    ) catch {
       e => Err(e)
     })
     is Err(_),
@@ -291,14 +290,12 @@ test "native dispatch discovers configured dynamic port rather than generic audi
     "http://localhost:23456",
   )
   assert_true(
-    (try Ok(native_control_uri("http://localhost:18123", "23456")) catch {
+    (Ok(native_control_uri("http://localhost:18123", "23456")) catch {
       e => Err(e)
     })
     is Err(_),
   )
-  assert_true(
-    (try Ok(native_control_uri("", "0")) catch { e => Err(e) }) is Err(_),
-  )
+  assert_true((Ok(native_control_uri("", "0")) catch { e => Err(e) }) is Err(_))
 }
 
 ///|
@@ -306,7 +303,7 @@ test "objective delivery instructions use the existing native run without invent
   assert_eq(native_objective_delivery_prompt(native_test_task()), "")
   let fields = match native_test_task() {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields["parentTaskGuid"] = Json::string("objective-1")
   let task = Json::object(fields)

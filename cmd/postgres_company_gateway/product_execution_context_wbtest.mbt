@@ -2,7 +2,7 @@
 fn native_context_test_task(product : String, workspace : String) -> Json {
   let fields = match native_test_task() {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields.set("product_id", Json::string(product))
   fields.set("execution_workspace", Json::string(workspace))
@@ -195,7 +195,11 @@ async test "legacy and untagged review need no input artifact even in an unwrita
   let root = @fs.tmpdir(prefix="moonproj-untagged-")
   defer (@fs.rmdir(root, recursive=true) catch { _ => () })
   @fs.chmod(root, 0o500)
-  defer (@fs.chmod(root, 0o700) catch { _ => () })
+  defer @async.protect_from_cancel(() => {
+    @fs.chmod(root, 0o700) catch {
+      _ => ()
+    }
+  })
   let task = native_context_test_task("", root)
   let run = native_propose_execution(
     task,

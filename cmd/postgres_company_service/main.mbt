@@ -7,11 +7,12 @@
 /// profile/preferences/initiated-document observations, source-shaped cost
 /// observations, and the expense/contract/payment-application read/command
 /// boundaries. The wider ERP route families remain separate migration gates.
+#derive(Debug)
 pub(all) suberror CompanyServiceError {
   InvalidInput(String)
-  CommandRejected(Int, String)
+  CommandRejected(Int32, String)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> CompanyServiceError {
@@ -19,7 +20,7 @@ fn fail(message : String) -> CompanyServiceError {
 }
 
 ///|
-fn reject(status : Int, message : String) -> CompanyServiceError {
+fn reject(status : Int32, message : String) -> CompanyServiceError {
   CompanyServiceError::CommandRejected(status, message)
 }
 
@@ -54,7 +55,7 @@ fn decode_hex(value : String) -> String raise CompanyServiceError {
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -90,7 +91,7 @@ fn decode_hex(value : String) -> String raise CompanyServiceError {
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise CompanyServiceError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -100,7 +101,7 @@ fn fields(
 }
 
 ///|
-fn parse_decimal(value : String) -> Int raise CompanyServiceError {
+fn parse_decimal(value : String) -> Int32 raise CompanyServiceError {
   if value.is_empty() {
     raise fail("expected integer")
   }
@@ -159,7 +160,7 @@ fn json_bool(value : Json, key : String, fallback : Bool) -> Bool {
 ///|
 async fn raw_source_rows(
   table : String,
-  max_rows : Int,
+  max_rows : Int32,
 ) -> Array[SourceRow] raise CompanyServiceError {
   let output = run_sql(
     "SELECT encode(convert_to(record_id, 'UTF8'), 'hex'), encode(convert_to(source_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_record WHERE record_type = " +
@@ -400,7 +401,7 @@ fn initiated_rows(
   code_key : String,
   amount_key : String,
   user_id : String,
-  max_rows : Int,
+  max_rows : Int32,
 ) -> Array[InitiatedItem] {
   let result : Array[InitiatedItem] = []
   for row in rows {
@@ -507,7 +508,7 @@ async fn auth_my_initiated(
 
 ///|
 async fn summary(
-  expected_schema_version : Int,
+  expected_schema_version : Int32,
 ) -> Json raise CompanyServiceError {
   let output = run_sql(
     "SELECT (SELECT count(*) FROM company_record), (SELECT count(*) FROM company_aggregate_projection), (SELECT count(*) FROM company_accounting_event_link), (SELECT count(*) FROM company_migration_receipt), (SELECT coalesce(max(version), 0) FROM company_schema)",
@@ -649,7 +650,7 @@ fn json_double(value : Json, key : String, fallback : Double) -> Double {
 }
 
 ///|
-fn json_int(value : Json, key : String, fallback : Int) -> Int {
+fn json_int(value : Json, key : String, fallback : Int32) -> Int32 {
   json_double(value, key, fallback.to_double()).to_int()
 }
 
@@ -1191,7 +1192,7 @@ async fn budget_expense_detail_response(
 ///|
 async fn expense_projection_items(
   expense_guid : String?,
-  max_rows : Int,
+  max_rows : Int32,
 ) -> Array[Json] raise CompanyServiceError {
   let query = if expense_guid is None {
     "SELECT encode(convert_to(aggregate_type, 'UTF8'), 'hex'), encode(convert_to(aggregate_id, 'UTF8'), 'hex'), revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex'), encode(convert_to(source_event_id, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_type, aggregate_id, revision, payload, source_event_id FROM company_aggregate_projection WHERE aggregate_type = 'expense_claim' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT " +
@@ -1231,7 +1232,7 @@ async fn expense_projection_items(
 ///|
 async fn expense_projection_response(
   expense_guid : String?,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let items = expense_projection_items(expense_guid, 500)
   match expense_guid {
     None => (200, Json::object({ "items": Json::array(items) }))
@@ -1386,7 +1387,7 @@ fn expense_optional_identifier(
 }
 
 ///|
-fn expense_positive_amount(body : Json) -> Int raise CompanyServiceError {
+fn expense_positive_amount(body : Json) -> Int32 raise CompanyServiceError {
   match json_field(body, "amount_minor") {
     Some(Number(number, ..)) =>
       if number > 0.0 && number == number.to_int().to_double() {
@@ -1478,7 +1479,7 @@ fn expense_command_request(
     Some(value) if valid_identifier(value) => value
     _ => raise reject(422, "expense_id is required")
   }
-  let changes : Map[String, Json] = {}
+  let changes : Map[String, Json] = Map([])
   match json_field(body, "subject") {
     Some(String(value)) if !value.trim().is_empty() =>
       changes.set("summary", Json::string(value.trim().to_owned()))
@@ -1583,7 +1584,7 @@ async fn existing_expense_command(
 ///|
 async fn latest_expense_payload(
   expense_guid : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'expense_claim' AND aggregate_id = " +
     @postgres.sql_literal(expense_guid) +
@@ -1644,7 +1645,7 @@ async fn expense_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let (id, request) = expense_command_request(
     command_type, expense_guid, body, actor_id, idempotency_key,
   )
@@ -1877,7 +1878,7 @@ fn contract_currency(
 fn contract_positive_amount(
   body : Json,
   key : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   match json_field(body, key) {
     Some(Number(number, ..)) if number > 0.0 &&
       number == number.to_int().to_double() => number.to_int()
@@ -1889,7 +1890,7 @@ fn contract_positive_amount(
 fn contract_nonnegative_amount(
   body : Json,
   key : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   match json_field(body, key) {
     Some(Number(number, ..)) if number >= 0.0 &&
       number == number.to_int().to_double() => number.to_int()
@@ -1931,7 +1932,7 @@ fn contract_create_request(
   body : Json,
   actor_id : String,
 ) -> Json raise CompanyServiceError {
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string("create"))
   request.set(
     "contract_id",
@@ -2000,7 +2001,7 @@ fn contract_update_request(
   if !valid_identifier(contract_id) {
     raise reject(422, "contract_id is required")
   }
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string("update"))
   request.set("contract_id", Json::string(contract_id))
   request.set("actor_id", Json::string(actor_id))
@@ -2070,8 +2071,8 @@ fn contract_transition_request(
 fn source_decimal_minor(
   body : Json,
   key : String,
-  minimum : Int,
-) -> Int raise CompanyServiceError {
+  minimum : Int32,
+) -> Int32 raise CompanyServiceError {
   let value = match json_field(body, key) {
     Some(Number(number, ..)) => number
     Some(String(text)) => parse_number(text)
@@ -2093,7 +2094,7 @@ fn source_contract_create_request(
   actor_id : String,
   idempotency_key : String,
 ) -> Json raise CompanyServiceError {
-  let canonical : Map[String, Json] = {}
+  let canonical : Map[String, Json] = Map([])
   let contract_id = json_text(body, "contractGuid", "").trim().to_owned()
   canonical.set(
     "contract_id",
@@ -2210,7 +2211,7 @@ fn source_contract_update_request(
   body : Json,
   actor_id : String,
 ) -> Json raise CompanyServiceError {
-  let canonical : Map[String, Json] = {}
+  let canonical : Map[String, Json] = Map([])
   source_contract_optional_text(
     body, "contractName", "contract_name", canonical,
   )
@@ -2275,7 +2276,7 @@ fn source_contract_update_request(
 ///|
 async fn latest_contract_payload(
   contract_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'contract' AND aggregate_id = " +
     @postgres.sql_literal(contract_id) +
@@ -2319,7 +2320,7 @@ async fn contract_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -2631,7 +2632,7 @@ fn payment_currency(body : Json) -> String raise CompanyServiceError {
 }
 
 ///|
-fn payment_positive_amount(body : Json) -> Int raise CompanyServiceError {
+fn payment_positive_amount(body : Json) -> Int32 raise CompanyServiceError {
   match json_field(body, "amount_minor") {
     Some(Number(number, ..)) =>
       if number > 0.0 && number == number.to_int().to_double() {
@@ -2711,7 +2712,7 @@ async fn payment_create_request(
       raise reject(422, "plan_id does not belong to contract")
     }
   }
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string("create"))
   request.set("apply_id", Json::string(apply_id))
   request.set("apply_code", Json::string(apply_code))
@@ -2754,7 +2755,7 @@ fn payment_update_request(
   if !valid_identifier(apply_id) {
     raise reject(422, "apply_id is required")
   }
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string("update"))
   request.set("apply_id", Json::string(apply_id))
   request.set("actor_id", Json::string(actor_id))
@@ -2834,7 +2835,7 @@ fn source_payment_create_request(
   } else {
     json_text(body, "subject", "").trim().to_owned()
   }
-  let canonical : Map[String, Json] = {}
+  let canonical : Map[String, Json] = Map([])
   canonical.set("apply_id", Json::string(apply_id))
   canonical.set("apply_code", Json::string(apply_code))
   canonical.set("contract_id", Json::string(contract_id))
@@ -2887,7 +2888,7 @@ fn source_payment_update_request(
   body : Json,
   actor_id : String,
 ) -> Json raise CompanyServiceError {
-  let canonical : Map[String, Json] = {}
+  let canonical : Map[String, Json] = Map([])
   match json_field(body, "subject") {
     None | Some(Null) => ()
     Some(String(value)) if !value.trim().is_empty() =>
@@ -2914,7 +2915,7 @@ fn source_payment_update_request(
 ///|
 async fn latest_payment_payload(
   apply_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'payment_application_command' AND aggregate_id = " +
     @postgres.sql_literal(apply_id) +
@@ -2938,7 +2939,7 @@ async fn payment_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -3223,7 +3224,7 @@ fn milestone_text(
 }
 
 ///|
-fn milestone_plan_pct_bps(body : Json) -> Int raise CompanyServiceError {
+fn milestone_plan_pct_bps(body : Json) -> Int32 raise CompanyServiceError {
   match json_field(body, "plan_pct_bps") {
     Some(Number(number, ..)) if number >= 0.0 &&
       number <= 10000.0 &&
@@ -3238,7 +3239,7 @@ fn milestone_plan_pct_bps(body : Json) -> Int raise CompanyServiceError {
 }
 
 ///|
-fn milestone_plan_amount_minor(body : Json) -> Int raise CompanyServiceError {
+fn milestone_plan_amount_minor(body : Json) -> Int32 raise CompanyServiceError {
   match json_field(body, "plan_amount_minor") {
     Some(Number(number, ..)) if number >= 0.0 &&
       number == number.to_int().to_double() => number.to_int()
@@ -3374,8 +3375,8 @@ async fn contract_milestone_items(
 fn milestone_create_items(
   body : Json,
   contract_id : String,
-  contract_amount_minor : Int,
-  first_sequence : Int,
+  contract_amount_minor : Int32,
+  first_sequence : Int32,
   idempotency_key : String,
 ) -> Array[Json] raise CompanyServiceError {
   let raw_list = match json_field(body, "milestones") {
@@ -3470,7 +3471,7 @@ fn milestone_update_request(
   body : Json,
   actor_id : String,
 ) -> Json raise CompanyServiceError {
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string("update"))
   request.set("milestone_id", Json::string(milestone_id))
   request.set("actor_id", Json::string(actor_id))
@@ -3661,7 +3662,7 @@ async fn contract_milestone_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -4074,7 +4075,7 @@ fn dynamic_cost_required_text(
 fn dynamic_cost_nonnegative_minor(
   body : Json,
   key : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   match json_field(body, key) {
     Some(Number(number, ..)) if number >= 0.0 &&
       number == number.to_int().to_double() => number.to_int()
@@ -4086,8 +4087,8 @@ fn dynamic_cost_nonnegative_minor(
 fn dynamic_cost_level(
   body : Json,
   key : String,
-  fallback : Int,
-) -> Int raise CompanyServiceError {
+  fallback : Int32,
+) -> Int32 raise CompanyServiceError {
   match json_field(body, key) {
     None => fallback
     Some(Number(number, ..)) if number >= 0.0 &&
@@ -4150,8 +4151,8 @@ fn dynamic_cost_source_level(
   body : Json,
   primary : String,
   fallback : String,
-  default : Int,
-) -> Int raise CompanyServiceError {
+  default : Int32,
+) -> Int32 raise CompanyServiceError {
   match dynamic_cost_source_value(body, primary, fallback) {
     None => default
     Some(Number(number, ..)) if number >= 0.0 &&
@@ -4165,8 +4166,8 @@ fn dynamic_cost_source_minor(
   body : Json,
   primary : String,
   fallback : String,
-  default : Int,
-) -> Int raise CompanyServiceError {
+  default : Int32,
+) -> Int32 raise CompanyServiceError {
   match dynamic_cost_source_value(body, primary, fallback) {
     None => default
     Some(Number(number, ..)) if number >= 0.0 => {
@@ -4220,7 +4221,7 @@ async fn dynamic_cost_request(
     }
     let cost_code = dynamic_cost_required_text(body, "cost_code", true)
     let cost_name = dynamic_cost_required_text(body, "cost_name", false)
-    let request : Map[String, Json] = {}
+    let request : Map[String, Json] = Map([])
     request.set("command_type", Json::string(command_type))
     request.set("cost_id", Json::string(cost_id))
     request.set("project_id", Json::string(project_id))
@@ -4259,7 +4260,7 @@ async fn dynamic_cost_request(
     _ => raise reject(422, "cost_id is required")
   }
   if command_type == "update" {
-    let request : Map[String, Json] = {}
+    let request : Map[String, Json] = Map([])
     request.set("command_type", Json::string(command_type))
     request.set("cost_id", Json::string(cost_id))
     request.set("actor_id", Json::string(actor_id))
@@ -4459,7 +4460,7 @@ fn dynamic_cost_update_minor(
 fn source_dynamic_cost_update_request(
   body : Json,
 ) -> Json raise CompanyServiceError {
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   let mut changed = false
   changed = dynamic_cost_update_text(
       body, "costName", "cost_name", "cost_name", request,
@@ -4545,7 +4546,7 @@ fn source_dynamic_cost_alias_result(result : Json) -> Json {
 ///|
 async fn latest_dynamic_cost_payload(
   cost_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'dynamic_cost_command' AND aggregate_id = " +
     @postgres.sql_literal(cost_id) +
@@ -4569,7 +4570,7 @@ async fn dynamic_cost_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let (cost_id, request) = dynamic_cost_request(
     command_type, cost_guid, body, actor_id, idempotency_key,
   )
@@ -4779,7 +4780,7 @@ fn invoice_money_display(value : Double) -> String {
 }
 
 ///|
-fn round_places(value : Double, places : Int) -> Double {
+fn round_places(value : Double, places : Int32) -> Double {
   let factor = if places == 2 {
     100.0
   } else if places == 4 {
@@ -4921,7 +4922,7 @@ async fn source_contract_row(
   row : SourceRow,
   rows : CostSourceRows,
   paid : Double,
-  milestone_count : Int,
+  milestone_count : Int32,
 ) -> Json raise CompanyServiceError {
   let payload = row.payload
   let contract_id = json_text(payload, "contract_guid", row.record_id)
@@ -5309,7 +5310,7 @@ fn source_contract_milestones(
 ///|
 async fn source_contract_detail(
   contract_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(contract_id) {
     raise fail("invalid contract_id")
   }
@@ -5864,7 +5865,7 @@ async fn budget_source_users(
 async fn budget_source_loan_balance(
   user_code : String?,
   user_id : String?,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   match user_code {
     Some(value) if !valid_identifier(value) => raise fail("invalid user_code")
     _ => ()
@@ -5963,9 +5964,9 @@ struct WorkflowSourceRows {
   users : Array[SourceRow]
   instances : Array[SourceRow]
   actions : Array[SourceRow]
-  source_instance_count : Int
-  source_action_count : Int
-  command_projection_count : Int
+  source_instance_count : Int32
+  source_action_count : Int32
+  command_projection_count : Int32
 }
 
 ///|
@@ -6560,7 +6561,7 @@ fn workflow_detail_data(rows : WorkflowSourceRows, instance : Json) -> Json {
 ///|
 async fn workflow_instance_detail(
   instance_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(instance_id) {
     raise fail("invalid process_instance_id")
   }
@@ -6880,7 +6881,7 @@ async fn dynamic_cost_response(
 ///|
 async fn dynamic_cost_remarks_response(
   cost_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(cost_id) {
     raise fail("invalid cost_id")
   }
@@ -7314,7 +7315,7 @@ async fn sales_projection_items(
 async fn sales_projection_response(
   family : String,
   aggregate_id : String?,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let aggregate_type = if family == "receivables" {
     "receivable"
   } else if family == "invoices" {
@@ -7684,8 +7685,8 @@ fn invoice_optional_text(
 fn invoice_numeric_minor(
   value : Json,
   key : String,
-  minimum : Int,
-) -> Int raise CompanyServiceError {
+  minimum : Int32,
+) -> Int32 raise CompanyServiceError {
   let number = match value {
     Number(number, ..) => number
     String(text) => {
@@ -7712,9 +7713,9 @@ fn invoice_body_minor(
   body : Json,
   primary : String,
   fallback : String,
-  default : Int,
-  minimum : Int,
-) -> Int raise CompanyServiceError {
+  default : Int32,
+  minimum : Int32,
+) -> Int32 raise CompanyServiceError {
   match json_field(body, primary) {
     Some(value) => invoice_numeric_minor(value, primary, minimum)
     None =>
@@ -7726,7 +7727,7 @@ fn invoice_body_minor(
 }
 
 ///|
-fn invoice_minor_text(minor : Int) -> String {
+fn invoice_minor_text(minor : Int32) -> String {
   let negative = minor < 0
   let value = if negative { -minor } else { minor }
   let whole = value / 100
@@ -7746,7 +7747,7 @@ fn invoice_authority(
   principal_id : String,
   scope : String,
   capability : String,
-  amount_minor : Int,
+  amount_minor : Int32,
 ) -> Json raise CompanyServiceError {
   let grant = match json_field(body, "authority") {
     Some(Object(_)) => json_field(body, "authority").unwrap()
@@ -7914,7 +7915,7 @@ fn invoice_delete_request(
 async fn latest_invoice_payload(
   direction : String,
   invoice_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let aggregate_type = "invoice_" + direction
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
@@ -7958,7 +7959,7 @@ async fn invoice_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if (direction != "in" && direction != "out") ||
     (command_type != "create" && command_type != "delete") {
     raise reject(404, "unsupported invoice command")
@@ -8179,7 +8180,7 @@ fn sales_revenue_text(
 }
 
 ///|
-fn sales_revenue_amount_minor(body : Json) -> Int raise CompanyServiceError {
+fn sales_revenue_amount_minor(body : Json) -> Int32 raise CompanyServiceError {
   match json_field(body, "amount_minor") {
     Some(Number(value, ..)) if value > 0.0 &&
       value == value.to_int().to_double() => value.to_int()
@@ -8219,7 +8220,7 @@ fn sales_revenue_authority(
   principal_id : String,
   scope : String,
   capability : String,
-  amount_minor : Int,
+  amount_minor : Int32,
 ) -> Json raise CompanyServiceError {
   let grant = match json_field(body, "authority") {
     Some(Object(_)) => json_field(body, "authority").unwrap()
@@ -8354,7 +8355,7 @@ fn sales_revenue_update_request(
   let authority = sales_revenue_authority(
     body, actor_id, principal_id, scope, "sales:revenue:update", amount_minor,
   )
-  let changes : Map[String, Json] = {}
+  let changes : Map[String, Json] = Map([])
   let mut changed = false
   let add_text = fn(
     primary : String,
@@ -8426,7 +8427,7 @@ fn sales_revenue_transition_request(
 ///|
 async fn latest_sales_revenue_payload(
   revenue_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'sale_revenue' AND aggregate_id = " +
     @postgres.sql_literal(revenue_id) +
@@ -8464,7 +8465,7 @@ async fn sales_revenue_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "create" &&
     command_type != "update" &&
     command_type != "confirm_received" &&
@@ -8728,9 +8729,9 @@ fn tender_decimal_minor(
   body : Json,
   primary : String,
   fallback : String,
-  default : Int,
+  default : Int32,
   allow_zero : Bool,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let value = match json_field(body, primary) {
     Some(value) => value
     None => json_field(body, fallback).unwrap_or(Json::null())
@@ -8779,7 +8780,7 @@ fn tender_currency(
 ///|
 fn tender_bids(
   body : Json,
-  estimated_amount_minor : Int,
+  estimated_amount_minor : Int32,
   currency : String,
 ) -> Json raise CompanyServiceError {
   match json_field(body, "bids") {
@@ -8889,7 +8890,7 @@ fn tender_create_request(
   if !valid_identifier(tender_code) || tender_code.length() > 128 {
     raise reject(422, "tenderCode is invalid")
   }
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string("create"))
   request.set("tender_id", Json::string(tender_id))
   request.set("tender_code", Json::string(tender_code))
@@ -8930,7 +8931,7 @@ fn tender_transition_request(
   if !valid_identifier(tender_id) {
     raise reject(422, "tender_id is required")
   }
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string(command_type))
   request.set("tender_id", Json::string(tender_id))
   request.set("actor_id", Json::string(actor_id))
@@ -8977,7 +8978,7 @@ fn tender_source_award_request(
   let amount_minor = tender_decimal_minor(
     body, "awardAmount", "award_amount", -1, false,
   )
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("awarded_supplier_id", Json::string(supplier_id))
   request.set("awarded_amount_minor", Json::number(amount_minor.to_double()))
   request.set("actor_id", Json::string(actor_id))
@@ -9027,7 +9028,7 @@ fn tender_source_state_command(
 ///|
 async fn latest_tender_payload(
   tender_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'tender' AND aggregate_id = " +
     @postgres.sql_literal(tender_id) +
@@ -9149,7 +9150,7 @@ async fn tender_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if ![
       "create", "publish", "open_bidding", "award", "complete", "cancel", "delete",
     ].contains(command_type) {
@@ -9495,7 +9496,7 @@ fn split_create_request(
 ///|
 async fn latest_split_payload(
   split_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'contract_split' AND aggregate_id = " +
     @postgres.sql_literal(split_id) +
@@ -9530,7 +9531,7 @@ async fn split_command(
   actor_id : String,
   source_alias : Bool,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -10658,7 +10659,7 @@ fn marketing_placement_item(
 ///|
 fn marketing_channel_item(
   row : SourceRow,
-  placement_counts : Map[String, (Int, Double)],
+  placement_counts : Map[String, (Int32, Double)],
 ) -> Json {
   let payload = row.payload
   let id = marketing_text(payload, "channel_guid", "channelGuid", row.record_id)
@@ -10819,7 +10820,7 @@ async fn marketing_source_response(
       }
     })
   } else if resource == "placement" {
-    let campaign_names : Map[String, String] = {}
+    let campaign_names : Map[String, String] = Map([])
     for row in campaign_rows {
       let item = marketing_campaign_item(row)
       let id = json_text(item, "campaignGuid", "")
@@ -10848,7 +10849,7 @@ async fn marketing_source_response(
       }
     })
   } else if resource == "channel" {
-    let placement_counts : Map[String, (Int, Double)] = {}
+    let placement_counts : Map[String, (Int32, Double)] = Map([])
     for row in placement_rows {
       let item = marketing_placement_item(row, {})
       if json_text(item, "state", "") != "deleted" {
@@ -10959,7 +10960,7 @@ fn marketing_nonnegative_int(
   body : Json,
   primary : String,
   fallback : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   match marketing_lookup(body, primary, fallback) {
     None | Some(Null) => 0
     Some(Number(number, ..)) if number >= 0.0 &&
@@ -10981,7 +10982,7 @@ fn marketing_amount(
   primary : String,
   fallback : String,
   positive : Bool,
-) -> (String, Int) raise CompanyServiceError {
+) -> (String, Int32) raise CompanyServiceError {
   let value = match marketing_lookup(body, primary, fallback) {
     None | Some(Null) => raise reject(422, primary + " is required")
     Some(Number(number, ..)) => number
@@ -11005,7 +11006,7 @@ fn marketing_authority(
   principal_id : String,
   scope : String,
   capability : String,
-  amount_minor : Int,
+  amount_minor : Int32,
 ) -> Json raise CompanyServiceError {
   let grant = match json_field(body, "authority") {
     Some(Object(_)) => json_field(body, "authority").unwrap()
@@ -11339,7 +11340,7 @@ fn marketing_command_request(
   let scope = marketing_required_text(body, "scope", "", true)
   let capability = "marketing:" + resource + ":" + command_type
   let mut amount_minor = 0
-  let changes : Map[String, Json] = {}
+  let changes : Map[String, Json] = Map([])
   if command_type == "update" && resource == "campaign" {
     let mut has_change = false
     let add_text = fn(
@@ -11427,7 +11428,7 @@ fn marketing_command_request(
 async fn marketing_latest_payload(
   resource : String,
   resource_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let aggregate_type = marketing_command_aggregate(resource)
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') " +
@@ -11483,7 +11484,7 @@ async fn marketing_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !["campaign", "placement", "channel", "material"].contains(resource) {
     raise reject(404, "unsupported marketing resource")
   }
@@ -11924,7 +11925,7 @@ async fn fund_source_response(
     "fund_plan": Json::number(plans.length().to_double()),
     "mu_business_unit": Json::number(units.length().to_double()),
   })
-  let project_names : Map[String, String] = {}
+  let project_names : Map[String, String] = Map([])
   for row in projects {
     let id = fund_text(row.payload, "proj_guid", "projGuid", row.record_id)
     project_names[id] = fund_text(row.payload, "proj_name", "projName", "")
@@ -12002,7 +12003,7 @@ async fn fund_gap_response(
     "mu_business_unit": Json::number(units.length().to_double()),
   })
   let rows = plans + fund_command_rows("plan", false)
-  let periods : Map[String, (Double, Double, Double, Double)] = {}
+  let periods : Map[String, (Double, Double, Double, Double)] = Map([])
   for row in rows {
     let payload = row.payload
     if json_text(payload, "proj_guid", json_text(payload, "projGuid", "")) ==
@@ -12104,7 +12105,7 @@ fn fund_amount_minor(
   body : Json,
   primary : String,
   fallback : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let value = match marketing_lookup(body, primary, fallback) {
     None | Some(Null) => raise reject(422, primary + " is required")
     Some(Number(number, ..)) => number
@@ -12133,7 +12134,7 @@ fn fund_nonnegative_amount_minor(
   body : Json,
   primary : String,
   fallback : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let value = match marketing_lookup(body, primary, fallback) {
     None | Some(Null) => raise reject(422, primary + " is required")
     Some(Number(number, ..)) => number
@@ -12163,7 +12164,7 @@ fn fund_authority(
   actor_id : String,
   project_id : String,
   capability : String,
-  amount_minor : Int,
+  amount_minor : Int32,
 ) -> Json raise CompanyServiceError {
   let grant = match json_field(body, "authority") {
     Some(Object(_)) => json_field(body, "authority").unwrap()
@@ -12223,7 +12224,7 @@ async fn fund_project_exists(
 async fn fund_latest_payload(
   resource : String,
   resource_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let aggregate_type = if resource == "plan" {
     "fund_plan"
   } else {
@@ -12383,7 +12384,7 @@ async fn fund_command_request(
       _ => raise reject(422, resource + "_id is required")
     }
     if resource == "plan" && command_type == "update" {
-      let changes : Map[String, Json] = {}
+      let changes : Map[String, Json] = Map([])
       if marketing_lookup(body, "plan_period", "period") is Some(_) {
         changes.set(
           "plan_period",
@@ -12500,7 +12501,7 @@ async fn fund_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !["plan", "dispatch"].contains(resource) {
     raise reject(404, "unsupported fund resource")
   }
@@ -13023,7 +13024,7 @@ async fn supplier_command_principal(
 ///|
 async fn supplier_detail_response(
   provider_guid : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(provider_guid) {
     raise fail("invalid provider_guid")
   }
@@ -13116,7 +13117,7 @@ async fn supplier_detail_response(
 ///|
 async fn supplier_risk_response(
   provider_guid : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(provider_guid) {
     raise fail("invalid provider_guid")
   }
@@ -13309,7 +13310,7 @@ fn supplier_create_request(
   body : Json,
   actor_id : String,
 ) -> Json raise CompanyServiceError {
-  let request : Map[String, Json] = {}
+  let request : Map[String, Json] = Map([])
   request.set("command_type", Json::string("create"))
   request.set(
     "supplier_id",
@@ -13395,7 +13396,7 @@ fn supplier_source_create_request(
   if !valid_identifier(scope) {
     raise reject(422, "scope contains unsupported characters")
   }
-  let canonical : Map[String, Json] = {}
+  let canonical : Map[String, Json] = Map([])
   canonical.set("supplier_id", Json::string(provider_id))
   canonical.set("principal_id", Json::string(principal_id))
   canonical.set("scope", Json::string(scope))
@@ -13453,7 +13454,7 @@ fn supplier_update_request(
   if !valid_identifier(supplier_id) {
     raise reject(422, "supplier_id is required")
   }
-  let changes : Map[String, Json] = {}
+  let changes : Map[String, Json] = Map([])
   for
     key in [
       "scope", "supplier_code", "name", "category_code", "short_name", "legal_person",
@@ -13491,7 +13492,7 @@ fn supplier_source_update_request(
   body : Json,
   actor_id : String,
 ) -> Json raise CompanyServiceError {
-  let canonical : Map[String, Json] = {}
+  let canonical : Map[String, Json] = Map([])
   for
     source_key in [
       "providerCode", "providerName", "shortName", "legalPerson", "businessScope",
@@ -13586,7 +13587,7 @@ fn supplier_transition_request(
 ///|
 async fn latest_supplier_payload(
   supplier_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'supplier' AND aggregate_id = " +
     @postgres.sql_literal(supplier_id) +
@@ -13624,7 +13625,7 @@ async fn supplier_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -13995,7 +13996,7 @@ async fn contract_response(
 ///|
 async fn contract_detail_response(
   contract_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(contract_id) {
     raise fail("invalid contract_id")
   }
@@ -14134,7 +14135,7 @@ async fn payment_response(
 }
 
 ///|
-async fn money_display(minor : Int) -> String raise CompanyServiceError {
+async fn money_display(minor : Int32) -> String raise CompanyServiceError {
   run_sql(
     "SELECT concat('¥', to_char((" +
     minor.to_string() +
@@ -14147,8 +14148,8 @@ async fn money_display(minor : Int) -> String raise CompanyServiceError {
 ///|
 async fn payment_eligibility_response(
   plan_id : String,
-  amount_minor : Int,
-) -> (Int, Json) raise CompanyServiceError {
+  amount_minor : Int32,
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(plan_id) {
     raise fail("invalid payment plan id")
   }
@@ -14252,7 +14253,7 @@ fn query_value(path : String, key : String) -> String? {
 }
 
 ///|
-fn hex_digit(value : Int) -> Char {
+fn hex_digit(value : Int32) -> Char {
   match "0123456789ABCDEF".get_char(value) {
     Some(char) => char
     None => '0'
@@ -14348,7 +14349,7 @@ fn auth_status(
   request : @http.Request,
   token : String,
   require_forwarded_tls : Bool,
-) -> Int {
+) -> Int32 {
   if require_forwarded_tls &&
     header(request, "X-Forwarded-Proto").to_lower() != "https" {
     return 400
@@ -14361,7 +14362,7 @@ fn auth_status(
 }
 
 ///|
-fn status_reason(status : Int) -> String {
+fn status_reason(status : Int32) -> String {
   match status {
     200 => "OK"
     204 => "No Content"
@@ -14378,7 +14379,7 @@ fn status_reason(status : Int) -> String {
 async fn send_json(
   conn : @http.ServerConnection,
   request_method : @http.RequestMethod,
-  status : Int,
+  status : Int32,
   payload : Json,
   challenge : Bool,
 ) -> Unit {
@@ -14406,7 +14407,7 @@ async fn send_json(
 async fn send_bytes(
   conn : @http.ServerConnection,
   request_method : @http.RequestMethod,
-  status : Int,
+  status : Int32,
   payload : Bytes,
   content_type : String,
   content_disposition : String,
@@ -14941,7 +14942,7 @@ fn supplier_command_spec(
 }
 
 ///|
-fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
+fn service_error_response(error : CompanyServiceError) -> (Int32, Json) {
   match error {
     CompanyServiceError::CommandRejected(status, message) =>
       (status, Json::object({ "error": Json::string(message) }))
@@ -14959,9 +14960,9 @@ fn service_error_response(error : CompanyServiceError) -> (Int, Json) {
 async fn route(
   path : String,
   query : String,
-  expected_schema_version : Int,
+  expected_schema_version : Int32,
   actor_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if path == "/api/company/policy/radar" {
     return policy_radar_response()
   }
@@ -16506,7 +16507,7 @@ async fn handle(
   token : String,
   actor_signing_secret : String,
   require_forwarded_tls : Bool,
-  expected_schema_version : Int,
+  expected_schema_version : Int32,
 ) -> Unit {
   if request.meth is @http.Options {
     send_json(conn, request.meth, 204, Json::null(), false)
@@ -19697,7 +19698,11 @@ fn has_flag(args : Array[String], name : String) -> Bool {
 }
 
 ///|
-fn parse_int_option(args : Array[String], name : String, fallback : Int) -> Int {
+fn parse_int_option(
+  args : Array[String],
+  name : String,
+  fallback : Int32,
+) -> Int32 {
   match option(args, name) {
     None => fallback
     Some(value) => {
@@ -19725,7 +19730,7 @@ async fn main {
   let token = @env.get_env_var(token_env).unwrap_or("")
   if token.is_empty() {
     println("company service token environment variable is not set")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let actor_signing_secret_env = option(args, "--actor-signing-secret-env").unwrap_or(
     "MOONPROJ_ACTOR_SIGNING_SECRET",
@@ -19746,14 +19751,14 @@ async fn main {
   let address = @socket.Addr::parse(host + ":" + port) catch {
     _ => {
       println("invalid company service listen address")
-      @sys.exit(2)
+      @env.exit(2)
       @socket.Addr::parse("127.0.0.1:4174")
     }
   }
   let server = @http.Server(address, reuse_addr=true) catch {
     _ => {
       println("cannot start company native service")
-      @sys.exit(1)
+      @env.exit(1)
       @http.Server(@socket.Addr::parse("127.0.0.1:4174"), reuse_addr=true) catch {
         _ => panic()
       }

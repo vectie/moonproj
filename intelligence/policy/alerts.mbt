@@ -1,19 +1,22 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) enum PolicyAlertSeverity {
   Information
   Attention
   Critical
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) enum PolicyAlertReviewState {
   Unreviewed
   SourceConfirmed
   InterpretationConfirmed
   Dismissed
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct PolicyAlert {
   alert_id : String
   severity : PolicyAlertSeverity
@@ -27,10 +30,10 @@ pub(all) struct PolicyAlert {
   review_state : PolicyAlertReviewState
   reviewed_by : String
   review_evidence : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
-fn alert_severity(importance : Int) -> PolicyAlertSeverity {
+fn alert_severity(importance : Int32) -> PolicyAlertSeverity {
   if importance >= 85 {
     Critical
   } else if importance >= 65 {
@@ -55,7 +58,7 @@ fn change_summary(change : PolicyChange) -> String {
 ///|
 pub fn build_policy_alerts(
   analysis : PolicyAnalysis,
-  minimum_importance? : Int = 65,
+  minimum_importance~ : Int32 = 65,
 ) -> Array[PolicyAlert] {
   let alerts : Array[PolicyAlert] = []
   for index, change in analysis.changes {

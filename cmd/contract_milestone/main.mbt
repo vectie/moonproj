@@ -1,4 +1,5 @@
 ///|
+#derive(Debug)
 pub(all) suberror ContractMilestoneCohortError {
   InvalidInput
   Io(@fs.IOError)
@@ -6,7 +7,7 @@ pub(all) suberror ContractMilestoneCohortError {
   Commitment(@commitment.CommitmentError)
   Contract(@contract.MilestoneError)
   Settlement(@settlement.SettlementError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise ContractMilestoneCohortError {
@@ -396,35 +397,35 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: contract_milestone <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       ContractMilestoneCohortError::InvalidInput => {
         println("contract milestone cohort failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ContractMilestoneCohortError::Io(_) => {
         println("contract milestone cohort failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ContractMilestoneCohortError::Money(_) => {
         println("contract milestone cohort failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ContractMilestoneCohortError::Commitment(_) => {
         println("contract milestone cohort failed: commitment validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ContractMilestoneCohortError::Contract(_) => {
         println("contract milestone cohort failed: milestone validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ContractMilestoneCohortError::Settlement(_) => {
         println("contract milestone cohort failed: settlement validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

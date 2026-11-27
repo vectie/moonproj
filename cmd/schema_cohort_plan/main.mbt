@@ -1,9 +1,10 @@
 ///|
 /// MoonBit compiler for the ordered ERP schema-only migration cohorts.
+#derive(Debug)
 pub(all) suberror SchemaCohortError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct CohortEntry {
@@ -154,7 +155,7 @@ fn required_array(
 }
 
 ///|
-fn wave_index(wave : String) -> Int {
+fn wave_index(wave : String) -> Int32 {
   let mut result = -1
   for index in 0..<wave_order.length() {
     if wave_order[index] == wave {
@@ -168,7 +169,7 @@ fn wave_index(wave : String) -> Int {
 fn table_name_after(line : String, marker : String) -> String? {
   match line.find(marker) {
     Some(start) => {
-      let tail = line.sub(start=start + marker.length())
+      let tail = line.exact_view(start=start + marker.length())
       match tail.before(" ") {
         Some(view) => Some(view.to_owned())
         None => None
@@ -184,11 +185,11 @@ fn reference_names(line : String) -> Array[String] {
   let names : Array[String] = []
   let mut cursor = 0
   while cursor < line.length() {
-    let remaining = line.sub(start=cursor)
+    let remaining = line.exact_view(start=cursor)
     match remaining.find(marker) {
       Some(offset) => {
         let start = cursor + offset
-        let tail = line.sub(start=start + marker.length())
+        let tail = line.exact_view(start=start + marker.length())
         match tail.before(" ") {
           Some(view) => names.push(view.to_owned())
           None => ()
@@ -258,7 +259,7 @@ fn sorted_dependencies(
 }
 
 ///|
-fn entry_compare(left : CohortEntry, right : CohortEntry) -> Int {
+fn entry_compare(left : CohortEntry, right : CohortEntry) -> Int32 {
   let wave_comparison = wave_index(left.wave) - wave_index(right.wave)
   if wave_comparison != 0 {
     wave_comparison
@@ -404,15 +405,15 @@ fn run(schema_path : String, gap_path : String) -> Json raise SchemaCohortError 
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: schema_cohort_plan <schema> <schema_gap> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let report = run(args[1], args[2]) catch {
     error => {
-      println("ERP schema cohort plan failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("ERP schema cohort plan failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
@@ -420,7 +421,7 @@ fn main {
   @fs.write_string_to_file(args[3], output) catch {
     _ => {
       println("ERP schema cohort plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   println(output)

@@ -1,6 +1,7 @@
 ///|
 // An optional observation lives only in this tab. It is never part of a draft,
 // navigation URL, browser storage, or the older accepted-report lesson flow.
+#derive(Debug, Eq)
 struct DispatchGuidanceContext {
   actor : String
   task : String
@@ -9,7 +10,7 @@ struct DispatchGuidanceContext {
   selection : Int32
   revision : Double
   page : String
-} derive(Debug, Eq)
+}
 
 ///|
 struct DispatchGuidanceState {

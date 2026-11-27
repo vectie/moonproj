@@ -1,31 +1,36 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum PostingSide {
   Debit
   Credit
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Posting {
   account : String
   side : PostingSide
   amount : Money
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct JournalEntry {
   entry_id : String
   description : String
   postings : Array[Posting]
-} derive(Debug, Eq)
+}
 
 ///|
 /// An append-only ledger boundary. Persistence adapters may store the entries
 /// elsewhere, but they must preserve this validation contract.
+#derive(Debug, Eq)
 pub(all) struct Ledger {
   entries : Array[JournalEntry]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror LedgerError {
   EmptyEntryId
   NoPostings
@@ -34,7 +39,7 @@ pub(all) suberror LedgerError {
   Unbalanced
   MixedCurrencies
   DuplicateEntry
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn validate_journal(entry : JournalEntry) -> Unit raise LedgerError {
@@ -69,7 +74,7 @@ pub fn validate_journal(entry : JournalEntry) -> Unit raise LedgerError {
 
 ///|
 pub fn Ledger::empty() -> Ledger {
-  { entries: [] }
+  { entries: [], }
 }
 
 ///|
@@ -89,7 +94,7 @@ pub fn Ledger::post(
 }
 
 ///|
-pub fn Ledger::length(self : Ledger) -> Int {
+pub fn Ledger::length(self : Ledger) -> Int32 {
   self.entries.length()
 }
 

@@ -56,7 +56,7 @@ fn migration_snapshot_tables() -> Map[String, Bool] {
 ///|
 async fn migration_schema_coverage_response() -> Json raise CompanyServiceError {
   let tables = migration_schema_tables()
-  let counts : Map[String, Int] = {}
+  let counts : Map[String, Int32] = Map([])
   for table in tables {
     counts.set(table, 0)
   }
@@ -104,7 +104,7 @@ async fn migration_schema_coverage_response() -> Json raise CompanyServiceError 
       }),
     )
   }
-  let coverage : Map[String, Int] = counts
+  let coverage : Map[String, Int32] = counts
   Json::object({
     "success": Json::boolean(true),
     "code": Json::number(0),

@@ -1,26 +1,30 @@
 ///|
+#derive(Debug, Eq)
 struct CompanyProfile {
   name : String
   unit_id : String
   unit_name : String
   unit_source : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CompanyUnit {
   id : String
   name : String
   source : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CompanyUnitRead {
   rows : Array[CompanyUnit]
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
 // Recovery contains ordinary request data only. It is never authority or proof.
+#derive(Debug, Eq, ToJson, FromJson)
 struct CompanySetupRequest {
   kind : String
   key : String
@@ -29,34 +33,37 @@ struct CompanySetupRequest {
   project_code : String
   project_id : String
   product_id : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 struct CompanySetupStore {
-  version : Int
+  version : Int32
   company : CompanySetupRequest?
   project : CompanySetupRequest?
   recent_project : CompanySetupRequest?
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CompanySetupOperation {
   request : CompanySetupRequest?
   phase : String
   note : String
-  selection : Int
-  project_choice : Int
+  selection : Int32
+  project_choice : Int32
   attempted : Bool
   retrying : Bool
   recover_only : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct CompanySetupState {
   actor : String
-  epoch : Int
-  session_request : Int
-  read_request : Int
+  epoch : Int32
+  session_request : Int32
+  read_request : Int32
   session_state : String
   profile_state : String
   profile : CompanyProfile?
@@ -72,24 +79,25 @@ struct CompanySetupState {
   exact_project : ProductCompanyProject?
   recent_project : CompanySetupRequest?
   storage : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum CompanySetupMsg {
   Refresh
-  SessionRead(Int, Int, String)
-  ProfileRead(String, Int, Int, Int, String)
-  UnitsRead(String, Int, Int, Int, String)
-  Restored(String, Int, String)
+  SessionRead(Int32, Int32, String)
+  ProfileRead(String, Int32, Int32, Int32, String)
+  UnitsRead(String, Int32, Int32, Int32, String)
+  Restored(String, Int32, String)
   Input(String, String)
   Save(String)
-  Persisted(String, Int, String, String, Bool)
-  Posted(String, Int, String, String, Int, String)
+  Persisted(String, Int32, String, String, Bool)
+  Posted(String, Int32, String, String, Int32, String)
   Recover(String)
-  ExactRead(String, Int, String, Int, String)
+  ExactRead(String, Int32, String, Int32, String)
   UseProject
   DismissRecent
-} derive(Debug, Eq)
+}
 
 ///|
 fn company_setup_operation() -> CompanySetupOperation {
@@ -182,7 +190,7 @@ fn company_setup_unit_nodes(
   values : Array[Json],
   rows : Array[CompanyUnit],
   issues : Array[String],
-  depth : Int,
+  depth : Int32,
 ) -> Unit {
   if depth > 64 {
     issues.push("层级过深的分支已省略")

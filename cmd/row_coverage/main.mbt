@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror RowCoverageError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> RowCoverageError {
@@ -89,14 +90,14 @@ fn optional_text(fields : Map[String, Json], key : String) -> String? {
 }
 
 ///|
-fn add_count(counts : Map[String, Int], key : String, amount : Int) -> Unit {
+fn add_count(counts : Map[String, Int32], key : String, amount : Int32) -> Unit {
   counts.set(key, counts.get(key).unwrap_or(0) + amount)
 }
 
 ///|
 fn source_tables(
   export_dir : String,
-) -> (Map[String, Int], Map[String, Map[String, Bool]]) raise RowCoverageError {
+) -> (Map[String, Int32], Map[String, Map[String, Bool]]) raise RowCoverageError {
   let manifest = object(read_json(export_dir + "/manifest.json"), "manifest")
   let format = text(required(manifest, "format", "manifest"), "manifest.format")
   if format != "moonproj.erp.snapshot.v1" &&
@@ -107,15 +108,15 @@ fn source_tables(
     required(manifest, "tables", "manifest"),
     "manifest.tables",
   )
-  let rows_by_table : Map[String, Int] = {}
-  let ids_by_table : Map[String, Map[String, Bool]] = {}
+  let rows_by_table : Map[String, Int32] = Map([])
+  let ids_by_table : Map[String, Map[String, Bool]] = Map([])
   for index in 0..<table_values.length() {
     let path = "manifest.tables[" + index.to_string() + "]"
     let entry = object(table_values[index], path)
     let table = text(required(entry, "table", path), path + ".table")
     let relative = text(required(entry, "file", path), path + ".file")
     let rows = array(read_json(export_dir + "/" + relative), table)
-    let ids : Map[String, Bool] = {}
+    let ids : Map[String, Bool] = Map([])
     if !rows.is_empty() {
       let primary_key = text(
         required(entry, "primary_key", path),
@@ -144,7 +145,7 @@ fn source_tables(
 }
 
 ///|
-fn add_nested_counts(path : String, nested : Map[String, Int]) -> Unit {
+fn add_nested_counts(path : String, nested : Map[String, Int32]) -> Unit {
   let value = match try_read_json(path) {
     Some(value) => value
     None => return
@@ -254,7 +255,7 @@ fn add_direct_receipts(
               let seen = match accepted.get(table) {
                 Some(seen) => seen
                 None => {
-                  let created : Map[String, Bool] = {}
+                  let created : Map[String, Bool] = Map([])
                   accepted.set(table, created)
                   created
                 }
@@ -270,7 +271,7 @@ fn add_direct_receipts(
 }
 
 ///|
-fn number(value : Int) -> Json {
+fn number(value : Int32) -> Json {
   Json::number(value.to_double(), repr=value.to_string())
 }
 
@@ -281,8 +282,8 @@ fn run(
   paths : Array[String],
 ) -> Unit raise RowCoverageError {
   let (rows_by_table, source_ids) = source_tables(export_dir)
-  let accepted : Map[String, Map[String, Bool]] = {}
-  let nested : Map[String, Int] = {}
+  let accepted : Map[String, Map[String, Bool]] = Map([])
+  let nested : Map[String, Int32] = Map([])
   add_direct_receipts(paths, source_ids, accepted)
   for path in paths {
     add_nested_counts(path, nested)
@@ -296,7 +297,7 @@ fn run(
   for table in tables {
     let source_rows = rows_by_table.get(table).unwrap()
     let direct_rows = match accepted.get(table) {
-      Some(values) => values.keys().length()
+      Some(values) => values.keys().count()
       None => 0
     }
     let structural_rows = nested.get(table).unwrap_or(0)
@@ -373,10 +374,10 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: row_coverage <export_dir> <output> <evidence.json...>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     let paths : Array[String] = []
     for index in 3..<args.length() {
@@ -385,11 +386,11 @@ fn main {
     run(args[1], args[2], paths) catch {
       RowCoverageError::InvalidInput(message) => {
         println("ERP row coverage failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
       }
       RowCoverageError::Io(_) => {
         println("ERP row coverage failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

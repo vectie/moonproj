@@ -1,12 +1,14 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum AdvanceState {
   Open
   PartiallyRepaid
   Repaid
   WrittenOff
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct EmployeeAdvance {
   advance_id : String
   principal_id : String
@@ -14,9 +16,10 @@ pub(all) struct EmployeeAdvance {
   amount : @finance.Money
   repaid_minor : Int64
   state : AdvanceState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AdvanceError {
   EmptyIdentifier
   InvalidAmount
@@ -26,7 +29,7 @@ pub(all) suberror AdvanceError {
   Projection(@store.ProjectionError)
   AccountingEvent(@accounting.AccountingEventError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn EmployeeAdvance::new(
@@ -100,5 +103,5 @@ pub fn EmployeeAdvance::offset(
   } else {
     AdvanceState::PartiallyRepaid
   }
-  { ..self, repaid_minor, state }
+  { ..self, repaid_minor, state, }
 }

@@ -1,8 +1,8 @@
 ///|
 fn continuation_proj_record(
-  id? : String = "K1",
-  command? : String = "C1",
-  state? : String = "completed",
+  id~ : String = "K1",
+  command~ : String = "C1",
+  state~ : String = "completed",
 ) -> Json {
   {
     "continuation_id": id,
@@ -37,8 +37,8 @@ fn continuation_proj_record(
 
 ///|
 fn continuation_proj_source(
-  command? : String = "C1",
-  id? : String = "K1",
+  command~ : String = "C1",
+  id~ : String = "K1",
 ) -> Json {
   {
     "type": "continuation",
@@ -116,11 +116,11 @@ fn continuation_proj_confirm(model : Model, source : Json) -> Model {
 }
 
 ///|
-extern "js" fn continuation_proj_storage_setup() -> Int =
+extern "js" fn continuation_proj_storage_setup() -> Int32 =
   #| () => { globalThis.__continuationPriorStorage = globalThis.localStorage; const data = new Map(); globalThis.localStorage = {getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value),removeItem:key=>data.delete(key)}; return 0; }
 
 ///|
-extern "js" fn continuation_proj_storage_cleanup(previous : Int) =
+extern "js" fn continuation_proj_storage_cleanup(previous : Int32) =
   #| _ => { const previous = globalThis.__continuationPriorStorage; if (previous === undefined) delete globalThis.localStorage; else globalThis.localStorage = previous; delete globalThis.__continuationPriorStorage; }
 
 ///|

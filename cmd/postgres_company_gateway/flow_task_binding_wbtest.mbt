@@ -23,7 +23,7 @@ test "Flow gateway routes reject traversal suffixes and unknown actions" {
 fn flow_wire_report(body : Json, key : String) -> Json {
   let fields = match body {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields.remove("progress_pct")
   fields["progress_bps"] = Json::number(0)
@@ -110,7 +110,7 @@ async test "actual authenticated gateway approves revised task executes once and
   }
   let fields = match fixture {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields["workspace"] = Json::string(workspace)
   @fs.write_file(
@@ -133,8 +133,8 @@ async test "actual authenticated gateway approves revised task executes once and
   defer service.close()
   let gateway = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
   defer gateway.close()
-  let service_uri = "http://127.0.0.1:" + service.addr().port().to_string()
-  let gateway_uri = "http://127.0.0.1:" + gateway.addr().port().to_string()
+  let service_uri = "http://127.0.0.1:" + service.addr.port().to_string()
+  let gateway_uri = "http://127.0.0.1:" + gateway.addr.port().to_string()
   let path = "/api/company/plan/tasks/PT-revised"
   let sessions : Map[String, String] = { "fixture-session": "owner-plan" }
   let resources : ProductResources = {
@@ -142,10 +142,10 @@ async test "actual authenticated gateway approves revised task executes once and
     document_root: "unused",
     workspace_root: parent,
   }
-  @async.with_timeout(30000, fn() {
-    @async.with_task_group(fn(group) {
-      group.spawn_bg(fn() {
-        service.run_forever(fn(request, reader, conn) {
+  @async.with_timeout(30000, () => {
+    @async.with_task_group(group => {
+      group.spawn_bg(() => {
+        service.run_forever((request, reader, conn) => {
           assert_eq(
             header(request, "Authorization"),
             "Bearer synthetic-test-token",
@@ -236,8 +236,8 @@ async test "actual authenticated gateway approves revised task executes once and
           }
         })
       })
-      group.spawn_bg(fn() {
-        gateway.run_forever(fn(request, reader, conn) {
+      group.spawn_bg(() => {
+        gateway.run_forever((request, reader, conn) => {
           handle(
             request,
             reader,
@@ -414,7 +414,7 @@ async test "actual authenticated gateway approves revised task executes once and
       )
       let changed = match snapshot.val {
         Object(fields) => fields.copy()
-        _ => Map::new()
+        _ => Map([])
       }
       changed["source_revision"] = Json::number(3)
       snapshot.val = Json::object(changed)

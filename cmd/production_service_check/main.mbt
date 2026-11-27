@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror ProductionServiceError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ProductionServiceError {
@@ -65,8 +66,8 @@ fn bool_true(
 fn positive_int(
   fields : Map[String, Json],
   key : String,
-  maximum : Int,
-) -> Int raise ProductionServiceError {
+  maximum : Int32,
+) -> Int32 raise ProductionServiceError {
   let value = match fields.get(key) {
     Some(Number(number, ..)) if number == number.trunc() => number.to_int()
     _ => raise fail(key + " must be a positive integer")
@@ -210,7 +211,7 @@ fn validate(
     Some(Array(values)) => values
     _ => raise fail("read endpoints must match the fixed read-model allow-list")
   }
-  let read_set : Map[String, Bool] = {}
+  let read_set : Map[String, Bool] = Map([])
   for endpoint in read_endpoints {
     match endpoint {
       String(value) => read_set.set(value, true)
@@ -218,7 +219,7 @@ fn validate(
         raise fail("read endpoints must match the fixed read-model allow-list")
     }
   }
-  if read_set.keys().length() != expected_endpoints.length() {
+  if read_set.keys().count() != expected_endpoints.length() {
     raise fail("read endpoints must match the fixed read-model allow-list")
   }
   for endpoint in expected_endpoints {
@@ -287,29 +288,29 @@ fn bool_false(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: production_service_check <service_manifest> <deployment_gate> <output>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     let result = validate(read_json(args[1]), read_json(args[2])) catch {
       ProductionServiceError::InvalidInput(message) => {
         println("production service check failed: " + message)
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
       ProductionServiceError::Io(_) => {
         println("production service check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
         Json::null()
       }
     }
     @fs.write_string_to_file(args[3], result.stringify(indent=2) + "\n") catch {
       _ => {
         println("production service check failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
     println(result.stringify())

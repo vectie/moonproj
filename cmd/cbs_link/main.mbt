@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror CbsLinkError {
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Cbs(@cbs.CbsError)
   Money(@finance.MoneyError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise CbsLinkError {
@@ -268,31 +269,31 @@ fn run(plan_path : String, output_path : String) -> Unit raise CbsLinkError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: cbs_link <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       CbsLinkError::Quarantined(source) => {
         println("CBS cost-link refused quarantined item: " + source)
-        @sys.exit(1)
+        @env.exit(1)
       }
       CbsLinkError::InvalidInput => {
         println("CBS cost-link failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       CbsLinkError::Io(_) => {
         println("CBS cost-link failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       CbsLinkError::Cbs(_) => {
         println("CBS cost-link failed: \\{to_repr(error)}")
-        @sys.exit(1)
+        @env.exit(1)
       }
       CbsLinkError::Money(_) => {
         println("CBS cost-link failed: invalid money")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

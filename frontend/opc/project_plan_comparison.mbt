@@ -1,7 +1,8 @@
 ///|
+#derive(Debug, Eq)
 struct PlanCompareState {
   visible : Bool
-  generation : Int
+  generation : Int32
   before_key : String
   after_key : String
   before : Json?
@@ -9,18 +10,19 @@ struct PlanCompareState {
   result : @plan_workbench.PlanComparison?
   phase : String
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanCompareMsg {
   Show
   Select(Bool, String)
   Load
   Swap
   Close
-  Received(String, Int, String, Int, String, String, Bool, Int, String)
+  Received(String, Int32, String, Int32, String, String, Bool, Int32, String)
   Export
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_compare_initial() -> PlanCompareState {
@@ -149,7 +151,7 @@ fn plan_compare_update(
       after_key,
       is_before,
       status,
-      body
+      body,
     ) => {
       if !s.visible ||
         s.phase != "loading" ||

@@ -18,15 +18,15 @@ fn settlement_journal() -> @finance.JournalEntry {
     entry_id: "settlement/settlement-001",
     description: "settlement",
     postings: [
-      { account: "2202", side: @finance.PostingSide::Debit, amount },
-      { account: "1002", side: @finance.PostingSide::Credit, amount },
+      { account: "2202", side: @finance.PostingSide::Debit, amount, },
+      { account: "1002", side: @finance.PostingSide::Credit, amount, },
     ],
   }
 }
 
 ///|
 test "accounting event log links a source event to a journal" {
-  let event = AccountingEvent::new(
+  let event = @accounting.AccountingEvent::new(
     event_id="event-001",
     principal_id="co-001",
     source_type="settlement",
@@ -34,7 +34,7 @@ test "accounting event log links a source event to a journal" {
     event_type="payment.released",
     journal=settlement_journal(),
   )
-  let log = AccountingEventLog::empty().append(
+  let log = @accounting.AccountingEventLog::empty().append(
     event,
     scope="project:p-001",
     actor_id="alice",
@@ -46,7 +46,7 @@ test "accounting event log links a source event to a journal" {
 
 ///|
 test "accounting event log rejects replay" {
-  let event = AccountingEvent::new(
+  let event = @accounting.AccountingEvent::new(
     event_id="event-002",
     principal_id="co-001",
     source_type="commitment",
@@ -54,7 +54,7 @@ test "accounting event log rejects replay" {
     event_type="commitment.performed",
     journal=settlement_journal(),
   )
-  let log = AccountingEventLog::empty().append(
+  let log = @accounting.AccountingEventLog::empty().append(
     event,
     scope="project:p-001",
     actor_id="alice",
@@ -68,7 +68,7 @@ test "accounting event log rejects replay" {
       grant=event_grant("accounting:event:append"),
     )
   catch {
-    AccountingEventError::DuplicateEvent => ()
+    @accounting.AccountingEventError::DuplicateEvent => ()
     _ => fail("wrong accounting event error")
   } noraise {
     _ => fail("expected accounting event error")
@@ -79,7 +79,7 @@ test "accounting event log rejects replay" {
 test "accounting event rejects an unbalanced source journal" {
   let amount = @finance.Money::new(minor=50000, currency="CNY")
   try
-    AccountingEvent::new(
+    @accounting.AccountingEvent::new(
       event_id="event-003",
       principal_id="co-001",
       source_type="settlement",
@@ -89,12 +89,13 @@ test "accounting event rejects an unbalanced source journal" {
         entry_id: "bad",
         description: "bad",
         postings: [
-          { account: "1002", side: @finance.PostingSide::Debit, amount },
+          { account: "1002", side: @finance.PostingSide::Debit, amount, },
         ],
       },
     )
   catch {
-    AccountingEventError::Journal(@finance.LedgerError::Unbalanced) => ()
+    @accounting.AccountingEventError::Journal(@finance.LedgerError::Unbalanced) =>
+      ()
     _ => fail("wrong accounting event error")
   } noraise {
     _ => fail("expected accounting event error")
@@ -103,7 +104,7 @@ test "accounting event rejects an unbalanced source journal" {
 
 ///|
 test "accounting event log rejects a second event for the same source" {
-  let event = AccountingEvent::new(
+  let event = @accounting.AccountingEvent::new(
     event_id="event-source-001",
     principal_id="co-001",
     source_type="settlement",
@@ -111,7 +112,7 @@ test "accounting event log rejects a second event for the same source" {
     event_type="payment.released",
     journal=settlement_journal(),
   )
-  let log = AccountingEventLog::empty().append(
+  let log = @accounting.AccountingEventLog::empty().append(
     event,
     scope="project:p-001",
     actor_id="alice",
@@ -119,7 +120,7 @@ test "accounting event log rejects a second event for the same source" {
   )
   try
     log.append(
-      AccountingEvent::new(
+      @accounting.AccountingEvent::new(
         event_id="event-source-002",
         principal_id="co-001",
         source_type="settlement",
@@ -132,7 +133,7 @@ test "accounting event log rejects a second event for the same source" {
       grant=event_grant("accounting:event:append"),
     )
   catch {
-    AccountingEventError::DuplicateSource => ()
+    @accounting.AccountingEventError::DuplicateSource => ()
     _ => fail("wrong source replay error")
   } noraise {
     _ => fail("expected source replay error")
@@ -141,7 +142,7 @@ test "accounting event log rejects a second event for the same source" {
 
 ///|
 test "accounting event links persist as reconciliable envelopes" {
-  let event = AccountingEvent::new(
+  let event = @accounting.AccountingEvent::new(
     event_id="event-persist-001",
     principal_id="co-001",
     source_type="settlement",
@@ -149,7 +150,7 @@ test "accounting event links persist as reconciliable envelopes" {
     event_type="payment.released",
     journal=settlement_journal(),
   )
-  let log = AccountingEventLog::empty().append(
+  let log = @accounting.AccountingEventLog::empty().append(
     event,
     scope="project:p-001",
     actor_id="alice",

@@ -1,29 +1,33 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ProgressState {
   Draft
   Submitted
   Accepted
   Rejected
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum DeliverableState {
   Planned
   Submitted
   Accepted
   Rejected
   Remediation
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct DeliveryEvent {
   from : String
   to : String
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ProgressReport {
   report_id : String
   project_id : String
@@ -34,9 +38,10 @@ pub(all) struct ProgressReport {
   evidence_ids : Array[String]
   state : ProgressState
   events : Array[DeliveryEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Deliverable {
   deliverable_id : String
   project_id : String
@@ -46,12 +51,13 @@ pub(all) struct Deliverable {
   evidence_ids : Array[String]
   state : DeliverableState
   events : Array[DeliveryEvent]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Reviewed recognition evidence derived from an accepted progress report.
 /// This is a source-to-journal link only: posting, cash release, tax, and
 /// period close remain separate accounting controls.
+#derive(Debug, Eq)
 pub(all) struct DeliveryRecognition {
   recognition_id : String
   report_id : String
@@ -63,9 +69,10 @@ pub(all) struct DeliveryRecognition {
   accepted_by : String
   created_by : String
   accounting_event : @accounting.AccountingEvent
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror DeliveryError {
   EmptyIdentifier
   InvalidProgress
@@ -79,7 +86,7 @@ pub(all) suberror DeliveryError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ProgressReport::new(
@@ -171,7 +178,7 @@ fn ProgressReport::transition(
     actor_id,
     capability,
   })
-  { ..self, state: to, events }
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -303,7 +310,7 @@ fn Deliverable::transition(
     actor_id,
     capability,
   })
-  { ..self, state: to, events }
+  { ..self, state: to, events, }
 }
 
 ///|

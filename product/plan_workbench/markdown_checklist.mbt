@@ -1,18 +1,20 @@
 ///|
+#derive(Eq, ToJson, Debug)
 pub(all) struct ChecklistTask {
-  line : Int
+  line : Int32
   checked : Bool
   text : String
   context : Array[String]
   task : Task
-} derive(Eq, ToJson, Debug)
+}
 
 ///|
+#derive(Eq, Debug)
 pub(all) struct ChecklistImport {
   draft : Draft
   entries : Array[ChecklistTask]
-  skipped_checked : Int
-} derive(Eq, Debug)
+  skipped_checked : Int32
+}
 
 ///|
 fn checklist_space(c : Char) -> Bool {
@@ -27,7 +29,7 @@ fn checklist_list(chars : Array[Char]) -> String? {
   if chars.get(0) is Some('-' | '*' | '+') {
     i = 1
   } else {
-    while chars.get(i) is Some('0'..='9') {
+    while chars.get(i) is Some('0'..<='9') {
       i += 1
     }
     if i == 0 || !(chars.get(i) is Some('.' | ')')) {
@@ -64,7 +66,7 @@ pub fn preview_markdown_checklist(
   if id_prefix.trim().is_empty() {
     raise Invalid("Checklist task identity prefix is required")
   }
-  let reserved : Map[String, Bool] = Map::new()
+  let reserved : Map[String, Bool] = Map([])
   for task in draft.tasks {
     reserved[task.id] = true
     for dep in task.dependencies {
@@ -77,8 +79,8 @@ pub fn preview_markdown_checklist(
     }
   }
   let entries : Array[ChecklistTask] = []
-  let headings : Array[(Int, String)] = []
-  let parents : Array[(Int, String)] = []
+  let headings : Array[(Int32, String)] = []
+  let parents : Array[(Int32, String)] = []
   let mut fence : Char? = None
   let mut fence_length = 0
   let mut comment = false

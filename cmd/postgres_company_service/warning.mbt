@@ -10,7 +10,7 @@ fn warning_tables() -> Array[String] {
 
 ///|
 async fn warning_context() -> Map[String, Array[SourceRow]] raise CompanyServiceError {
-  let rows : Map[String, Array[SourceRow]] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
   for table in warning_tables() {
     rows.set(table, raw_source_rows(table, 500))
   }
@@ -18,8 +18,8 @@ async fn warning_context() -> Map[String, Array[SourceRow]] raise CompanyService
 }
 
 ///|
-fn warning_coverage(rows : Map[String, Array[SourceRow]]) -> Map[String, Int] {
-  let result : Map[String, Int] = {}
+fn warning_coverage(rows : Map[String, Array[SourceRow]]) -> Map[String, Int32] {
+  let result : Map[String, Int32] = Map([])
   for table in warning_tables() {
     result.set(table, rows.get_or_default(table, []).length())
   }
@@ -27,7 +27,7 @@ fn warning_coverage(rows : Map[String, Array[SourceRow]]) -> Map[String, Int] {
 }
 
 ///|
-fn warning_missing(coverage : Map[String, Int]) -> Array[Json] {
+fn warning_missing(coverage : Map[String, Int32]) -> Array[Json] {
   let values : Array[String] = []
   for table, count in coverage {
     if count == 0 {
@@ -41,8 +41,8 @@ fn warning_missing(coverage : Map[String, Int]) -> Array[Json] {
 ///|
 fn warning_envelope(
   data : Json,
-  coverage : Map[String, Int],
-  command_projection_count : Int,
+  coverage : Map[String, Int32],
+  command_projection_count : Int32,
 ) -> Json {
   Json::object({
     "success": Json::boolean(true),
@@ -74,7 +74,7 @@ async fn warning_command_states() -> Map[String, Json] raise CompanyServiceError
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, revision, payload FROM company_aggregate_projection WHERE aggregate_type = 'warning_state' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
   )
-  let result : Map[String, Json] = {}
+  let result : Map[String, Json] = Map([])
   for line_view in output.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
@@ -274,7 +274,7 @@ async fn warning_rule_config_states() -> Map[String, Json] raise CompanyServiceE
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'warning_rule_config' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
   )
-  let result : Map[String, Json] = {}
+  let result : Map[String, Json] = Map([])
   for line_view in output.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
@@ -294,7 +294,7 @@ async fn warning_rule_config_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !warning_builtin_rule_code(rule_code) {
     raise reject(404, "warning rule does not exist")
   }
@@ -420,7 +420,7 @@ async fn warning_state_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "resolve" && command_type != "ignore" {
     raise reject(404, "unsupported warning command")
   }
@@ -616,7 +616,7 @@ fn warning_finding(
 fn warning_findings(rows : Map[String, Array[SourceRow]]) -> Array[Json] {
   let projects = rows.get_or_default("ep_project", [])
   let costs = rows.get_or_default("cb_cost", [])
-  let cost_projects : Map[String, Bool] = {}
+  let cost_projects : Map[String, Bool] = Map([])
   for row in costs {
     if json_field(row.payload, "deleted_at") is None &&
       json_bool(row.payload, "is_end_cost", false) {
@@ -870,7 +870,7 @@ async fn warning_custom_rule_states() -> Map[String, Json] raise CompanyServiceE
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'warning_custom_rule' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
   )
-  let result : Map[String, Json] = {}
+  let result : Map[String, Json] = Map([])
   for line_view in output.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
@@ -945,7 +945,7 @@ async fn warning_custom_rule_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -1142,7 +1142,7 @@ async fn warning_ticket_states() -> Map[String, Json] raise CompanyServiceError 
   let output = run_sql(
     "SELECT encode(convert_to(aggregate_id, 'UTF8'), 'hex'), encode(convert_to(payload::text, 'UTF8'), 'hex') FROM (SELECT DISTINCT ON (aggregate_id) aggregate_id, payload FROM company_aggregate_projection WHERE aggregate_type = 'warning_ticket' ORDER BY aggregate_id, revision DESC) latest ORDER BY aggregate_id LIMIT 500",
   )
-  let result : Map[String, Json] = {}
+  let result : Map[String, Json] = Map([])
   for line_view in output.split("\n") {
     let line = line_view.to_owned()
     if !line.is_empty() {
@@ -1278,7 +1278,7 @@ async fn warning_ticket_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) || !valid_identifier(warning_guid) {
     raise reject(422, "warning guid and Idempotency-Key must be valid")
   }

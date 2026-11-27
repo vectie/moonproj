@@ -8,7 +8,7 @@ test "Today across projects offers an explicit scope choice" {
 }
 
 ///|
-fn portfolio_fixture(count : Int) -> Model {
+fn portfolio_fixture(count : Int32) -> Model {
   let loading = today_flows_update(today_flows_initial("actor-a"), Refresh)
   let projects : Array[Json] = []
   for n in 0..<count {
@@ -34,7 +34,7 @@ fn portfolio_fixture(count : Int) -> Model {
 fn portfolio_reply(
   model : Model,
   project : String,
-  status : Int,
+  status : Int32,
   body : String,
 ) -> Model {
   let request = model.today.project_reads

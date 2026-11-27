@@ -7,10 +7,11 @@ struct ReceiptIdentity {
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror AccountingPostPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> AccountingPostPlanError {
@@ -194,7 +195,7 @@ fn run(
     Array(values) if !values.is_empty() => values
     _ => raise fail("accounting-link receipt has no accepted items")
   }
-  let receipt_by_event : Map[String, ReceiptIdentity] = {}
+  let receipt_by_event : Map[String, ReceiptIdentity] = Map([])
   let receipt_journals : Array[String] = []
   for value in receipt_items {
     let item = object(value, "receipt item")
@@ -444,21 +445,21 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 5 {
     println(
       "usage: accounting_post_plan <link-plan.json> <link-receipt.json> <mapping.json> <output.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3], args[4]) catch {
     AccountingPostPlanError::InvalidInput(message) => {
       println("accounting-post plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     AccountingPostPlanError::Io(_) => {
       println("accounting-post plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

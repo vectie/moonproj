@@ -1,6 +1,6 @@
 ///|
 test "execution attempt claims, runs, records evidence and succeeds" {
-  let ready = ExecutionAttempt::new(
+  let ready = @agent_port.ExecutionAttempt::new(
     execution_request(),
     attempt_id="attempt-001",
     at_epoch=100,
@@ -46,7 +46,7 @@ test "execution attempt claims, runs, records evidence and succeeds" {
 
 ///|
 test "expired active claim becomes dispatchable without becoming company success" {
-  let ready = ExecutionAttempt::new(
+  let ready = @agent_port.ExecutionAttempt::new(
     execution_request(),
     attempt_id="attempt-recover",
     at_epoch=100,
@@ -78,7 +78,7 @@ test "expired active claim becomes dispatchable without becoming company success
 
 ///|
 test "three consecutive crashes quarantine an attempt" {
-  let initial = ExecutionAttempt::new(
+  let initial = @agent_port.ExecutionAttempt::new(
     execution_request(),
     attempt_id="attempt-crash",
     at_epoch=100,
@@ -129,7 +129,7 @@ test "three consecutive crashes quarantine an attempt" {
 
 ///|
 test "review rework opens a new claimable round" {
-  let ready = ExecutionAttempt::new(
+  let ready = @agent_port.ExecutionAttempt::new(
     execution_request(),
     attempt_id="attempt-review",
     at_epoch=100,
@@ -170,7 +170,7 @@ test "review rework opens a new claimable round" {
 
 ///|
 test "stale revision and mismatched claim fail closed" {
-  let ready = ExecutionAttempt::new(
+  let ready = @agent_port.ExecutionAttempt::new(
     execution_request(),
     attempt_id="attempt-cas",
     at_epoch=100,

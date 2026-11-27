@@ -19,8 +19,8 @@ fn report_is_end_cost(value : Json) -> Bool {
 }
 
 ///|
-fn report_coverage(table_counts : Map[String, Int]) -> Json {
-  let fields : Map[String, Json] = {}
+fn report_coverage(table_counts : Map[String, Int32]) -> Json {
+  let fields : Map[String, Json] = Map([])
   for key, value in table_counts {
     fields.set(key, Json::number(value.to_double()))
   }
@@ -28,7 +28,7 @@ fn report_coverage(table_counts : Map[String, Int]) -> Json {
 }
 
 ///|
-fn report_missing(table_counts : Map[String, Int]) -> Array[Json] {
+fn report_missing(table_counts : Map[String, Int32]) -> Array[Json] {
   let result : Array[Json] = []
   for key, value in table_counts {
     if value == 0 {
@@ -40,8 +40,8 @@ fn report_missing(table_counts : Map[String, Int]) -> Array[Json] {
 }
 
 ///|
-fn report_distinct_count(values : Array[String]) -> Int {
-  let seen : Map[String, Bool] = {}
+fn report_distinct_count(values : Array[String]) -> Int32 {
+  let seen : Map[String, Bool] = Map([])
   for value in values {
     seen.set(value, true)
   }
@@ -53,11 +53,11 @@ async fn report_cost_summary() -> Json raise CompanyServiceError {
   let projects = raw_source_rows("ep_project", 500)
   let units = raw_source_rows("mu_business_unit", 500)
   let costs = raw_source_rows("cb_cost", 500)
-  let target : Map[String, Double] = {}
-  let d : Map[String, Double] = {}
-  let e : Map[String, Double] = {}
-  let f : Map[String, Double] = {}
-  let g : Map[String, Double] = {}
+  let target : Map[String, Double] = Map([])
+  let d : Map[String, Double] = Map([])
+  let e : Map[String, Double] = Map([])
+  let f : Map[String, Double] = Map([])
+  let g : Map[String, Double] = Map([])
   for row in costs {
     let payload = row.payload
     if report_is_end_cost(payload) {
@@ -164,9 +164,9 @@ async fn report_contract_payment_ledger() -> Array[Json] raise CompanyServiceErr
   let plans = raw_source_rows("cb_htfkplan", 500)
   let applies = raw_source_rows("cb_htfk_apply", 500)
   let contracts = raw_source_rows("cb_contract", 500)
-  let plan_totals : Map[String, Double] = {}
-  let applied_totals : Map[String, Double] = {}
-  let paid_totals : Map[String, Double] = {}
+  let plan_totals : Map[String, Double] = Map([])
+  let applied_totals : Map[String, Double] = Map([])
+  let paid_totals : Map[String, Double] = Map([])
   for row in plans {
     let id = report_text(row.payload, "contract_guid", "")
     plan_totals.set(
@@ -318,7 +318,7 @@ async fn report_supplier_analysis() -> Array[Json] raise CompanyServiceError {
 ///|
 async fn report_approval_efficiency() -> Json raise CompanyServiceError {
   let instances = raw_source_rows("wf_process_instance", 500)
-  let by_type : Map[String, Array[Json]] = {}
+  let by_type : Map[String, Array[Json]] = Map([])
   for row in instances {
     let key = report_text(row.payload, "biz_type", "")
     let values = by_type.get_or_default(key, [])
@@ -452,7 +452,7 @@ async fn reports_overview_response() -> Json raise CompanyServiceError {
   let supplier_analysis = report_supplier_analysis()
   let approval_efficiency = report_approval_efficiency()
   let project_stage_matrix = report_project_stage_matrix()
-  let table_counts : Map[String, Int] = {}
+  let table_counts : Map[String, Int32] = Map([])
   for
     table in [
       "cb_cost", "cb_contract", "cb_htfk_apply", "cb_htfkplan", "srm_provider", "wf_process_instance",

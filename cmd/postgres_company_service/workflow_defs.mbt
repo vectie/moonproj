@@ -14,8 +14,8 @@ fn workflow_definition_tables() -> Array[String] {
 ///|
 fn workflow_definition_coverage(
   rows : Map[String, Array[SourceRow]],
-) -> Map[String, Int] {
-  let coverage : Map[String, Int] = {}
+) -> Map[String, Int32] {
+  let coverage : Map[String, Int32] = Map([])
   for table in workflow_definition_tables() {
     coverage.set(table, rows.get_or_default(table, []).length())
   }
@@ -23,7 +23,7 @@ fn workflow_definition_coverage(
 }
 
 ///|
-fn workflow_definition_missing(coverage : Map[String, Int]) -> Array[Json] {
+fn workflow_definition_missing(coverage : Map[String, Int32]) -> Array[Json] {
   let missing : Array[String] = []
   for table, count in coverage {
     if count == 0 {
@@ -51,11 +51,11 @@ fn workflow_definition_rows(
   rows : Map[String, Array[SourceRow]],
   process_key : String?,
 ) -> Array[Json] {
-  let users : Map[String, Json] = {}
+  let users : Map[String, Json] = Map([])
   for row in rows.get_or_default("sys_user", []) {
     users.set(json_text(row.payload, "user_id", row.record_id), row.payload)
   }
-  let assignees_by_step : Map[String, Array[Json]] = {}
+  let assignees_by_step : Map[String, Array[Json]] = Map([])
   for row in rows.get_or_default("wf_step_assignee", []) {
     let payload = row.payload
     let step_guid = json_text(payload, "step_guid", "")
@@ -81,7 +81,7 @@ fn workflow_definition_rows(
       assignees_by_step.set(step_guid, values)
     }
   }
-  let steps_by_process : Map[String, Array[Json]] = {}
+  let steps_by_process : Map[String, Array[Json]] = Map([])
   for row in rows.get_or_default("wf_step_def", []) {
     let payload = row.payload
     let process_guid = json_text(payload, "process_guid", "")
@@ -162,7 +162,7 @@ async fn workflow_process_defs_response(
       raise reject(422, "invalid process_key")
     _ => ()
   }
-  let rows : Map[String, Array[SourceRow]] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
   for table in workflow_definition_tables() {
     rows.set(table, raw_source_rows(table, 5000))
   }
@@ -190,7 +190,7 @@ async fn workflow_process_defs_response(
 ///|
 async fn workflow_process_preview_response(
   process_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let response = workflow_process_defs_response(Some(process_key))
   let items = json_field(response, "items").unwrap_or(Json::array([]))
   match items {

@@ -12,13 +12,13 @@ fn notification_grant(capability : String) -> @foundation.AuthorityGrant {
 }
 
 ///|
-fn draft_notification() -> Notification {
-  try! Notification::new(
+fn draft_notification() -> @notification.Notification {
+  try! @notification.Notification::new(
     notification_id="notification-001",
     principal_id="co-001",
     recipient_id="user-lmj-0001",
     scope="project:p-001",
-    channel=NotificationChannel::InApp,
+    channel=@notification.NotificationChannel::InApp,
     template_code="task.overdue",
     subject="",
     body="Task requires review",
@@ -39,7 +39,7 @@ test "notification outbox queues and confirms delivery explicitly" {
       actor_id="alice",
       grant=notification_grant("notification:confirm"),
     )
-  assert_true(delivered.state == NotificationState::Delivered)
+  assert_true(delivered.state == @notification.NotificationState::Delivered)
   assert_eq(delivered.provider_message_id, "provider-msg-001")
   assert_eq(delivered.events.length(), 3)
 }
@@ -53,7 +53,7 @@ test "notification rejects invalid transitions and missing provider evidence" {
       grant=notification_grant("notification:confirm"),
     )
   catch {
-    NotificationError::InvalidState => ()
+    @notification.NotificationError::InvalidState => ()
     _ => fail("wrong notification state error")
   } noraise {
     _ => fail("expected notification state error")
@@ -68,7 +68,7 @@ test "notification rejects invalid transitions and missing provider evidence" {
       grant=notification_grant("notification:confirm"),
     )
   catch {
-    NotificationError::MissingProviderMessage => ()
+    @notification.NotificationError::MissingProviderMessage => ()
     _ => fail("wrong provider evidence error")
   } noraise {
     _ => fail("expected provider evidence error")

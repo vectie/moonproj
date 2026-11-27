@@ -148,7 +148,7 @@ fn sales_refund_approve_request(
 ///|
 async fn latest_sales_refund_payload(
   refund_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'refund' AND aggregate_id = " +
     @postgres.sql_literal(refund_id) +
@@ -184,7 +184,7 @@ async fn sales_refund_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "create" && command_type != "approve" {
     raise reject(404, "unsupported sales refund command")
   }

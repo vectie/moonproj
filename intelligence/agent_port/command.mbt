@@ -1,15 +1,17 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ProposedCommandState {
   ProposalOnly
   AcceptedForReview
   Rejected
   Superseded
-} derive(Debug, Eq)
+}
 
 ///|
 /// A proposed company command is inert evidence. Runtime permission may have
 /// allowed the agent to prepare it, but only a later MoonProj domain command
 /// with a fresh company-authority decision may create a business effect.
+#derive(Debug, Eq)
 pub(all) struct ProposedCommand {
   protocol_version : String
   command_id : String
@@ -27,7 +29,7 @@ pub(all) struct ProposedCommand {
   state : ProposedCommandState
   runtime_permission_observed : Bool
   company_authority_granted : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ProposedCommand::is_well_formed(self : ProposedCommand) -> Bool {
@@ -59,17 +61,18 @@ pub fn ProposedCommand::accept_for_review(
 }
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AgentResult {
   protocol_version : String
   request_id : String
   attempt_id : String
   status : String
   findings : String
-  confidence_percent : Int
+  confidence_percent : Int32
   evidence : Array[String]
   proposed_commands : Array[ProposedCommand]
   error_classification : String
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn AgentResult::is_terminal(self : AgentResult) -> Bool {

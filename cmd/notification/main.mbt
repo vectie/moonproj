@@ -1,9 +1,10 @@
 ///|
+#derive(Debug)
 pub(all) suberror NotificationPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Notification(@notification_domain.NotificationError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise NotificationPromotionError {
@@ -229,23 +230,23 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: notification <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       NotificationPromotionError::InvalidInput => {
         println("notification promotion failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       NotificationPromotionError::Io(_) => {
         println("notification promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       NotificationPromotionError::Notification(_) => {
         println("notification promotion failed: notification validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

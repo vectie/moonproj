@@ -4,10 +4,11 @@
 /// This command is intentionally source/database agnostic: it validates the
 /// redacted JSON envelope on disk, never opens the ERP database, and never
 /// authorizes promotion or cutover.
+#derive(Debug)
 pub(all) suberror ExportContractError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ExportContractError {
@@ -76,7 +77,7 @@ fn required_int(
   fields : Map[String, Json],
   key : String,
   path : String,
-) -> Int raise ExportContractError {
+) -> Int32 raise ExportContractError {
   match required(fields, key, path) {
     Number(value, ..) if value == value.trunc() => value.to_int()
     _ => raise fail("expected integer at " + path + "." + key)
@@ -159,7 +160,7 @@ fn schema_tables(path : String) -> Array[String] raise ExportContractError {
     let line = line_view.to_owned()
     match line.find(marker) {
       Some(start) => {
-        let tail = line.sub(start=start + marker.length())
+        let tail = line.exact_view(start=start + marker.length())
         match tail.before(" ") {
           Some(name_view) => {
             let name = name_view.to_owned()
@@ -350,15 +351,15 @@ fn validate(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: export_contract <schema> <export_dir> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let report = validate(args[1], args[2]) catch {
     error => {
-      println("ERP export contract failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("ERP export contract failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }
@@ -366,7 +367,7 @@ fn main {
   @fs.write_string_to_file(args[3], output) catch {
     _ => {
       println("ERP export contract failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
   println(output)

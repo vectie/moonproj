@@ -4,10 +4,11 @@
 /// The database client remains `psql`, but all SQL callers are compiled
 /// MoonBit code. Connection credentials stay in the inherited environment;
 /// they are never accepted as command-line payloads or logged.
+#derive(Debug)
 pub(all) suberror PostgresError {
   Process(String)
   Failed(String)
-} derive(Debug)
+}
 
 ///|
 pub(all) struct Connection {
@@ -65,7 +66,7 @@ fn process_text(process : @spawn.CompletedProcess, key : String) -> String {
 }
 
 ///|
-fn process_status(process : @spawn.CompletedProcess) -> Int {
+fn process_status(process : @spawn.CompletedProcess) -> Int32 {
   match ToJson::to_json(process) {
     Object(fields) =>
       match fields.get("status") {
@@ -107,7 +108,7 @@ async fn run(
     suffix.map(fn(value) { value.to_string_view() }),
     timeout=120_000,
   ) catch {
-    error => raise PostgresError::Process("\{to_repr(error)}")
+    error => raise PostgresError::Process("\{Repr(error)}")
   }
   let status = process_status(process)
   if status != 0 {

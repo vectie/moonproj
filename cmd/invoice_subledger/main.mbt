@@ -1,4 +1,5 @@
 ///|
+#derive(Debug)
 pub(all) suberror InvoiceSubledgerPromotionError {
   InvalidInput
   Io(@fs.IOError)
@@ -6,7 +7,7 @@ pub(all) suberror InvoiceSubledgerPromotionError {
   Invoice(@invoice.InvoiceError)
   Receivable(@receivable.ReceivableError)
   Payable(@payable.PayableError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise InvoiceSubledgerPromotionError {
@@ -404,43 +405,43 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: invoice_subledger <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       InvoiceSubledgerPromotionError::InvalidInput => {
         println(
           "invoice subledger promotion failed: invalid or unreviewed input",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvoiceSubledgerPromotionError::Io(_) => {
         println("invoice subledger promotion failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvoiceSubledgerPromotionError::Money(_) => {
         println("invoice subledger promotion failed: money validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvoiceSubledgerPromotionError::Invoice(error) => {
         println(
-          "invoice subledger promotion failed: invoice lifecycle validation: \{to_repr(error)}",
+          "invoice subledger promotion failed: invoice lifecycle validation: \{Repr(error)}",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvoiceSubledgerPromotionError::Receivable(error) => {
         println(
-          "invoice subledger promotion failed: receivable lifecycle validation: \{to_repr(error)}",
+          "invoice subledger promotion failed: receivable lifecycle validation: \{Repr(error)}",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
       InvoiceSubledgerPromotionError::Payable(error) => {
         println(
-          "invoice subledger promotion failed: payable lifecycle validation: \{to_repr(error)}",
+          "invoice subledger promotion failed: payable lifecycle validation: \{Repr(error)}",
         )
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

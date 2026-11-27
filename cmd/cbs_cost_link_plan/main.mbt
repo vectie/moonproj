@@ -19,10 +19,11 @@ struct ProjectConfig {
 }
 
 ///|
+#derive(Debug)
 pub(all) suberror CbsCostLinkPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> CbsCostLinkPlanError {
@@ -118,7 +119,7 @@ fn integer(value : Json, default : Int64) -> Int64 {
 }
 
 ///|
-fn power10(digits : Int) -> Int64 {
+fn power10(digits : Int32) -> Int64 {
   let mut result : Int64 = 1
   for _ in 0..<digits {
     result *= 10
@@ -272,7 +273,7 @@ fn run(
     CbsCostLinkPlanError::InvalidInput(_) => {}
     CbsCostLinkPlanError::Io(_) => {}
   }
-  let plan_by_project : Map[String, ProjectConfig] = {}
+  let plan_by_project : Map[String, ProjectConfig] = Map([])
   let seen_versions : Array[String] = []
   for project_id, raw_value in projects {
     let raw = object(raw_value, "CBS project mapping")
@@ -311,7 +312,7 @@ fn run(
       raise fail("subject_by_cost_code must be non-empty: " + project_id)
     }
     let subjects : Array[Subject] = []
-    let subjects_by_source : Map[String, Subject] = {}
+    let subjects_by_source : Map[String, Subject] = Map([])
     let seen_codes : Array[String] = []
     for source_code, subject_value in raw_subjects {
       let subject_obj = object(subject_value, "subject mapping")
@@ -500,19 +501,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: cbs_cost_link_plan <export> <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     CbsCostLinkPlanError::InvalidInput(message) => {
       println("CBS cost-link plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     CbsCostLinkPlanError::Io(_) => {
       println("CBS cost-link plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

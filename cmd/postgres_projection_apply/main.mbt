@@ -4,11 +4,12 @@
 /// This command does not promote or infer business state. It accepts only the
 /// already validated native receipt, persists immutable aggregate revisions,
 /// and records a cohort-scoped replay-safe migration receipt in PostgreSQL.
+#derive(Debug)
 pub(all) suberror PostgresProjectionApplyError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 struct ProjectionItem {
@@ -162,7 +163,7 @@ fn load_receipt(
       target_candidate,
     })
   }
-  { source_snapshot_id, mapping_version, items }
+  { source_snapshot_id, mapping_version, items, }
 }
 
 ///|
@@ -240,7 +241,7 @@ fn decode_hex(value : String) -> String raise PostgresProjectionApplyError {
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -274,7 +275,7 @@ fn decode_hex(value : String) -> String raise PostgresProjectionApplyError {
 }
 
 ///|
-fn parse_decimal(value : String) -> Int raise PostgresProjectionApplyError {
+fn parse_decimal(value : String) -> Int32 raise PostgresProjectionApplyError {
   if value.is_empty() {
     raise fail("expected integer")
   }
@@ -304,7 +305,7 @@ fn parse_decimal(value : String) -> Int raise PostgresProjectionApplyError {
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresProjectionApplyError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -316,7 +317,7 @@ fn fields(
 ///|
 fn filtered_hash_text(
   output : String,
-  expected : Int,
+  expected : Int32,
 ) -> String raise PostgresProjectionApplyError {
   let mut text = ""
   for line_view in output.split("\n") {
@@ -362,8 +363,10 @@ async fn logical_projection_hash(
 }
 
 ///|
-fn parse_last_count(output : String) -> Int raise PostgresProjectionApplyError {
-  let mut result : Int? = None
+fn parse_last_count(
+  output : String,
+) -> Int32 raise PostgresProjectionApplyError {
+  let mut result : Int32? = None
   for line_view in output.split("\n") {
     let line = line_view.trim().to_owned()
     if !line.is_empty() {
@@ -387,7 +390,7 @@ async fn apply_rows(
   connection : @postgres.Connection,
   csv_path : String,
   sql_path : String,
-) -> Int raise PostgresProjectionApplyError {
+) -> Int32 raise PostgresProjectionApplyError {
   let sql = "BEGIN;\nLOCK TABLE company_aggregate_projection IN SHARE ROW EXCLUSIVE MODE;\nCREATE TEMP TABLE staging_company_projection (aggregate_type VARCHAR(128) NOT NULL, aggregate_id VARCHAR(255) NOT NULL, payload JSONB NOT NULL, source_event_id VARCHAR(255) NOT NULL) ON COMMIT DROP;\n\\copy staging_company_projection(aggregate_type, aggregate_id, payload, source_event_id) FROM " +
     @postgres.sql_literal(csv_path) +
     " WITH (FORMAT csv, HEADER true);\nDO $$ BEGIN IF EXISTS (SELECT 1 FROM staging_company_projection s JOIN company_aggregate_projection p ON p.source_event_id = s.source_event_id WHERE p.aggregate_type <> s.aggregate_type OR p.aggregate_id <> s.aggregate_id OR p.payload <> s.payload) THEN RAISE EXCEPTION 'company aggregate projection event conflict'; END IF; END $$;\nWITH pending AS (SELECT s.aggregate_type, s.aggregate_id, s.payload, s.source_event_id, COALESCE(existing.max_revision, 0) + row_number() OVER (PARTITION BY s.aggregate_type, s.aggregate_id ORDER BY s.source_event_id)::integer AS revision FROM staging_company_projection s LEFT JOIN (SELECT aggregate_type, aggregate_id, max(revision) AS max_revision FROM company_aggregate_projection GROUP BY aggregate_type, aggregate_id) existing ON existing.aggregate_type = s.aggregate_type AND existing.aggregate_id = s.aggregate_id WHERE NOT EXISTS (SELECT 1 FROM company_aggregate_projection p WHERE p.source_event_id = s.source_event_id)), inserted AS (INSERT INTO company_aggregate_projection(aggregate_type, aggregate_id, revision, payload, source_event_id) SELECT aggregate_type, aggregate_id, revision, payload, source_event_id FROM pending ON CONFLICT DO NOTHING RETURNING 1) SELECT count(*)::text FROM inserted;\nCOMMIT;\n"
@@ -438,7 +441,7 @@ async fn finalize_receipt(
 async fn verify(
   connection : @postgres.Connection,
   run_id : String,
-) -> (Int, Int) raise PostgresProjectionApplyError {
+) -> (Int32, Int32) raise PostgresProjectionApplyError {
   let output = @postgres.run_sql(
     connection,
     "SELECT (SELECT count(*) FROM company_aggregate_projection)::text, (SELECT count(*) FROM company_migration_receipt WHERE run_id = " +
@@ -514,7 +517,7 @@ async fn run(
   ) catch {
     error =>
       raise fail(
-        "temporary PostgreSQL projection workspace failed: \{to_repr(error)}",
+        "temporary PostgreSQL projection workspace failed: \{Repr(error)}",
       )
   }
   result
@@ -522,12 +525,12 @@ async fn run(
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 2 {
     println(
       "usage: postgres_projection_apply <receipt> [--schema path] [--psql path] [--host host] [--port port] [--user user] [--database database]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let schema_path = option(args, "--schema").unwrap_or(
     "scripts/postgres_target_schema.sql",
@@ -542,8 +545,8 @@ async fn main {
   )
   let report = run(args[1], schema_path, connection, database) catch {
     error => {
-      println("company PostgreSQL projection apply failed: \{to_repr(error)}")
-      @sys.exit(1)
+      println("company PostgreSQL projection apply failed: \{Repr(error)}")
+      @env.exit(1)
       Json::null()
     }
   }

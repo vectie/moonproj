@@ -160,36 +160,50 @@ test "invalid replacement and field-emptying failures are atomic and bounded" {
       ("Pilot", "x".repeat(2001), "all"),
     ] {
     assert_true(
-      (try Ok(@plan_workbench.preview_plan_text_replacement(
-        before,
-        args.0,
-        args.1,
-        args.2,
-      )) catch { e => Err(e) })
+      (Ok(
+        @plan_workbench.preview_plan_text_replacement(
+          before,
+          args.0,
+          args.1,
+          args.2,
+        ),
+      ) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
     assert_eq(before, replacement_test_draft())
   }
   let expansion = { ..before, notes: "x".repeat(1000), }
   assert_true(
-    (try Ok(@plan_workbench.preview_plan_text_replacement(
-      expansion,
-      "x",
-      "z".repeat(2000),
-      "notes",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_plan_text_replacement(
+        expansion,
+        "x",
+        "z".repeat(2000),
+        "notes",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let huge = { ..before, notes: "x".repeat(1000000), }
   assert_true(
-    (try Ok(@plan_workbench.preview_plan_text_replacement(huge, "x", "z", "all")) catch { e => Err(e) })
+    (Ok(@plan_workbench.preview_plan_text_replacement(huge, "x", "z", "all")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let too_many = { ..before, tasks: Array::make(101, before.tasks[0]), }
   assert_true(
-    (try Ok(@plan_workbench.preview_plan_text_replacement(
-      too_many, "Pilot", "New", "all",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.preview_plan_text_replacement(
+        too_many, "Pilot", "New", "all",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }

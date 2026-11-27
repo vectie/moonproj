@@ -1,5 +1,6 @@
 ///|
 // Catalog definitions are authored intent, never runtime or delivery acceptance.
+#derive(Debug, Eq, ToJson, FromJson)
 struct ProductDocument {
   id : String
   title : String
@@ -8,9 +9,10 @@ struct ProductDocument {
   version : String
   availability : String
   url : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 struct ProductDefinition {
   id : String
   name : String
@@ -28,25 +30,28 @@ struct ProductDefinition {
   engineering_target : String
   company_project_id : String
   documents : Array[ProductDocument]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq)
 struct ProductCompanyProject {
   id : String
   name : String
   source : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct ProductWorkTask {
   id : String
   product_id : String
   project_id : String
   title : String
   state : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct ProductsState {
   rows : Array[ProductDefinition]
   inventories : Array[@work_inventory.Inventory]
@@ -57,43 +62,44 @@ struct ProductsState {
   // This is a page-local choice, not a draft, task, or persisted attribution.
   pending_work_group_id : String
   state : String
-  request : Int
+  request : Int32
   selected_id : String
   // Exact requested identity survives a late, failed, reordered or missing catalog.
   route_id : String
-  selection : Int
+  selection : Int32
   search : String
   reverse : Bool
   admission_state : String
   engineering_state : String
   projects : Array[ProductCompanyProject]
   project_state : String
-  project_request : Int
-  project_choice : Int
+  project_request : Int32
+  project_choice : Int32
   project_note : String
   project_id : String
   tasks : Array[ProductWorkTask]
   work_state : String
-  work_request : Int
+  work_request : Int32
   prepared_product_id : String
   prepared_project_id : String
   prepared_product_snapshot : ProductDefinition?
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum ProductsMsg {
   Refresh
-  CatalogRead(Int, Int, String)
+  CatalogRead(Int32, Int32, String)
   Select(String)
   Search(String)
   Reverse
-  DetailRead(String, String, Int, Int, String)
+  DetailRead(String, String, Int32, Int32, String)
   OpenEngineering(Page)
   LoadProjects
-  ProjectsRead(String, Int, Int, Int, String)
+  ProjectsRead(String, Int32, Int32, Int32, String)
   SelectProject(String)
   LoadWork
-  WorkRead(String, Int, String, Int, Int, String)
+  WorkRead(String, Int32, String, Int32, Int32, String)
   Prepare
   PrepareWork(String, String)
   CancelWorkChoice
@@ -101,7 +107,7 @@ enum ProductsMsg {
   SearchWork(String)
   CancelPreparation
   OpenTask(String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn products_initial() -> ProductsState {
@@ -332,7 +338,7 @@ fn products_visible(state : ProductsState) -> Array[ProductDefinition] {
 }
 
 ///|
-fn products_read_state(status : Int, body : String) -> String {
+fn products_read_state(status : Int32, body : String) -> String {
   if status == 0 {
     "offline"
   } else if status == 401 || status == 403 {

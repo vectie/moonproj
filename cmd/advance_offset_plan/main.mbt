@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror AdvanceOffsetPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> AdvanceOffsetPlanError {
@@ -86,7 +87,7 @@ fn parse_integer(value : String, default : Int64) -> Int64 {
 }
 
 ///|
-fn power10(digits : Int) -> Int64 {
+fn power10(digits : Int32) -> Int64 {
   let mut result : Int64 = 1
   for _ in 0..<digits {
     result *= 10
@@ -201,7 +202,7 @@ fn item(
   reasons : Array[String],
   warning : String,
 ) -> Json {
-  let values : Map[String, Json] = {}
+  let values : Map[String, Json] = Map([])
   values.set("source_table", Json::string(source_table))
   values.set("source_id", Json::string(source_id))
   values.set("target_type", Json::string(target_type))
@@ -264,7 +265,7 @@ fn run(
     Array(values) => values
     _ => raise fail("offset export must be an array")
   }
-  let loans_by_id : Map[String, Json] = {}
+  let loans_by_id : Map[String, Json] = Map([])
   for row in loans {
     let loan = object(row, "loan row")
     loans_by_id.set(text(field(Json::object(loan), "loan_guid")), row)
@@ -523,19 +524,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: advance_offset_plan <export> <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     AdvanceOffsetPlanError::InvalidInput(message) => {
       println("advance-offset promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     AdvanceOffsetPlanError::Io(_) => {
       println("advance-offset promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

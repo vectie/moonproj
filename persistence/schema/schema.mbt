@@ -1,20 +1,23 @@
 ///|
 /// A versioned, immutable description of the database schema.
+#derive(Debug, Eq)
 pub(all) struct SchemaState {
-  version : Int
+  version : Int32
   checksum : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// A single forward-only migration step.
+#derive(Debug, Eq)
 pub(all) struct MigrationStep {
-  version : Int
+  version : Int32
   migration_id : String
   checksum : String
   description : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror MigrationError {
   InvalidVersion
   EmptyMigrationId
@@ -22,16 +25,16 @@ pub(all) suberror MigrationError {
   EmptyDescription
   NonSequential
   AlreadyApplied
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn SchemaState::initial() -> SchemaState {
-  { version: 0, checksum: "genesis" }
+  { version: 0, checksum: "genesis", }
 }
 
 ///|
 pub fn MigrationStep::new(
-  version~ : Int,
+  version~ : Int32,
   migration_id~ : String,
   checksum~ : String,
   description~ : String,
@@ -48,7 +51,7 @@ pub fn MigrationStep::new(
   if description.trim() == "" {
     raise MigrationError::EmptyDescription
   }
-  { version, migration_id, checksum, description }
+  { version, migration_id, checksum, description, }
 }
 
 ///|
@@ -62,7 +65,7 @@ pub fn apply_migration(
   if migration.version != current.version + 1 {
     raise MigrationError::NonSequential
   }
-  { version: migration.version, checksum: migration.checksum }
+  { version: migration.version, checksum: migration.checksum, }
 }
 
 ///|

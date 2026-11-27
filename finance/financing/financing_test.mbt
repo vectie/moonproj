@@ -13,7 +13,7 @@ fn financing_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "financing facility controls draw, interest, and repayment" {
-  let facility = FinancingFacility::new(
+  let facility = @financing.FinancingFacility::new(
       facility_id="facility-001",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -41,13 +41,13 @@ test "financing facility controls draw, interest, and repayment" {
     actor_id="alice",
     grant=financing_grant("financing:repay"),
   )
-  assert_true(facility.state == FacilityState::Closed)
+  assert_true(facility.state == @financing.FacilityState::Closed)
   assert_eq(facility.outstanding_principal.minor, 0L)
 }
 
 ///|
 test "financing draw and repayment emit separate source events" {
-  let facility = FinancingFacility::new(
+  let facility = @financing.FinancingFacility::new(
       facility_id="facility-events",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -89,7 +89,7 @@ test "financing draw and repayment emit separate source events" {
 
 ///|
 test "financing accounting link rejects repayment above outstanding balance" {
-  let facility = FinancingFacility::new(
+  let facility = @financing.FinancingFacility::new(
       facility_id="facility-event-gate",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -116,7 +116,7 @@ test "financing accounting link rejects repayment above outstanding balance" {
       cash_account="cash",
     )
   catch {
-    FinancingError::OverRepayment => ()
+    @financing.FinancingError::OverRepayment => ()
     _ => fail("wrong financing accounting error")
   } noraise {
     _ => fail("expected financing accounting error")
@@ -125,7 +125,7 @@ test "financing accounting link rejects repayment above outstanding balance" {
 
 ///|
 test "financing facility blocks a draw above its limit" {
-  let facility = FinancingFacility::new(
+  let facility = @financing.FinancingFacility::new(
       facility_id="facility-002",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -144,7 +144,7 @@ test "financing facility blocks a draw above its limit" {
       grant=financing_grant("financing:draw"),
     )
   catch {
-    FinancingError::LimitExceeded => ()
+    @financing.FinancingError::LimitExceeded => ()
     _ => fail("wrong financing error")
   } noraise {
     _ => fail("expected financing error")
@@ -161,7 +161,7 @@ test "financing facility persists draw and repayment evidence" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let facility = FinancingFacility::new(
+  let facility = @financing.FinancingFacility::new(
       facility_id="facility-projection",
       principal_id="co-001",
       project_scope="project:p-001",

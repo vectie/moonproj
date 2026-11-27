@@ -5,41 +5,45 @@
 /// state-machine validation is still pending; `Planned` records a source table
 /// whose mapping is still a migration work item; `EmptySource` keeps an empty
 /// table visible without creating fake targets.
+#derive(Debug, Eq)
 pub(all) enum SnapshotTableDisposition {
   Mapped
   TypedStaged
   Planned
   EmptySource
-} derive(Debug, Eq)
+}
 
 ///|
 /// A row-count control for one source table. The inventory intentionally keeps
 /// metadata and counts only; it never embeds credentials, attachments, or raw
 /// ERP payloads.
+#derive(Debug, Eq)
 pub(all) struct SnapshotTable {
   table_name : String
   row_count : Int64
   target_record_type : String
   disposition : SnapshotTableDisposition
-} derive(Debug, Eq)
+}
 
 ///|
 /// A sanitized, repeatable inventory of one ERP database snapshot.
+#derive(Debug, Eq)
 pub(all) struct SnapshotInventory {
   snapshot_id : String
   source_path : String
   tables : Array[SnapshotTable]
   total_rows : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror SnapshotInventoryError {
   EmptyIdentifier
   NegativeRowCount
   DuplicateTable
   MissingTargetType
   Shadow(@shadow.ShadowError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn SnapshotTable::new(
@@ -61,7 +65,7 @@ pub fn SnapshotTable::new(
         raise SnapshotInventoryError::MissingTargetType
       }
   }
-  { table_name, row_count, target_record_type, disposition }
+  { table_name, row_count, target_record_type, disposition, }
 }
 
 ///|
@@ -84,7 +88,7 @@ pub fn SnapshotInventory::new(
     seen.push(table.table_name)
     total_rows += table.row_count
   }
-  { snapshot_id, source_path, tables: tables.copy(), total_rows }
+  { snapshot_id, source_path, tables: tables.copy(), total_rows, }
 }
 
 ///|
@@ -105,7 +109,7 @@ pub fn SnapshotInventory::table(
 pub fn SnapshotInventory::count_disposition(
   self : SnapshotInventory,
   disposition : SnapshotTableDisposition,
-) -> Int {
+) -> Int32 {
   let mut count = 0
   for table in self.tables {
     if table.disposition == disposition {

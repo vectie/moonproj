@@ -91,7 +91,10 @@ test "owner roster UI previews persists restores and exports exact roster" {
   )
   ignore(plan_test_file("owner-roster-preview.html", html))
   ignore(
-    plan_test_file("owner-roster-after.json", ToJson::to_json(d).stringify(indent=2)),
+    plan_test_file(
+      "owner-roster-after.json",
+      ToJson::to_json(d).stringify(indent=2),
+    ),
   )
   ignore(plan_test_file("owner-roster-output.csv", csv))
   let (_, switched) = plan_update(_ => none, Choose("company-second"), edited)

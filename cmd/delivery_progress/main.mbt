@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror ProgressPromotionError {
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Delivery(@delivery.DeliveryError)
   Money(@finance.MoneyError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise ProgressPromotionError {
@@ -198,31 +199,31 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: delivery_progress <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       ProgressPromotionError::Quarantined(source) => {
         println("delivery progress refused quarantined item: " + source)
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProgressPromotionError::InvalidInput => {
         println("delivery progress failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProgressPromotionError::Io(_) => {
         println("delivery progress failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProgressPromotionError::Delivery(_) => {
         println("delivery progress failed: domain validation error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       ProgressPromotionError::Money(_) => {
         println("delivery progress failed: invalid money")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

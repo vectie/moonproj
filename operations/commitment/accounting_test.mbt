@@ -9,7 +9,7 @@ test "performed commitment produces recognition journal" {
     max_amount_minor: 100000,
     active: true,
   }
-  let draft = Commitment::new(
+  let draft = @commitment.Commitment::new(
     commitment_id="commit-recognition-001",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -19,21 +19,21 @@ test "performed commitment produces recognition journal" {
     grant~,
   )
   let submitted = draft.transition(
-    CommitmentState::Submitted,
+    @commitment.CommitmentState::Submitted,
     actor_id="alice",
-    grant={ ..grant, capability: "commitment:submit" },
+    grant={ ..grant, capability: "commitment:submit", },
   )
   let approved = submitted.transition(
-    CommitmentState::Approved,
+    @commitment.CommitmentState::Approved,
     actor_id="alice",
-    grant={ ..grant, capability: "commitment:approve" },
+    grant={ ..grant, capability: "commitment:approve", },
   )
   let performed = approved.transition(
-    CommitmentState::Performed,
+    @commitment.CommitmentState::Performed,
     actor_id="alice",
-    grant={ ..grant, capability: "commitment:perform" },
+    grant={ ..grant, capability: "commitment:perform", },
   )
-  let journal = recognition_journal(
+  let journal = @commitment.recognition_journal(
     performed,
     expense_account="6101",
     payable_account="2202",
@@ -53,7 +53,7 @@ test "performed commitment creates a source accounting event" {
     max_amount_minor: 100000,
     active: true,
   }
-  let performed = Commitment::new(
+  let performed = @commitment.Commitment::new(
       commitment_id="commit-event-001",
       principal_id="co-001",
       project_scope="project:p-001",
@@ -62,19 +62,19 @@ test "performed commitment creates a source accounting event" {
       actor_id="alice",
       grant~,
     )
-    .transition(CommitmentState::Submitted, actor_id="alice", grant={
+    .transition(@commitment.CommitmentState::Submitted, actor_id="alice", grant={
       ..grant,
       capability: "commitment:submit",
     })
-    .transition(CommitmentState::Approved, actor_id="alice", grant={
+    .transition(@commitment.CommitmentState::Approved, actor_id="alice", grant={
       ..grant,
       capability: "commitment:approve",
     })
-    .transition(CommitmentState::Performed, actor_id="alice", grant={
+    .transition(@commitment.CommitmentState::Performed, actor_id="alice", grant={
       ..grant,
       capability: "commitment:perform",
     })
-  let event = recognition_event(
+  let event = @commitment.recognition_event(
     performed,
     event_id="event-commitment-001",
     event_type="commitment.performed",

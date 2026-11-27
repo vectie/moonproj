@@ -38,7 +38,7 @@ fn native_continuation_envelope(
 }
 
 ///|
-fn native_continuation_error(error : Error) -> (Int, String) {
+fn native_continuation_error(error : Error) -> (Int32, String) {
   match error {
     NativeContinuationError::Rejected(status, message) => (status, message)
     GatewayError::InvalidInput(message) => (400, message)
@@ -214,7 +214,7 @@ async fn native_list_continuations(
   moonclaw_uri : String,
   task_id : String,
   requested : String,
-  human_revision_id? : String = "",
+  human_revision_id~ : String = "",
 ) -> ProxyResult {
   let (detail, task) = native_continuation_detail(bridge, task_id)
   if detail.status != 200 {

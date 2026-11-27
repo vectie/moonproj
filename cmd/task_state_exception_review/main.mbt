@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror TaskStateExceptionReviewError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> TaskStateExceptionReviewError {
@@ -167,19 +168,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: task_state_exception_review <plan.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     TaskStateExceptionReviewError::InvalidInput(message) => {
       println("task-state exception review failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     TaskStateExceptionReviewError::Io(_) => {
       println("task-state exception review failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

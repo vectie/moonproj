@@ -28,7 +28,7 @@ fn project_source_command_spec(
 ///|
 async fn latest_project_command_payload(
   project_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') " +
     "FROM (SELECT revision, payload FROM company_aggregate_projection WHERE aggregate_type = 'project' " +
@@ -109,16 +109,6 @@ fn project_json_text(value : Json) -> String {
     False => "false"
     _ => ""
   }
-}
-
-///|
-fn project_copy_fields(payload : Json) -> Map[String, Json] {
-  let result : Map[String, Json] = {}
-  match payload {
-    Object(values) => values.each((key, value) => result.set(key, value))
-    _ => ()
-  }
-  result
 }
 
 ///|
@@ -216,7 +206,7 @@ fn project_source_update_request(
   body : Json,
   actor_id : String,
 ) -> Json raise CompanyServiceError {
-  let changes : Map[String, Json] = {}
+  let changes : Map[String, Json] = Map([])
   let mappings : Map[String, String] = {
     "projName": "proj_name",
     "projShortName": "proj_short_name",
@@ -348,7 +338,7 @@ async fn project_source_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   company_command_validate_ids("project:" + command_type + ":", idempotency_key)
   let request = if command_type == "create" {
     project_source_create_request(body, idempotency_key, actor_id)

@@ -2,29 +2,32 @@
 /// A governed configuration option. The value is intentionally opaque: a
 /// parameter dictionary is not allowed to smuggle accounting or CBS meaning
 /// into the company model without a later, explicit mapping.
+#derive(Debug, Eq)
 pub(all) struct ParameterOption {
   parameter_id : String
   code : String
   value : String
-  display_order : Int
+  display_order : Int32
   enabled : Bool
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ParameterDictionary {
   parameter_name : String
   principal_id : String
   scope : String
   options : Array[ParameterOption]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ParameterError {
   EmptyIdentifier
   DuplicateOption
   InvalidOrder
   NotAuthorized(AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ParameterDictionary::new(
@@ -49,7 +52,7 @@ pub fn ParameterDictionary::new(
   ) catch {
     error => raise ParameterError::NotAuthorized(error)
   }
-  { parameter_name, principal_id, scope, options: [] }
+  { parameter_name, principal_id, scope, options: [], }
 }
 
 ///|

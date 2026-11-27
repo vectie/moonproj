@@ -42,7 +42,7 @@ fn canonical_date(value : String) -> Bool {
   if value.length() != 10 || value[4] != '-' || value[7] != '-' {
     return false
   }
-  try @time.PlainDate::from_str(value) catch {
+  try (@string.FromStr::from_str(value) : @time.PlainDate) catch {
     _ => false
   } noraise {
     _ => true
@@ -60,7 +60,7 @@ fn canonical_utc_timestamp(value : String) -> Bool {
     value[19] != 'Z' {
     return false
   }
-  try @time.PlainDateTime::from_str(value[0:19]) catch {
+  try (@string.FromStr::from_str(value[0:19]) : @time.PlainDateTime) catch {
     _ => false
   } noraise {
     _ => true

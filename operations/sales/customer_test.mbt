@@ -12,8 +12,8 @@ fn sales_record_grant(capability : String) -> @foundation.AuthorityGrant {
 }
 
 ///|
-fn active_customer() -> Customer raise SalesRecordError {
-  Customer::new(
+fn active_customer() -> @sales.Customer raise @sales.SalesRecordError {
+  @sales.Customer::new(
     customer_id="customer-001",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -28,7 +28,7 @@ fn active_customer() -> Customer raise SalesRecordError {
 ///|
 test "customer reservation converts and mortgage releases" {
   let customer = active_customer()
-  let reservation = Reservation::new(
+  let reservation = @sales.Reservation::new(
     subscription_id="sub-001",
     customer,
     unit_reference="building-1/unit-1",
@@ -39,7 +39,7 @@ test "customer reservation converts and mortgage releases" {
     actor_id="alice",
     grant=sales_record_grant("sales:subscription:convert"),
   )
-  let mortgage = MortgageApplication::new(
+  let mortgage = @sales.MortgageApplication::new(
       mortgage_id="mortgage-001",
       contract_id="sales-contract-001",
       customer,
@@ -57,14 +57,14 @@ test "customer reservation converts and mortgage releases" {
       actor_id="alice",
       grant=sales_record_grant("sales:mortgage:release"),
     )
-  assert_true(reservation.state == SubscriptionState::Converted)
-  assert_true(mortgage.state == MortgageState::Released)
+  assert_true(reservation.state == @sales.SubscriptionState::Converted)
+  assert_true(mortgage.state == @sales.MortgageState::Released)
 }
 
 ///|
 test "refund requires approval before payment" {
   let customer = active_customer()
-  let refund = RefundRequest::new(
+  let refund = @sales.RefundRequest::new(
       refund_id="refund-001",
       contract_id="sales-contract-001",
       customer,
@@ -76,14 +76,14 @@ test "refund requires approval before payment" {
     )
     .approve(actor_id="alice", grant=sales_record_grant("sales:refund:approve"))
     .pay(actor_id="alice", grant=sales_record_grant("sales:refund:pay"))
-  assert_true(refund.state == RefundState::Paid)
+  assert_true(refund.state == @sales.RefundState::Paid)
 }
 
 ///|
 test "refund rejects an amount above the contract" {
   let customer = active_customer()
   try
-    RefundRequest::new(
+    @sales.RefundRequest::new(
       refund_id="refund-002",
       contract_id="sales-contract-001",
       customer,
@@ -94,7 +94,7 @@ test "refund rejects an amount above the contract" {
       grant=sales_record_grant("sales:refund:create"),
     )
   catch {
-    SalesRecordError::OverRefund => ()
+    @sales.SalesRecordError::OverRefund => ()
     _ => fail("wrong sales record error")
   } noraise {
     _ => fail("expected sales record error")

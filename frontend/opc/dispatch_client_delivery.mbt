@@ -1,7 +1,7 @@
 ///|
 // Page-local preparation only. Customer-facing notes never enter task storage.
 struct DispatchClientDelivery {
-  request : Int
+  request : Int32
   pending : Bool
   expected : Json
   page : String
@@ -15,7 +15,7 @@ struct DispatchClientDelivery {
 ///|
 enum DispatchClientDeliveryMsg {
   Prepare
-  Loaded(Int, Json, String, Result[String, String])
+  Loaded(Int32, Json, String, Result[String, String])
   Edit(String, String)
   ToggleSource
   Download

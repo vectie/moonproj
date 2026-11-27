@@ -16,7 +16,7 @@ fn import_grant(
 
 ///|
 test "ERP fixtures map project, contract, and cost rows" {
-  let business_unit = import_business_unit(
+  let business_unit = @erp.import_business_unit(
     {
       bu_guid: "bu-001",
       parent_guid: None,
@@ -29,7 +29,7 @@ test "ERP fixtures map project, contract, and cost rows" {
   )
   assert_true(business_unit.kind == @organization.OrganizationKind::Company)
 
-  let project = import_project(
+  let project = @erp.import_project(
     {
       proj_guid: "p-legacy-001",
       bu_guid: "bu-001",
@@ -41,7 +41,7 @@ test "ERP fixtures map project, contract, and cost rows" {
   )
   assert_eq(project.project_id, "p-legacy-001")
 
-  let contract = import_contract(
+  let contract = @erp.import_contract(
     {
       contract_guid: "ct-legacy-001",
       bu_guid: "bu-001",
@@ -55,7 +55,7 @@ test "ERP fixtures map project, contract, and cost rows" {
   )
   assert_eq(contract.commitment_id, "ct-legacy-001")
 
-  let cost = import_cost({
+  let cost = @erp.import_cost({
     currency: "CNY",
     direct_minor: 100000,
     indirect_minor: 20000,
@@ -68,7 +68,7 @@ test "ERP fixtures map project, contract, and cost rows" {
 ///|
 test "ERP importer preserves invalid cost rows as errors" {
   try
-    import_cost({
+    @erp.import_cost({
       currency: "CNY",
       direct_minor: -1,
       indirect_minor: 0,
@@ -76,7 +76,7 @@ test "ERP importer preserves invalid cost rows as errors" {
       other_minor: 0,
     })
   catch {
-    ErpImportError::Cost(_) => ()
+    @erp.ErpImportError::Cost(_) => ()
     _ => fail("wrong import error")
   } noraise {
     _ => fail("expected import error")
@@ -92,13 +92,13 @@ test "ERP rows become schema-bound durable migration envelopes" {
     checksum="sha256:one",
     description="Create foundation tables",
   )
-  let project_row : LegacyProjectRow = {
+  let project_row : @erp.LegacyProjectRow = {
     proj_guid: "p-envelope-001",
     bu_guid: "bu-001",
     proj_code: "P-ENV-001",
     proj_name: "Envelope Project",
   }
-  let contract_row : LegacyContractRow = {
+  let contract_row : @erp.LegacyContractRow = {
     contract_guid: "ct-envelope-001",
     bu_guid: "bu-001",
     proj_guid: "p-envelope-001",
@@ -109,9 +109,9 @@ test "ERP rows become schema-bound durable migration envelopes" {
   let store = @store.RecordStore::new(schema)
     .migrate(migration)
     .append_batch([
-      project_record(project_row, schema_version=1),
-      contract_record(contract_row, schema_version=1),
-      cost_record(
+      @erp.project_record(project_row, schema_version=1),
+      @erp.contract_record(contract_row, schema_version=1),
+      @erp.cost_record(
         {
           currency: "CNY",
           direct_minor: 100000,
@@ -134,7 +134,7 @@ test "ERP rows become schema-bound durable migration envelopes" {
 ///|
 test "ERP fixtures translate supplier, tender, milestone, invoice, expense, and loan rows" {
   let supplier_grant = import_grant("supplier:create", "company:bu-001")
-  let supplier = import_supplier(
+  let supplier = @erp.import_supplier(
     {
       provider_guid: "provider-001",
       bu_guid: "bu-001",
@@ -147,7 +147,7 @@ test "ERP fixtures translate supplier, tender, milestone, invoice, expense, and 
   )
   assert_eq(supplier.supplier_id, "provider-001")
 
-  let tender = import_tender(
+  let tender = @erp.import_tender(
     {
       tender_guid: "tender-001",
       bu_guid: "bu-001",
@@ -162,7 +162,7 @@ test "ERP fixtures translate supplier, tender, milestone, invoice, expense, and 
   )
   assert_eq(tender.tender_id, "tender-001")
 
-  let commitment = import_contract(
+  let commitment = @erp.import_contract(
     {
       contract_guid: "ct-legacy-002",
       bu_guid: "bu-001",
@@ -174,7 +174,7 @@ test "ERP fixtures translate supplier, tender, milestone, invoice, expense, and 
     actor_id="migration",
     grant=import_grant("commitment:create", "project:p-legacy-001"),
   )
-  let milestone = import_milestone(
+  let milestone = @erp.import_milestone(
     {
       milestone_guid: "milestone-001",
       contract_guid: "ct-legacy-002",
@@ -190,7 +190,7 @@ test "ERP fixtures translate supplier, tender, milestone, invoice, expense, and 
   )
   assert_eq(milestone.commitment_id, "ct-legacy-002")
 
-  let invoice = import_invoice(
+  let invoice = @erp.import_invoice(
     {
       invoice_guid: "invoice-001",
       bu_guid: "bu-001",
@@ -204,7 +204,7 @@ test "ERP fixtures translate supplier, tender, milestone, invoice, expense, and 
   )
   assert_eq(invoice.invoice_id, "invoice-001")
 
-  let expense = import_expense(
+  let expense = @erp.import_expense(
     {
       expense_guid: "expense-001",
       bu_guid: "bu-001",
@@ -219,7 +219,7 @@ test "ERP fixtures translate supplier, tender, milestone, invoice, expense, and 
   )
   assert_eq(expense.expense_id, "expense-001")
 
-  let advance = import_advance(
+  let advance = @erp.import_advance(
     {
       loan_guid: "loan-001",
       bu_guid: "bu-001",

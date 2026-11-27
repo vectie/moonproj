@@ -41,12 +41,12 @@ fn performed_commitment_for_milestone() -> @commitment.Commitment raise @commitm
 
 ///|
 test "contract milestone follows planned work to payment" {
-  let milestone = ContractMilestone::new(
+  let milestone = @contract.ContractMilestone::new(
       performed_commitment_for_milestone(),
       milestone_id="milestone-001",
       sequence=1,
       node_name="Structural completion",
-      trigger=MilestoneTrigger::Progress,
+      trigger=@contract.MilestoneTrigger::Progress,
       plan_amount=@finance.Money::new(minor=200000, currency="CNY"),
       plan_pct_bps=4000L,
       actor_id="alice",
@@ -62,7 +62,7 @@ test "contract milestone follows planned work to payment" {
       grant=milestone_grant("milestone:reach"),
     )
     .mark_paid(actor_id="alice", grant=milestone_grant("milestone:pay"))
-  assert_true(milestone.state == MilestoneState::Paid)
+  assert_true(milestone.state == @contract.MilestoneState::Paid)
   assert_eq(milestone.actual_amount.minor, 190000L)
   assert_eq(milestone.events.length(), 3)
 }
@@ -70,12 +70,12 @@ test "contract milestone follows planned work to payment" {
 ///|
 test "reached milestone links to a requested settlement without releasing cash" {
   let commitment = performed_commitment_for_milestone()
-  let milestone = ContractMilestone::new(
+  let milestone = @contract.ContractMilestone::new(
       commitment,
       milestone_id="milestone-settlement",
       sequence=1,
       node_name="Structural completion",
-      trigger=MilestoneTrigger::Progress,
+      trigger=@contract.MilestoneTrigger::Progress,
       plan_amount=@finance.Money::new(minor=200000, currency="CNY"),
       plan_pct_bps=4000L,
       actor_id="alice",
@@ -113,12 +113,12 @@ test "milestone-to-settlement link survives separate aggregate projections" {
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
   let commitment = performed_commitment_for_milestone()
-  let milestone = ContractMilestone::new(
+  let milestone = @contract.ContractMilestone::new(
       commitment,
       milestone_id="milestone-projection-link",
       sequence=1,
       node_name="Structural completion",
-      trigger=MilestoneTrigger::Progress,
+      trigger=@contract.MilestoneTrigger::Progress,
       plan_amount=@finance.Money::new(minor=200000, currency="CNY"),
       plan_pct_bps=4000L,
       actor_id="alice",
@@ -166,12 +166,12 @@ test "milestone-to-settlement link survives separate aggregate projections" {
 
 ///|
 test "contract milestone rejects an amount above its plan" {
-  let milestone = ContractMilestone::new(
+  let milestone = @contract.ContractMilestone::new(
     performed_commitment_for_milestone(),
     milestone_id="milestone-002",
     sequence=1,
     node_name="Handover",
-    trigger=MilestoneTrigger::Event,
+    trigger=@contract.MilestoneTrigger::Event,
     plan_amount=@finance.Money::new(minor=100000, currency="CNY"),
     plan_pct_bps=2000L,
     actor_id="alice",
@@ -184,7 +184,7 @@ test "contract milestone rejects an amount above its plan" {
       grant=milestone_grant("milestone:reach"),
     )
   catch {
-    MilestoneError::AmountExceedsCommitment => ()
+    @contract.MilestoneError::AmountExceedsCommitment => ()
     _ => fail("wrong milestone error")
   } noraise {
     _ => fail("expected milestone error")
@@ -201,12 +201,12 @@ test "contract milestone persists planned and reached amounts" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let milestone = ContractMilestone::new(
+  let milestone = @contract.ContractMilestone::new(
       performed_commitment_for_milestone(),
       milestone_id="milestone-projection",
       sequence=1,
       node_name="Handover",
-      trigger=MilestoneTrigger::Progress,
+      trigger=@contract.MilestoneTrigger::Progress,
       plan_amount=@finance.Money::new(minor=200000, currency="CNY"),
       plan_pct_bps=4000L,
       actor_id="alice",

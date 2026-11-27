@@ -165,7 +165,7 @@ fn plan_task_reply_apply(
 fn plan_task_reply_payloads(
   task_id : String,
   current : Json,
-  revision : Int,
+  revision : Int32,
   request : Json,
   actor : String,
   key : String,
@@ -214,7 +214,7 @@ fn plan_task_reply_payloads(
 fn plan_task_reply_sql(
   task_id : String,
   current : Json,
-  revision : Int,
+  revision : Int32,
   request : Json,
   actor : String,
   key : String,
@@ -256,7 +256,7 @@ async fn plan_task_reply_update_command(
   body : Json,
   actor : String,
   key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let id = match aggregate_id {
     Some(value) if valid_identifier(value) => value
     _ => raise reject(422, "task_id is required")

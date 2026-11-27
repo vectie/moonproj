@@ -1,5 +1,6 @@
 ///|
 /// A budget line tracks allocated, reserved, and consumed minor units.
+#derive(Debug, Eq)
 pub(all) struct BudgetLine {
   line_id : String
   principal_id : String
@@ -8,9 +9,10 @@ pub(all) struct BudgetLine {
   allocated_minor : Int64
   reserved_minor : Int64
   consumed_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror BudgetError {
   EmptyIdentifier
   EmptyScope
@@ -18,7 +20,7 @@ pub(all) suberror BudgetError {
   NegativeAmount
   InsufficientAvailable
   InsufficientReserved
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn BudgetLine::new(
@@ -67,7 +69,7 @@ pub fn BudgetLine::reserve(
   if amount_minor > self.available_minor() {
     raise BudgetError::InsufficientAvailable
   }
-  { ..self, reserved_minor: self.reserved_minor + amount_minor }
+  { ..self, reserved_minor: self.reserved_minor + amount_minor, }
 }
 
 ///|
@@ -81,7 +83,7 @@ pub fn BudgetLine::release(
   if amount_minor > self.reserved_minor {
     raise BudgetError::InsufficientReserved
   }
-  { ..self, reserved_minor: self.reserved_minor - amount_minor }
+  { ..self, reserved_minor: self.reserved_minor - amount_minor, }
 }
 
 ///|

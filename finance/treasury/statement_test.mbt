@@ -12,8 +12,8 @@ fn statement_grant(capability : String) -> @foundation.AuthorityGrant {
 }
 
 ///|
-fn released_statement_movement() -> CashMovement {
-  let account = try! CashAccount::open(
+fn released_statement_movement() -> @treasury.CashMovement {
+  let account = try! @treasury.CashAccount::open(
     account_id="bank-statement-001-release",
     principal_id="co-001",
     project_scope="company:co-001",
@@ -23,12 +23,12 @@ fn released_statement_movement() -> CashMovement {
     actor_id="alice",
     grant=statement_grant("treasury:account:create"),
   )
-  let movement = try! CashMovement::request(
+  let movement = try! @treasury.CashMovement::request(
     account,
     movement_id="cash-statement-in-001",
     reference_id="settlement-statement-001",
     amount=@finance.Money::new(minor=20000, currency="CNY"),
-    direction=CashDirection::Inflow,
+    direction=@treasury.CashDirection::Inflow,
     actor_id="alice",
     grant=statement_grant("treasury:request"),
   ).approve(actor_id="alice", grant=statement_grant("treasury:approve"))
@@ -43,7 +43,7 @@ fn released_statement_movement() -> CashMovement {
 ///|
 test "bank statement imports, matches released movement, and projects" {
   let movement = released_statement_movement()
-  let statement = BankStatement::from_statement(
+  let statement = @treasury.BankStatement::from_statement(
     statement_id="statement-001",
     account_id="bank-statement-001-release",
     principal_id="co-001",
@@ -60,7 +60,7 @@ test "bank statement imports, matches released movement, and projects" {
         external_reference: "bank-ref-001",
         booked_at: "2026-01-10",
         amount: @finance.Money::new(minor=20000, currency="CNY"),
-        direction: CashDirection::Inflow,
+        direction: @treasury.CashDirection::Inflow,
       },
     ],
     actor_id="alice",
@@ -68,11 +68,11 @@ test "bank statement imports, matches released movement, and projects" {
   )
   let reconciled = statement.reconcile(
     [movement],
-    matches=[{ line_id: "line-001", movement_id: "cash-statement-in-001" }],
+    matches=[{ line_id: "line-001", movement_id: "cash-statement-in-001", }],
     actor_id="alice",
     grant=statement_grant("treasury:statement:reconcile"),
   )
-  assert_true(reconciled.state == BankStatementState::Reconciled)
+  assert_true(reconciled.state == @treasury.BankStatementState::Reconciled)
   assert_eq(reconciled.matches.length(), 1)
   let event = try! @accounting.AccountingEvent::new(
     event_id="event-statement-001",
@@ -102,11 +102,13 @@ test "bank statement imports, matches released movement, and projects" {
   let ledger_reconciled = reconciled.reconcile_to_ledger(
     [movement],
     [event],
-    matches=[{ line_id: "line-001", event_id: "event-statement-001" }],
+    matches=[{ line_id: "line-001", event_id: "event-statement-001", }],
     actor_id="alice",
     grant=statement_grant("treasury:statement:ledger-reconcile"),
   )
-  assert_true(ledger_reconciled.state == BankStatementState::LedgerReconciled)
+  assert_true(
+    ledger_reconciled.state == @treasury.BankStatementState::LedgerReconciled,
+  )
   assert_eq(ledger_reconciled.ledger_matches.length(), 1)
   let schema = @schema.SchemaState::initial()
   let migration = @schema.MigrationStep::new(
@@ -135,7 +137,7 @@ test "bank statement imports, matches released movement, and projects" {
 ///|
 test "bank statement rejects balance and movement mismatches" {
   try
-    BankStatement::from_statement(
+    @treasury.BankStatement::from_statement(
       statement_id="statement-bad-balance",
       account_id="bank-001",
       principal_id="co-001",
@@ -152,20 +154,20 @@ test "bank statement rejects balance and movement mismatches" {
           external_reference: "bank-ref-bad",
           booked_at: "2026-01-10",
           amount: @finance.Money::new(minor=1, currency="CNY"),
-          direction: CashDirection::Inflow,
+          direction: @treasury.CashDirection::Inflow,
         },
       ],
       actor_id="alice",
       grant=statement_grant("treasury:statement:import"),
     )
   catch {
-    StatementError::InvalidBalance => ()
+    @treasury.StatementError::InvalidBalance => ()
     _ => fail("wrong statement error")
   } noraise {
     _ => fail("expected statement balance error")
   }
   let movement = released_statement_movement()
-  let statement = BankStatement::from_statement(
+  let statement = @treasury.BankStatement::from_statement(
     statement_id="statement-mismatch",
     account_id="bank-statement-001-release",
     principal_id="co-001",
@@ -182,7 +184,7 @@ test "bank statement rejects balance and movement mismatches" {
         external_reference: "bank-ref-mismatch",
         booked_at: "2026-01-10",
         amount: @finance.Money::new(minor=19000, currency="CNY"),
-        direction: CashDirection::Inflow,
+        direction: @treasury.CashDirection::Inflow,
       },
     ],
     actor_id="alice",
@@ -192,13 +194,13 @@ test "bank statement rejects balance and movement mismatches" {
     statement.reconcile(
       [movement],
       matches=[
-        { line_id: "line-mismatch", movement_id: "cash-statement-in-001" },
+        { line_id: "line-mismatch", movement_id: "cash-statement-in-001", },
       ],
       actor_id="alice",
       grant=statement_grant("treasury:statement:reconcile"),
     )
   catch {
-    StatementError::MovementMismatch => ()
+    @treasury.StatementError::MovementMismatch => ()
     _ => fail("wrong statement movement error")
   } noraise {
     _ => fail("expected statement movement mismatch")

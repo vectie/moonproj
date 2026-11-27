@@ -179,7 +179,7 @@ pub async fn prepare_company_task_report(
   report_date : String,
   summary : String,
   evidence_refs : Array[String],
-  progress_pct? : Int = 0,
+  progress_pct~ : Int32 = 0,
 ) -> Json {
   let root = resolve_workspace(workspace)
   let (flow, plan) = load_bound_inputs(root, request_ref)
@@ -207,7 +207,7 @@ async fn make_company_task_report(
   report_date : String,
   summary : String,
   evidence_refs : Array[String],
-  progress_pct : Int,
+  progress_pct : Int32,
 ) -> Json {
   if read_json_ref(root, intent_ref(flow)) !=
     intent_json(request_ref, result_ref, flow, plan) {

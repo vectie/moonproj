@@ -1,5 +1,5 @@
 ///|
-fn charter_json_int(value : Json, key : String, fallback : Int) -> Int {
+fn charter_json_int(value : Json, key : String, fallback : Int32) -> Int32 {
   match products_field(value, key) {
     Number(n, ..) => n.to_int()
     _ => fallback
@@ -43,7 +43,11 @@ fn charter_decode_mission(obj : Json) -> CharterMission? {
     title,
     north_star: products_text(mission, "north_star").trim().to_owned(),
     active_stage_id: products_text(mission, "active_stage_id").trim().to_owned(),
-    focus_ratio: if focus_ratio.is_empty() { "80/20" } else { focus_ratio },
+    focus_ratio: if focus_ratio.is_empty() {
+      "80/20"
+    } else {
+      focus_ratio
+    },
   })
 }
 
@@ -144,7 +148,11 @@ fn charter_decode_roles(obj : Json) -> Array[CharterRole] {
           limits: charter_json_string_array(item, "limits"),
           skill_ref: products_text(item, "skill_ref").trim().to_owned(),
           model: products_text(item, "model").trim().to_owned(),
-          version: if raw_version.is_empty() { "v1" } else { raw_version },
+          version: if raw_version.is_empty() {
+            "v1"
+          } else {
+            raw_version
+          },
           status,
         })
       }
@@ -271,7 +279,7 @@ fn charter_encode_strings(items : Array[String]) -> Json {
 ///|
 fn charter_encode_payload(
   charter : CompanyCharter,
-  expected_revision : Int?,
+  expected_revision : Int32?,
 ) -> Json {
   let stages : Array[Json] = charter.stages.map(stage => {
     Json::object({
@@ -297,10 +305,18 @@ fn charter_encode_payload(
       "skill_ref": Json::string(role.skill_ref),
       "model": Json::string(role.model),
       "version": Json::string(
-        if role.version.is_empty() { "v1" } else { role.version },
+        if role.version.is_empty() {
+          "v1"
+        } else {
+          role.version
+        },
       ),
       "status": Json::string(
-        if role.status.is_empty() { "active" } else { role.status },
+        if role.status.is_empty() {
+          "active"
+        } else {
+          role.status
+        },
       ),
     })
   })
@@ -365,7 +381,9 @@ fn charter_slug(
     if valid {
       buf.write_char(c)
       prev_dash = false
-    } else if (c == '-' || c == '_' || c == ' ') && !prev_dash && buf.to_string().length() > 0 {
+    } else if (c == '-' || c == '_' || c == ' ') &&
+      !prev_dash &&
+      buf.to_string().length() > 0 {
       buf.write_char('-')
       prev_dash = true
     }
@@ -392,7 +410,12 @@ fn charter_split_items(raw : String) -> Array[String] {
   let items : Array[String] = []
   let current = StringBuilder()
   for c in raw {
-    if c == '\n' || c == ',' || c == '，' || c == ';' || c == '；' || c == '、' {
+    if c == '\n' ||
+      c == ',' ||
+      c == '，' ||
+      c == ';' ||
+      c == '；' ||
+      c == '、' {
       let text = current.to_string().trim().to_owned()
       if !text.is_empty() {
         items.push(text)
@@ -408,4 +431,3 @@ fn charter_split_items(raw : String) -> Array[String] {
   }
   items
 }
-

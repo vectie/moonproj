@@ -206,7 +206,7 @@ async fn cbs_demo_contract_state_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(contract_id) {
     raise reject(422, "contract id is invalid")
   }
@@ -402,7 +402,7 @@ async fn cbs_demo_contract_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }
@@ -530,7 +530,7 @@ async fn cbs_demo_contract_command(
 async fn cbs_demo_legacy_command(
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let source_body = Json::object({
     "name": Json::string("Legacy contract backfill"),
     "amount": Json::number(8.2),
@@ -545,7 +545,7 @@ async fn cbs_demo_legacy_command(
 async fn cbs_demo_clear_command(
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

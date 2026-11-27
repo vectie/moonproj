@@ -1,6 +1,6 @@
 ///|
 test "unmapped ERP rows remain durable raw evidence" {
-  let record = raw_record(
+  let record = @erp.raw_record(
     {
       table_name: "wf_step_def",
       record_id: "step-001",
@@ -16,12 +16,12 @@ test "unmapped ERP rows remain durable raw evidence" {
 ///|
 test "raw ERP rows reject missing table or record identity" {
   try
-    raw_record(
-      { table_name: "", record_id: "step-001", payload: "{}" },
+    @erp.raw_record(
+      { table_name: "", record_id: "step-001", payload: "{}", },
       schema_version=1,
     )
   catch {
-    ErpImportError::MissingIdentifier => ()
+    @erp.ErpImportError::MissingIdentifier => ()
     _ => fail("wrong raw row error")
   } noraise {
     _ => fail("expected raw row identity error")
@@ -30,7 +30,7 @@ test "raw ERP rows reject missing table or record identity" {
 
 ///|
 test "raw ERP rows stage as a unique opaque batch" {
-  let records = raw_records(
+  let records = @erp.raw_records(
     [
       {
         table_name: "wf_step_def",
@@ -52,15 +52,15 @@ test "raw ERP rows stage as a unique opaque batch" {
 ///|
 test "raw ERP batch rejects duplicate source identity" {
   try
-    raw_records(
+    @erp.raw_records(
       [
-        { table_name: "wf_step_def", record_id: "step-001", payload: "{}" },
-        { table_name: "wf_step_def", record_id: "step-001", payload: "{}" },
+        { table_name: "wf_step_def", record_id: "step-001", payload: "{}", },
+        { table_name: "wf_step_def", record_id: "step-001", payload: "{}", },
       ],
       schema_version=1,
     )
   catch {
-    ErpImportError::DuplicateRecord => ()
+    @erp.ErpImportError::DuplicateRecord => ()
     _ => fail("wrong raw batch error")
   } noraise {
     _ => fail("expected duplicate raw batch error")

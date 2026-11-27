@@ -1,11 +1,13 @@
 ///|
+#derive(Debug, Eq)
 struct DispatchArtifact {
   path : String
   evidence_id : String
-} derive(Debug, Eq)
+}
 
 ///|
 // Only the public per-run summary is decoded here, never saved PRD text.
+#derive(Debug, Eq, FromJson)
 struct DispatchProductPrd {
   document_id : String?
   source_sha256 : String?
@@ -16,9 +18,10 @@ struct DispatchProductPrd {
   text_size_bytes : Double?
   extraction_version : String?
   limitations : Array[String]?
-} derive(Debug, Eq, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, FromJson)
 struct DispatchProductContext {
   schema : String
   product_id : String
@@ -31,17 +34,19 @@ struct DispatchProductContext {
   prd : DispatchProductPrd?
   artifact_state : String
   artifact_error : String
-} derive(Debug, Eq, FromJson)
+}
 
 ///|
+#derive(Debug, Eq)
 enum DispatchProductContextReadback {
   Unbound
   Unsupported(String)
   Malformed
   Captured(DispatchProductContext)
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct DispatchRun {
   run_id : String
   task_id : String
@@ -56,9 +61,10 @@ struct DispatchRun {
   artifacts : Array[DispatchArtifact]
   product_context : DispatchProductContextReadback
   book_guidance : Json
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct DispatchSnapshot {
   offer_task : Json
   source_context : Json
@@ -86,7 +92,7 @@ struct DispatchSnapshot {
   revision : Double
   accepted_report_id : String
   accepted_delivery_source : Json
-} derive(Debug, Eq)
+}
 
 ///|
 fn dispatch_json_field(value : Json, name : String) -> Json {

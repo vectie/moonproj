@@ -11,8 +11,8 @@ fn cash_event(
     entry_id: "journal/" + event_id,
     description: source_type + " " + source_id,
     postings: [
-      { account: debit_account, side: Debit, amount },
-      { account: credit_account, side: Credit, amount },
+      { account: debit_account, side: Debit, amount, },
+      { account: credit_account, side: Credit, amount, },
     ],
   }
   @accounting.AccountingEvent::new(

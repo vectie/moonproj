@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror DeliveryRecognitionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> DeliveryRecognitionPlanError {
@@ -222,7 +223,7 @@ fn run(
     read_json(export_path + "/tables/ep_project.json"),
     "projects",
   )
-  let task_by_id : Map[String, Json] = {}
+  let task_by_id : Map[String, Json] = Map([])
   for value in tasks {
     let _ = object(value, "task row")
     task_by_id.set(text(value, "task_guid"), value)
@@ -421,21 +422,21 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: delivery_recognition_plan <export> <mapping.json> <output.json>",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     DeliveryRecognitionPlanError::InvalidInput(message) => {
       println("delivery-recognition plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     DeliveryRecognitionPlanError::Io(_) => {
       println("delivery-recognition plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

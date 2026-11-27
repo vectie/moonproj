@@ -1,12 +1,14 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ReceivableState {
   Open
   PartiallyCollected
   Collected
   WrittenOff
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Receivable {
   receivable_id : String
   source_id : String
@@ -15,9 +17,10 @@ pub(all) struct Receivable {
   amount : @finance.Money
   collected_minor : Int64
   state : ReceivableState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ReceivableError {
   EmptyIdentifier
   InvalidAmount
@@ -28,7 +31,7 @@ pub(all) suberror ReceivableError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Receivable::open(
@@ -105,5 +108,5 @@ pub fn Receivable::collect(
   } else {
     ReceivableState::PartiallyCollected
   }
-  { ..self, collected_minor, state }
+  { ..self, collected_minor, state, }
 }

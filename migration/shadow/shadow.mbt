@@ -1,10 +1,12 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ShadowMeasure {
   RecordCount(String)
   ProvidedValue(Int64)
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ShadowExpectation {
   metric_id : String
   domain : String
@@ -12,28 +14,31 @@ pub(all) struct ShadowExpectation {
   measure : ShadowMeasure
   source_value : Int64
   tolerance : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ShadowPlan {
   run_id : String
   source_snapshot_id : String
   expectations : Array[ShadowExpectation]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ShadowComparison {
   report : @parity.ParityReport
   summary : @parity.ParitySummary
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ShadowError {
   EmptyIdentifier
   NegativeValue
   NegativeTolerance
   DuplicateMetric
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ShadowPlan::new(
@@ -43,7 +48,7 @@ pub fn ShadowPlan::new(
   if run_id.trim() == "" || source_snapshot_id.trim() == "" {
     raise ShadowError::EmptyIdentifier
   }
-  { run_id, source_snapshot_id, expectations: [] }
+  { run_id, source_snapshot_id, expectations: [], }
 }
 
 ///|
@@ -97,5 +102,5 @@ pub fn ShadowPlan::compare(
     })
   }
   let summary = report.evaluate()
-  { report, summary }
+  { report, summary, }
 }

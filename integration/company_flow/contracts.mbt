@@ -15,7 +15,7 @@ pub fn text(value : Json, key : String) -> String {
 }
 
 ///|
-pub fn revision(value : Json) -> Int raise {
+pub fn revision(value : Json) -> Int32 raise {
   match field(value, "source_revision") {
     Number(n, ..) if n >= 1 && n <= 2147483647.0 && n == n.trunc() => n.to_int()
     _ => fail("Flow binding requires an exact positive task revision")
@@ -46,7 +46,7 @@ fn sha256_digest(value : String) -> Bool {
 }
 
 ///|
-pub fn snapshot(task : Json, source_revision : Int) -> Json raise {
+pub fn snapshot(task : Json, source_revision : Int32) -> Json raise {
   if source_revision < 1 ||
     !identifier(text(task, "task_id")) ||
     !identifier(text(task, "project_id")) ||

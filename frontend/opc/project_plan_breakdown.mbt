@@ -1,13 +1,15 @@
 ///|
+#derive(Debug, Eq)
 struct PlanBreakdownState {
   task_id : String
   steps : Array[@plan_workbench.TaskStep]
   source : @plan_workbench.Draft?
   preview : @plan_workbench.Draft?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanBreakdownMsg {
   Choose(String)
   Edit(String, String, String)
@@ -16,7 +18,7 @@ enum PlanBreakdownMsg {
   Preview
   Apply
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_breakdown_initial() -> PlanBreakdownState {

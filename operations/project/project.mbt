@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ProjectStage {
   Initiation
   Planning
@@ -8,25 +9,28 @@ pub(all) enum ProjectStage {
   Delivery
   Settlement
   Closed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ProjectState {
   Draft
   Active
   Suspended
   Completed
   Closed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ProjectEvent {
   from_stage : ProjectStage
   to_stage : ProjectStage
   actor_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Project {
   project_id : String
   principal_id : String
@@ -35,9 +39,10 @@ pub(all) struct Project {
   stage : ProjectStage
   state : ProjectState
   events : Array[ProjectEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ProjectError {
   EmptyIdentifier
   EmptyName
@@ -46,7 +51,7 @@ pub(all) suberror ProjectError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Project::new(
@@ -116,7 +121,7 @@ pub fn Project::advance(
     error => raise ProjectError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from_stage: self.stage, to_stage: to, actor_id })
+  events.push({ from_stage: self.stage, to_stage: to, actor_id, })
   let state = if to == ProjectStage::Closed {
     ProjectState::Closed
   } else if to == ProjectStage::Settlement {
@@ -124,7 +129,7 @@ pub fn Project::advance(
   } else {
     ProjectState::Active
   }
-  { ..self, stage: to, state, events }
+  { ..self, stage: to, state, events, }
 }
 
 ///|
@@ -146,5 +151,5 @@ pub fn Project::suspend(
   ) catch {
     error => raise ProjectError::NotAuthorized(error)
   }
-  { ..self, state: ProjectState::Suspended }
+  { ..self, state: ProjectState::Suspended, }
 }

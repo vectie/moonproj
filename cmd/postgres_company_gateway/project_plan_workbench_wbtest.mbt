@@ -32,8 +32,8 @@ async test "actual UI wire request authenticated gateway native prepare durable 
   defer service.close()
   let gateway = @http.Server(@socket.Addr::parse("127.0.0.1:0"))
   defer gateway.close()
-  let service_uri = "http://127.0.0.1:" + service.addr().port().to_string()
-  let gateway_uri = "http://127.0.0.1:" + gateway.addr().port().to_string()
+  let service_uri = "http://127.0.0.1:" + service.addr.port().to_string()
+  let gateway_uri = "http://127.0.0.1:" + gateway.addr.port().to_string()
   let sessions : Map[String, String] = { "fixture-session": "owner-test" }
   let reads = Ref(0)
   let resources : ProductResources = {
@@ -42,10 +42,10 @@ async test "actual UI wire request authenticated gateway native prepare durable 
     workspace_root: root,
   }
   let path = "/api/company/projects/company-actual/prepared-plans"
-  @async.with_timeout(15000, fn() {
-    @async.with_task_group(fn(group) {
-      group.spawn_bg(fn() {
-        service.run_forever(fn(request, _, conn) {
+  @async.with_timeout(15000, () => {
+    @async.with_task_group(group => {
+      group.spawn_bg(() => {
+        service.run_forever((request, _, conn) => {
           assert_eq(request.meth, @http.Get)
           assert_eq(header(request, "X-Moonproj-Actor"), "owner-test")
           assert_eq(
@@ -75,8 +75,8 @@ async test "actual UI wire request authenticated gateway native prepare durable 
           }
         })
       })
-      group.spawn_bg(fn() {
-        gateway.run_forever(fn(request, reader, conn) {
+      group.spawn_bg(() => {
+        gateway.run_forever((request, reader, conn) => {
           handle(
             request,
             reader,

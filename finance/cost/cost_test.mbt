@@ -1,12 +1,12 @@
 ///|
 test "dynamic cost preserves B equals D plus E plus F plus G" {
-  let breakdown = CostBreakdown::new(
+  let breakdown = @cost.CostBreakdown::new(
     direct_minor=100000,
     indirect_minor=20000,
     contingency_minor=5000,
     other_minor=3000,
   )
-  let cost = calculate_dynamic_cost(currency="CNY", breakdown)
+  let cost = @cost.calculate_dynamic_cost(currency="CNY", breakdown)
   assert_eq(cost.total_minor, 128000)
   assert_eq(cost.total_minor, cost.breakdown.total_minor())
 }
@@ -14,14 +14,14 @@ test "dynamic cost preserves B equals D plus E plus F plus G" {
 ///|
 test "dynamic cost rejects negative components" {
   try
-    CostBreakdown::new(
+    @cost.CostBreakdown::new(
       direct_minor=-1,
       indirect_minor=0,
       contingency_minor=0,
       other_minor=0,
     )
   catch {
-    CostError::NegativeComponent => ()
+    @cost.CostError::NegativeComponent => ()
     _ => fail("wrong cost error")
   } noraise {
     _ => fail("expected cost error")
@@ -38,9 +38,9 @@ test "dynamic cost persists the four-component invariant" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let cost = calculate_dynamic_cost(
+  let cost = @cost.calculate_dynamic_cost(
     currency="CNY",
-    CostBreakdown::new(
+    @cost.CostBreakdown::new(
       direct_minor=100000,
       indirect_minor=20000,
       contingency_minor=5000,

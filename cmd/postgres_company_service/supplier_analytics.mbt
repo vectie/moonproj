@@ -3,9 +3,9 @@ struct SupplierRiskMetrics {
   score : Double
   rating : String
   tags : Array[String]
-  contract_count : Int
+  contract_count : Int32
   contract_total : Double
-  overdue_count : Int
+  overdue_count : Int32
   overdue_amount : Double
 }
 
@@ -23,7 +23,7 @@ fn supplier_risk_source_coverage(
   categories : Array[SourceRow],
   providers : Array[SourceRow],
   links : Array[SourceRow],
-) -> Map[String, Int] {
+) -> Map[String, Int32] {
   {
     "cb_contract": contracts.length(),
     "cb_contract_milestone": milestones.length(),
@@ -34,7 +34,7 @@ fn supplier_risk_source_coverage(
 }
 
 ///|
-fn supplier_risk_source_missing(coverage : Map[String, Int]) -> Array[Json] {
+fn supplier_risk_source_missing(coverage : Map[String, Int32]) -> Array[Json] {
   let result : Array[Json] = []
   for table in supplier_risk_source_tables() {
     if coverage.get_or_default(table, 0) == 0 {
@@ -47,7 +47,7 @@ fn supplier_risk_source_missing(coverage : Map[String, Int]) -> Array[Json] {
 ///|
 fn supplier_risk_source_envelope(
   data : Json,
-  coverage : Map[String, Int],
+  coverage : Map[String, Int32],
 ) -> Json {
   Json::object({
     "success": Json::boolean(true),
@@ -96,7 +96,7 @@ fn supplier_source_risk_metrics(
       matching_contracts.push(row)
     }
   }
-  let contract_ids : Map[String, Bool] = {}
+  let contract_ids : Map[String, Bool] = Map([])
   for row in matching_contracts {
     contract_ids.set(
       report_text(row.payload, "contract_guid", row.record_id),
@@ -189,7 +189,7 @@ fn supplier_source_risk_metrics(
 }
 
 ///|
-fn supplier_count_rows(counts : Map[String, Int]) -> Array[Json] {
+fn supplier_count_rows(counts : Map[String, Int32]) -> Array[Json] {
   let keys : Array[String] = []
   for key, _ in counts {
     keys.push(key)
@@ -210,7 +210,7 @@ async fn supplier_source_stats_response() -> Json raise CompanyServiceError {
   let categories = raw_source_rows("srm_category", 500)
   let contracts = raw_source_rows("cb_contract", 500)
   let units = raw_source_rows("mu_business_unit", 500)
-  let coverage : Map[String, Int] = {
+  let coverage : Map[String, Int32] = {
     "cb_contract": contracts.length(),
     "mu_business_unit": units.length(),
     "srm_category": categories.length(),
@@ -220,9 +220,9 @@ async fn supplier_source_stats_response() -> Json raise CompanyServiceError {
   let visible = providers.filter(fn(row) {
     dashboard_active(row.payload) && json_bool(row.payload, "enabled", false)
   })
-  let by_eval : Map[String, Int] = {}
-  let by_source : Map[String, Int] = {}
-  let by_category : Map[String, Int] = {}
+  let by_eval : Map[String, Int32] = Map([])
+  let by_source : Map[String, Int32] = Map([])
+  let by_category : Map[String, Int32] = Map([])
   for row in visible {
     let payload = row.payload
     let evaluation = report_text(payload, "eval_result", "未定级")
@@ -232,7 +232,7 @@ async fn supplier_source_stats_response() -> Json raise CompanyServiceError {
     by_source.set(source, by_source.get_or_default(source, 0) + 1)
     by_category.set(category, by_category.get_or_default(category, 0) + 1)
   }
-  let category_names : Map[String, String] = {}
+  let category_names : Map[String, String] = Map([])
   for row in categories {
     category_names.set(
       report_text(row.payload, "category_code", ""),
@@ -320,7 +320,7 @@ async fn supplier_source_stats_response() -> Json raise CompanyServiceError {
 ///|
 fn supplier_source_stats_envelope(
   data : Json,
-  coverage : Map[String, Int],
+  coverage : Map[String, Int32],
 ) -> Json {
   let missing : Array[Json] = []
   for table, count in coverage {
@@ -355,7 +355,7 @@ async fn supplier_risk_board_source_response() -> Json raise CompanyServiceError
   let coverage = supplier_risk_source_coverage(
     contracts, milestones, categories, providers, links,
   )
-  let distribution : Map[String, Int] = {}
+  let distribution : Map[String, Int32] = Map([])
   let high_risk : Array[Json] = []
   for provider in providers {
     if !dashboard_active(provider.payload) {

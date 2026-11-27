@@ -34,7 +34,7 @@ test "standalone SVG preserves the full diamond and long prerequisite links" {
   let draft = diagram_draft()
   let before = ToJson::to_json(draft).stringify()
   let svg = @plan_workbench.export_dependency_svg(draft, "Launch", "build")
-  assert_true(svg.starts_with("<svg xmlns=\"http://www.w3.org/2000/svg\""))
+  assert_true(svg.has_prefix("<svg xmlns=\"http://www.w3.org/2000/svg\""))
   assert_eq(svg.split("class=\"planned-task\"").count(), 5)
   assert_eq(svg.split("class=\"dependency-edge\"").count(), 6)
   for
@@ -84,7 +84,9 @@ test "map escapes all authored markup while retaining Unicode and exact source c
   assert_true(svg.contains("id=\"node-0\""))
   let invalid = { ..draft, notes: "bad\u{0001}", }
   assert_true(
-    (try Ok(@plan_workbench.export_dependency_svg(invalid, "Project", "")) catch { e => Err(e) })
+    (Ok(@plan_workbench.export_dependency_svg(invalid, "Project", "")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }
@@ -113,15 +115,23 @@ test "map rejects ambiguous or broken dependency and assignment identities" {
       { ..draft, milestones: [draft.milestones[0], draft.milestones[0]], },
     ] {
     assert_true(
-      (try Ok(@plan_workbench.export_dependency_svg(bad, "Project", "")) catch { e => Err(e) }) is Err(_),
+      (Ok(@plan_workbench.export_dependency_svg(bad, "Project", "")) catch {
+        e => Err(e)
+      })
+      is Err(_),
     )
   }
   assert_true(
-    (try Ok(@plan_workbench.export_dependency_svg(draft, "Project", "removed")) catch { e => Err(e) })
+    (Ok(@plan_workbench.export_dependency_svg(draft, "Project", "removed")) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_true(
-    (try Ok(@plan_workbench.export_dependency_svg(draft, " ", "")) catch { e => Err(e) }) is Err(_),
+    (Ok(@plan_workbench.export_dependency_svg(draft, " ", "")) catch {
+      e => Err(e)
+    })
+    is Err(_),
   )
 }
 
@@ -155,11 +165,11 @@ test "map supports one hundred tasks and rejects uninspectable dense graphs expl
   assert_eq(svg.split("class=\"planned-task\"").count(), 101)
   tasks.push({ ..task, id: "task-100", })
   assert_true(
-    (try Ok(@plan_workbench.export_dependency_svg(
-      { ..draft, tasks, },
-      "Project",
-      "",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.export_dependency_svg({ ..draft, tasks, }, "Project", ""),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let dense : Array[@plan_workbench.Task] = []
@@ -171,11 +181,15 @@ test "map supports one hundred tasks and rejects uninspectable dense graphs expl
     })
   }
   assert_true(
-    (try Ok(@plan_workbench.export_dependency_svg(
-      { ..draft, tasks: dense, },
-      "Project",
-      "",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.export_dependency_svg(
+        { ..draft, tasks: dense, },
+        "Project",
+        "",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(@plan_workbench.Invalid(message)) &&
     message.contains("500"),
   )

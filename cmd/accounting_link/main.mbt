@@ -1,11 +1,12 @@
 ///|
+#derive(Debug)
 pub(all) suberror LinkError {
   InvalidArguments
   InvalidInput
   Quarantined(String)
   Io(@fs.IOError)
   Accounting(@accounting.AccountingEventError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise LinkError {
@@ -224,31 +225,31 @@ fn run(plan_path : String, output_path : String) -> Unit raise LinkError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: accounting_link <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       LinkError::Quarantined(source) => {
         println("accounting-link refused quarantined item: " + source)
-        @sys.exit(1)
+        @env.exit(1)
       }
       LinkError::InvalidInput => {
         println("accounting-link failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       LinkError::Io(_) => {
         println("accounting-link failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       LinkError::Accounting(_) => {
         println("accounting-link failed: \\{to_repr(error)}")
-        @sys.exit(1)
+        @env.exit(1)
       }
       _ => {
         println("accounting-link failed")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

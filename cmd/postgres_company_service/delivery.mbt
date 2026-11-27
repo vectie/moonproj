@@ -111,7 +111,7 @@ fn delivery_number(
 }
 
 ///|
-fn delivery_percent_text(bps : Int) -> String {
+fn delivery_percent_text(bps : Int32) -> String {
   round_places(bps.to_double() / 100.0, 2).to_string()
 }
 
@@ -120,7 +120,7 @@ fn delivery_bps_from_payload(
   payload : Json,
   primary : String,
   fallback : String,
-) -> Int {
+) -> Int32 {
   let value = delivery_number(payload, primary, fallback, 0.0)
   (value + 0.5).to_int()
 }
@@ -1011,7 +1011,7 @@ fn delivery_evidence(
 fn delivery_progress_bps(
   body : Json,
   key : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let value = match json_field(body, "progress_bps") {
     Some(Number(number, ..)) => number
     Some(String(text)) => parse_number(text.trim().to_owned())
@@ -1034,7 +1034,7 @@ fn delivery_progress_bps(
 fn delivery_amount_minor(
   body : Json,
   key : String,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let value = match json_field(body, key) {
     Some(Number(number, ..)) => number
     Some(String(text)) => parse_number(text.trim().to_owned())
@@ -1088,7 +1088,7 @@ async fn delivery_imported_exists(
 async fn delivery_latest_payload(
   family : String,
   id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let aggregate_type = delivery_aggregate(family)
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') " +
@@ -1348,7 +1348,7 @@ async fn delivery_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !["progress", "output", "task_report"].contains(family) {
     raise reject(404, "unsupported delivery command family")
   }

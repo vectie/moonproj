@@ -1,18 +1,20 @@
 ///|
+#derive(Debug, Eq)
 struct PlanHandoffState {
   task_id : String
   source : @plan_workbench.Draft?
   preview : @plan_workbench.TaskHandoff?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanHandoffMsg {
   Select(String)
   Preview
   CreateDraft
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_handoff_initial() -> PlanHandoffState {

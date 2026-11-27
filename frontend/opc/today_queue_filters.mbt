@@ -1,12 +1,13 @@
 ///|
 // View-local observations only. Owner keys are tagged so even an ID named
 // "unassigned" cannot collide with the empty-owner choice.
+#derive(Debug, Eq)
 struct TodayFilters {
   owner : String
   due : String
   blocker : String
   title : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn today_filters_initial() -> TodayFilters {

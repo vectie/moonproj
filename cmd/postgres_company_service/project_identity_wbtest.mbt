@@ -3,7 +3,7 @@ fn project_identity_fixture_row(
   record_id : String,
   project_id : String,
   source_id : String,
-  deleted? : Bool = false,
+  deleted~ : Bool = false,
 ) -> SourceRow {
   {
     record_id,
@@ -327,7 +327,7 @@ test "project identity SQL selects latest before mutable filters and never caps 
 
 ///|
 test "project identity SQL fixture exports the actual service query builder" {
-  let queries : Map[String, Json] = {}
+  let queries : Map[String, Json] = Map([])
   for
     id in [
       "Z-raw-target", "Z-raw-fallback", "Z-import-target", "Z-native-target", "raw-storage-target",

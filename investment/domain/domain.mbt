@@ -1,20 +1,23 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum MandateState {
   Draft
   Active
   Suspended
   Closed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct MandateEvent {
   from : MandateState
   to : MandateState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct InvestmentMandate {
   mandate_id : String
   principal_id : String
@@ -24,9 +27,10 @@ pub(all) struct InvestmentMandate {
   max_single_position : @finance.Money
   state : MandateState
   events : Array[MandateEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum ProposalState {
   Draft
   Analyzed
@@ -35,17 +39,19 @@ pub(all) enum ProposalState {
   Rejected
   Executed
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ProposalEvent {
   from : ProposalState
   to : ProposalState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct InvestmentProposal {
   proposal_id : String
   mandate_id : String
@@ -58,18 +64,20 @@ pub(all) struct InvestmentProposal {
   analysis : @analytics.AnalysisReport?
   state : ProposalState
   events : Array[ProposalEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct InvestmentPosition {
   position_id : String
   mandate_id : String
   instrument : String
   quantity : Int64
   cost_basis : @finance.Money
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror InvestmentError {
   EmptyIdentifier
   InvalidAmount
@@ -84,7 +92,7 @@ pub(all) suberror InvestmentError {
   AccountingEvent(@accounting.AccountingEventError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn InvestmentMandate::new(
@@ -169,8 +177,8 @@ fn InvestmentMandate::transition(
     error => raise InvestmentError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -293,7 +301,7 @@ pub fn InvestmentProposal::attach_analysis(
     actor_id,
     capability: "investment:proposal:analyze",
   })
-  { ..self, analysis: Some(report), state: ProposalState::Analyzed, events }
+  { ..self, analysis: Some(report), state: ProposalState::Analyzed, events, }
 }
 
 ///|
@@ -322,7 +330,7 @@ pub fn InvestmentProposal::submit(
     actor_id,
     capability: "investment:proposal:submit",
   })
-  { ..self, state: ProposalState::Submitted, events }
+  { ..self, state: ProposalState::Submitted, events, }
 }
 
 ///|
@@ -351,7 +359,7 @@ pub fn InvestmentProposal::approve(
     actor_id,
     capability: "investment:proposal:approve",
   })
-  { ..self, state: ProposalState::Approved, events }
+  { ..self, state: ProposalState::Approved, events, }
 }
 
 ///|
@@ -385,7 +393,7 @@ pub fn InvestmentProposal::execute(
     capability: "investment:execute",
   })
   (
-    { ..self, state: ProposalState::Executed, events },
+    { ..self, state: ProposalState::Executed, events, },
     {
       position_id,
       mandate_id: self.mandate_id,

@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum CommitmentState {
   Draft
   Submitted
@@ -6,17 +7,19 @@ pub(all) enum CommitmentState {
   Performed
   Settled
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CommitmentEvent {
   from : CommitmentState
   to : CommitmentState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Commitment {
   commitment_id : String
   principal_id : String
@@ -25,9 +28,10 @@ pub(all) struct Commitment {
   amount : @finance.Money
   state : CommitmentState
   events : Array[CommitmentEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror CommitmentError {
   EmptyIdentifier
   EmptyReference
@@ -35,7 +39,7 @@ pub(all) suberror CommitmentError {
   ProjectionIdentity
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Commitment::new(
@@ -122,8 +126,8 @@ pub fn Commitment::transition(
     error => raise CommitmentError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|

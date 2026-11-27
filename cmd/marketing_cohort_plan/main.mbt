@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror MarketingCohortPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> MarketingCohortPlanError {
@@ -374,19 +375,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: marketing_cohort_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     MarketingCohortPlanError::InvalidInput(message) => {
       println("marketing cohort plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     MarketingCohortPlanError::Io(_) => {
       println("marketing cohort plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

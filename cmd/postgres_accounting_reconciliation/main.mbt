@@ -4,11 +4,12 @@
 /// The report proves source identity, principal, amount, currency, and journal
 /// continuity for a reviewed cohort. It never posts a journal, releases cash,
 /// or authorizes a period close.
+#derive(Debug)
 pub(all) suberror PostgresAccountingReconciliationError {
   InvalidInput(String)
   Io(@fs.IOError)
   Database(@postgres.PostgresError)
-} derive(Debug)
+}
 
 ///|
 struct DomainItem {
@@ -318,7 +319,7 @@ fn decode_hex(
     raise fail("invalid PostgreSQL hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -354,7 +355,7 @@ fn decode_hex(
 ///|
 fn fields(
   line : String,
-  expected : Int,
+  expected : Int32,
 ) -> Array[String] raise PostgresAccountingReconciliationError {
   let values = line.split("|").map(fn(value) { value.to_owned() }).to_array()
   if values.length() != expected {
@@ -584,12 +585,12 @@ fn option(args : Array[String], name : String) -> String? {
 
 ///|
 async fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 5 {
     println(
       "usage: postgres_accounting_reconciliation <domain_receipt> <accounting_plan> <accounting_receipt> <output> [--schema path] [--psql path] [--host host] [--port port] [--user user] [--database database]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let connection = @postgres.connection_from_env().with_overrides(
     psql=option(args, "--psql"),
@@ -608,9 +609,9 @@ async fn main {
   ) catch {
     error => {
       println(
-        "company PostgreSQL accounting reconciliation failed: \{to_repr(error)}",
+        "company PostgreSQL accounting reconciliation failed: \{Repr(error)}",
       )
-      @sys.exit(1)
+      @env.exit(1)
       Json::null()
     }
   }

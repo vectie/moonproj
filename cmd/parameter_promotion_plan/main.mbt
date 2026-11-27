@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror ParameterPromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ParameterPromotionPlanError {
@@ -141,7 +142,7 @@ fn run(
   if proceeding_names.length() > 1 {
     raise fail("vys_proceeding can map to only one parameter dictionary")
   }
-  let source_rows : Map[String, Array[Json]] = {}
+  let source_rows : Map[String, Array[Json]] = Map([])
   let defaults = match
     read_json(export_dir + "/tables/my_biz_param_option.json") {
     Array(values) => values
@@ -245,8 +246,8 @@ fn run(
       reasons.push("source_table_mapping_mismatch")
     }
     let options : Array[Json] = []
-    let seen_ids : Map[String, Bool] = {}
-    let seen_codes : Map[String, Bool] = {}
+    let seen_ids : Map[String, Bool] = Map([])
+    let seen_codes : Map[String, Bool] = Map([])
     for row in group {
       let option_id = text(field(row, "parameter_id"))
       let code = text(field(row, "parameter_code"))
@@ -357,19 +358,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: parameter_promotion_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     ParameterPromotionPlanError::InvalidInput(message) => {
       println("parameter promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     ParameterPromotionPlanError::Io(_) => {
       println("parameter promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

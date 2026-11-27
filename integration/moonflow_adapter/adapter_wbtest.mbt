@@ -99,7 +99,7 @@ fn fixture_request(
 
 ///|
 async fn adapter_fixture(
-  attempt_id? : String = "attempt-plan-1",
+  attempt_id~ : String = "attempt-plan-1",
 ) -> (String, String, String, FlowRequest) {
   let root = @fs.tmpdir(prefix="moonproj-project-plan-adapter")
   let evidence_ref = "inputs/requirements.txt"

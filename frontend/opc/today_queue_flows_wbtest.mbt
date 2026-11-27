@@ -58,7 +58,7 @@ fn today_flows_tasks_body(id : String, project : String) -> String {
 }
 
 ///|
-fn today_flows_read(model : Model, status : Int, body : String) -> Model {
+fn today_flows_read(model : Model, status : Int32, body : String) -> Model {
   today_flows_update(
     model,
     TasksRead(

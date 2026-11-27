@@ -111,7 +111,7 @@ async fn flow_approval_read(
 ///|
 fn flow_binding_request(
   task : Json,
-  revision : Int,
+  revision : Int32,
   body : Json,
   actor : String,
 ) -> Json raise CompanyServiceError {
@@ -173,7 +173,7 @@ fn flow_binding_command(request : Json, key : String) -> Json {
 /// The existing company-record lock makes this guard atomic with its insert.
 fn flow_binding_atomic_sql(
   task_id : String,
-  revision : Int,
+  revision : Int32,
   source : String,
   binding : Json,
   sql : String,
@@ -195,7 +195,7 @@ async fn flow_task_handle(
   body : Json,
   actor : String,
   key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if action == "flow-snapshot" {
     let (task, revision) = match plan_task_latest(task_id) {
       Some(value) => value
@@ -310,7 +310,7 @@ fn flow_report_request(
   }
   let fields = match request {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields["flow_binding"] = binding
   fields["flow_approval_key"] = Json::string(key)

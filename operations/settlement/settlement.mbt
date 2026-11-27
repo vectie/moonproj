@@ -1,21 +1,24 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum SettlementState {
   Requested
   Approved
   Released
   Reconciled
   Rejected
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct SettlementEvent {
   from : SettlementState
   to : SettlementState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Settlement {
   settlement_id : String
   commitment_id : String
@@ -25,9 +28,10 @@ pub(all) struct Settlement {
   amount : @finance.Money
   state : SettlementState
   events : Array[SettlementEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror SettlementError {
   EmptyIdentifier
   InvalidCommitmentState
@@ -40,7 +44,7 @@ pub(all) suberror SettlementError {
   AccountingEvent(@accounting.AccountingEventError)
   NotAuthorized(@foundation.AuthorityError)
   Journal(@finance.LedgerError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Settlement::request(
@@ -109,7 +113,7 @@ pub fn Settlement::request_with_milestone(
     actor_id~,
     grant~,
   )
-  { ..settlement, milestone_id: Some(milestone_id) }
+  { ..settlement, milestone_id: Some(milestone_id), }
 }
 
 ///|
@@ -154,8 +158,8 @@ pub fn Settlement::transition(
     error => raise SettlementError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, })
+  { ..self, state: to, events, }
 }
 
 ///|

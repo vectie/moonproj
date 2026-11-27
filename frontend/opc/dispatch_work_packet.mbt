@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct WorkPacketState {
   generation : Int32
   open : Bool
@@ -9,7 +10,7 @@ struct WorkPacketState {
   text : String
   packet : @work_packet.Packet?
   notice : String
-} derive(Debug, Eq)
+}
 
 ///|
 enum WorkPacketMsg {

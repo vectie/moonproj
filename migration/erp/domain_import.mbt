@@ -34,11 +34,12 @@ pub fn import_project_tasks(
 ///|
 /// Explicit ownership and authority mapping for a legacy business unit. The
 /// source row's BU identifier is not assumed to be a legal principal.
+#derive(Debug, Eq)
 pub(all) struct LegacyBusinessUnitMapping {
   bu_guid : String
   principal_id : String
   authority_scope : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn business_unit_kind(
@@ -139,11 +140,12 @@ pub fn import_business_units(
 /// Explicit legal-principal and organization-scope mapping for a credential-
 /// free ERP user. Passwords, network addresses, and legacy super-user flags
 /// remain source evidence; they never become target authority implicitly.
+#derive(Debug, Eq)
 pub(all) struct LegacyUserMapping {
   user_id : String
   principal_id : String
   authority_scope : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn user_mapping_for(
@@ -222,6 +224,7 @@ pub fn import_users(
 /// Explicit target interpretation for a legacy audit row. Login rows in the
 /// ERP often have no target; the target identity and outcome must be named by
 /// migration policy rather than manufactured by the importer.
+#derive(Debug, Eq)
 pub(all) struct LegacyAuditMapping {
   audit_id : String
   principal_id : String
@@ -229,7 +232,7 @@ pub(all) struct LegacyAuditMapping {
   target_type : String
   target_id : String
   outcome : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn audit_mapping_for(
@@ -305,11 +308,12 @@ pub fn import_audit_records(
 /// Explicit ownership/scope mapping for one parameter dictionary. Parameter
 /// values remain opaque configuration; this importer does not classify them as
 /// accounts, cost subjects, tax codes, or authority.
+#derive(Debug, Eq)
 pub(all) struct LegacyParameterMapping {
   parameter_name : String
   principal_id : String
   scope : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn parameter_mapping_for(
@@ -403,11 +407,12 @@ pub fn import_parameter_dictionaries(
 /// Explicit ownership mapping for a project. A legacy BU identifier is a
 /// relationship, not automatically the legal principal that owns the target
 /// project.
+#derive(Debug, Eq)
 pub(all) struct LegacyProjectMapping {
   project_id : String
   principal_id : String
   authority_scope : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn project_mapping_for(
@@ -480,12 +485,13 @@ pub fn import_projects(
 /// Explicit target identity mapping for a legacy contract. In particular, the
 /// source provider name/GUID is not accepted as a counterparty identity until
 /// the migration map names the target counterparty.
+#derive(Debug, Eq)
 pub(all) struct LegacyContractMapping {
   contract_id : String
   principal_id : String
   project_scope : String
   counterparty_id : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn contract_mapping_for(
@@ -564,7 +570,7 @@ pub fn import_contracts(
 }
 
 ///|
-fn commitment_state_rank(state : @commitment.CommitmentState) -> Int {
+fn commitment_state_rank(state : @commitment.CommitmentState) -> Int32 {
   match state {
     @commitment.CommitmentState::Draft => 0
     @commitment.CommitmentState::Submitted => 1
@@ -675,12 +681,13 @@ pub fn import_commitment_state(
 /// Explicit ownership mapping for an employee advance. The source BU remains
 /// an organizational relationship; the target principal and employee scope
 /// must be named independently.
+#derive(Debug, Eq)
 pub(all) struct LegacyAdvanceMapping {
   advance_id : String
   principal_id : String
   employee_id : String
   authority_scope : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn advance_mapping_for(
@@ -761,12 +768,13 @@ pub fn import_advances(
 /// amount is applied only to an already imported target advance; it cannot
 /// create a repayment against an unknown loan or exceed its outstanding
 /// balance.
+#derive(Debug, Eq)
 pub(all) struct LegacyAdvanceOffsetMapping {
   offset_id : String
   principal_id : String
   employee_id : String
   authority_scope : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn advance_offset_mapping_for(
@@ -817,7 +825,7 @@ pub fn import_advance_offsets(
       mapping.authority_scope != "employee:" + mapping.employee_id {
       raise ErpImportError::MissingMapping
     }
-    let mut found_index : Int? = None
+    let mut found_index : Int32? = None
     for index in 0..<updated.length() {
       if updated[index].advance_id == row.loan_guid {
         found_index = Some(index)
@@ -862,18 +870,20 @@ pub fn import_advance_offsets(
 /// A cost value is pure arithmetic, but its source identity and project scope
 /// still need to survive promotion. This wrapper prevents seven source cost
 /// rows from collapsing into an anonymous total.
+#derive(Debug, Eq)
 pub(all) struct LegacyCostPromotionRow {
   cost_id : String
   project_scope : String
   cost : LegacyCostRow
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ImportedDynamicCost {
   cost_id : String
   project_scope : String
   value : @cost.DynamicCost
-} derive(Debug, Eq)
+}
 
 ///|
 /// Translate a dynamic-cost cohort while retaining source identity and project
@@ -894,7 +904,11 @@ pub fn import_costs(
     }
     seen.push(row.cost_id)
     let value = import_cost(row.cost)
-    costs.push({ cost_id: row.cost_id, project_scope: row.project_scope, value })
+    costs.push({
+      cost_id: row.cost_id,
+      project_scope: row.project_scope,
+      value,
+    })
   }
   costs
 }
@@ -905,10 +919,11 @@ pub fn import_costs(
 /// supplied by migration policy instead of guessed from labels. Historical
 /// status/progress remains in the source envelope; only the current ordered
 /// target stage is replayed under a fresh authority grant.
+#derive(Debug, Eq)
 pub(all) struct LegacyLifecycleMapping {
   source_code : String
   target_stage : @project.ProjectStage
-} derive(Debug, Eq)
+}
 
 ///|
 fn lifecycle_mapping_for(
@@ -924,7 +939,7 @@ fn lifecycle_mapping_for(
 }
 
 ///|
-fn lifecycle_stage_rank(stage : @project.ProjectStage) -> Int {
+fn lifecycle_stage_rank(stage : @project.ProjectStage) -> Int32 {
   match stage {
     @project.ProjectStage::Initiation => 0
     @project.ProjectStage::Planning => 1
@@ -1109,10 +1124,11 @@ pub fn import_payment_application(
 ///|
 /// Explicit mapping from a legacy workflow step to a local authority
 /// capability. The capability is never guessed from a source label.
+#derive(Debug, Eq)
 pub(all) struct LegacyWorkflowCapability {
   step_guid : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
 fn capability_for_step(
@@ -1251,12 +1267,13 @@ pub fn import_investment_model(
 
 ///|
 /// Per-version authority and principal mapping for an investment-model cohort.
+#derive(Debug, Eq)
 pub(all) struct LegacyInvestmentModelMapping {
   version_id : String
   principal_id : String
   version_grant : @foundation.AuthorityGrant
   index_grant : @foundation.AuthorityGrant
-} derive(Debug, Eq)
+}
 
 ///|
 fn investment_model_mapping_for(

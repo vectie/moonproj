@@ -174,7 +174,7 @@ fn sales_subscription_convert_request(
 ///|
 async fn latest_sales_subscription_payload(
   subscription_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'subscription' AND aggregate_id = " +
     @postgres.sql_literal(subscription_id) +
@@ -210,7 +210,7 @@ async fn sales_subscription_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "create" && command_type != "convert_to_contract" {
     raise reject(404, "unsupported sales subscription command")
   }

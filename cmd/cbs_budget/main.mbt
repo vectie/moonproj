@@ -1,10 +1,11 @@
 ///|
+#derive(Debug)
 pub(all) suberror CbsBudgetPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Cbs(@cbs.CbsError)
   Money(@finance.MoneyError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise CbsBudgetPromotionError {
@@ -277,27 +278,27 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: cbs_budget <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       CbsBudgetPromotionError::InvalidInput => {
         println("CBS budget failed: invalid input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       CbsBudgetPromotionError::Io(_) => {
         println("CBS budget failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       CbsBudgetPromotionError::Cbs(_) => {
         println("CBS budget failed: CBS validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
       CbsBudgetPromotionError::Money(_) => {
         println("CBS budget failed: invalid money")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

@@ -54,7 +54,7 @@ pub fn Portfolio::to_valuation_event(
           side: @finance.PostingSide::Debit,
           amount,
         },
-        { account: gain_account, side: @finance.PostingSide::Credit, amount },
+        { account: gain_account, side: @finance.PostingSide::Credit, amount, },
       ],
     }
   } else {
@@ -62,7 +62,7 @@ pub fn Portfolio::to_valuation_event(
       entry_id: "investment/" + valuation_id + "/loss",
       description: "Mark investment portfolio loss " + self.portfolio_id,
       postings: [
-        { account: loss_account, side: @finance.PostingSide::Debit, amount },
+        { account: loss_account, side: @finance.PostingSide::Debit, amount, },
         {
           account: investment_account,
           side: @finance.PostingSide::Credit,

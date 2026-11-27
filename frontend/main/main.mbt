@@ -3674,7 +3674,7 @@ fn json_object_text(
 }
 
 ///|
-fn json_object_int(fields : Map[String, Json], key : String) -> Int {
+fn json_object_int(fields : Map[String, Json], key : String) -> Int32 {
   match fields.get(key) {
     Some(Json::Number(value, ..)) => value.to_int()
     _ => 0
@@ -4856,7 +4856,7 @@ fn sales_revenue_rows_from_body(body : String) -> Array[SalesRevenueRow] {
 }
 
 ///|
-fn append_sales_rows(target : Array[SalesRow], body : String) -> Int {
+fn append_sales_rows(target : Array[SalesRow], body : String) -> Int32 {
   let rows = sales_rows_from_body(body)
   for row in rows {
     target.push(row)
@@ -5126,7 +5126,7 @@ fn delivery_overview_from_body(
 }
 
 ///|
-fn source_data_row_count(body : String) -> Int {
+fn source_data_row_count(body : String) -> Int32 {
   let parsed = @json.parse(body) catch { _ => Json::null() }
   match parsed {
     Json::Object(fields) => json_array_field(fields, "data").length()
@@ -7080,7 +7080,7 @@ fn marketing_rows_from_body(
 }
 
 ///|
-fn marketing_sum(rows : Array[Array[String]], index : Int) -> String {
+fn marketing_sum(rows : Array[Array[String]], index : Int32) -> String {
   let mut total = 0.0
   for row in rows {
     if index < row.length() {
@@ -13713,11 +13713,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           api_note: "正在验证本地开发会话…",
         },
       )
-    ToggleDemo => (none, { ..model, show_demo: !model.show_demo })
+    ToggleDemo => (none, { ..model, show_demo: !model.show_demo, })
     FillDemo(user_code, password) =>
-      (none, { ..model, user_code, password, show_demo: false })
-    InputUser(value) => (none, { ..model, user_code: value })
-    InputPassword(value) => (none, { ..model, password: value })
+      (none, { ..model, user_code, password, show_demo: false, })
+    InputUser(value) => (none, { ..model, user_code: value, })
+    InputPassword(value) => (none, { ..model, password: value, })
     InputProjectPlanProject(value) =>
       (
         load_delivery_for_project(emit, value),
@@ -13729,16 +13729,16 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputPlanAiProjectType(value) =>
-      (none, { ..model, plan_ai_proj_type: value })
-    InputPlanAiScale(value) => (none, { ..model, plan_ai_scale: value })
-    InputPlanAiRegion(value) => (none, { ..model, plan_ai_region: value })
+      (none, { ..model, plan_ai_proj_type: value, })
+    InputPlanAiScale(value) => (none, { ..model, plan_ai_scale: value, })
+    InputPlanAiRegion(value) => (none, { ..model, plan_ai_region: value, })
     InputPlanAiBeginDate(value) =>
-      (none, { ..model, plan_ai_begin_date: value })
+      (none, { ..model, plan_ai_begin_date: value, })
     InputPlanReportProgress(value) =>
-      (none, { ..model, plan_report_progress: value })
-    InputPlanReportDate(value) => (none, { ..model, plan_report_date: value })
+      (none, { ..model, plan_report_progress: value, })
+    InputPlanReportDate(value) => (none, { ..model, plan_report_date: value, })
     InputPlanReportSummary(value) =>
-      (none, { ..model, plan_report_summary: value })
+      (none, { ..model, plan_report_summary: value, })
     SelectPlanTask(task_id, task_name) =>
       (
         none,
@@ -13751,26 +13751,27 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputPlanCreateTaskCode(value) =>
-      (none, { ..model, plan_create_task_code: value })
+      (none, { ..model, plan_create_task_code: value, })
     InputPlanCreateTaskName(value) =>
-      (none, { ..model, plan_create_task_name: value })
+      (none, { ..model, plan_create_task_name: value, })
     InputPlanCreateTaskType(value) =>
-      (none, { ..model, plan_create_task_type: value })
+      (none, { ..model, plan_create_task_type: value, })
     InputPlanCreateBeginDate(value) =>
-      (none, { ..model, plan_create_begin_date: value })
+      (none, { ..model, plan_create_begin_date: value, })
     InputPlanCreateEndDate(value) =>
-      (none, { ..model, plan_create_end_date: value })
-    InputPlanCreateOwner(value) => (none, { ..model, plan_create_owner: value })
+      (none, { ..model, plan_create_end_date: value, })
+    InputPlanCreateOwner(value) =>
+      (none, { ..model, plan_create_owner: value, })
     InputPlanCreateRemarks(value) =>
-      (none, { ..model, plan_create_remarks: value })
-    InputPlanDelayDays(value) => (none, { ..model, plan_delay_days: value })
+      (none, { ..model, plan_create_remarks: value, })
+    InputPlanDelayDays(value) => (none, { ..model, plan_delay_days: value, })
     RunPlanDelayImpact =>
       if model.plan_delay_task_id == "" {
-        (none, { ..model, plan_delay_note: "请先选择任务" })
+        (none, { ..model, plan_delay_note: "请先选择任务", })
       } else {
         (
           issue_plan_delay_impact(emit, model),
-          { ..model, plan_delay_note: "正在计算延期影响…" },
+          { ..model, plan_delay_note: "正在计算延期影响…", },
         )
       }
     ExportPlanCsv =>
@@ -13784,19 +13785,19 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
         model,
       )
-    InputProfileName(value) => (none, { ..model, profile_edit_name: value })
+    InputProfileName(value) => (none, { ..model, profile_edit_name: value, })
     InputProfilePasswordOld(value) =>
-      (none, { ..model, profile_password_old: value })
+      (none, { ..model, profile_password_old: value, })
     InputProfilePasswordNew(value) =>
-      (none, { ..model, profile_password_new: value })
+      (none, { ..model, profile_password_new: value, })
     InputProfilePasswordConfirm(value) =>
-      (none, { ..model, profile_password_confirm: value })
+      (none, { ..model, profile_password_confirm: value, })
     InputAttachmentBizType(value) =>
-      (none, { ..model, attachment_biz_type: value })
+      (none, { ..model, attachment_biz_type: value, })
     InputAttachmentAiStatus(value) =>
-      (none, { ..model, attachment_ai_status: value })
+      (none, { ..model, attachment_ai_status: value, })
     InputAttachmentKeyword(value) =>
-      (none, { ..model, attachment_keyword: value })
+      (none, { ..model, attachment_keyword: value, })
     AttachmentFileSelected(value) =>
       (
         none,
@@ -13819,7 +13820,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     AttachmentAction(guid, action) => {
-      let next_model = { ..model, attachment_action_guid: guid }
+      let next_model = { ..model, attachment_action_guid: guid, }
       if action == "download" {
         (
           issue_attachment_download(emit, next_model),
@@ -14243,8 +14244,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
-    ToggleSidebar => (none, { ..model, collapsed: !model.collapsed })
-    ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav })
+    ToggleSidebar => (none, { ..model, collapsed: !model.collapsed, })
+    ToggleMobileNav => (none, { ..model, mobile_nav: !model.mobile_nav, })
     ToggleGroup(group) => {
       let open_group = match model.open_group {
         Some(current) if current == group => None
@@ -14351,7 +14352,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
             },
           )
         None =>
-          (none, { ..model, contract_note: "合同详情响应无法解析" })
+          (none, { ..model, contract_note: "合同详情响应无法解析", })
       }
     }
     ContractLoadFailed =>
@@ -14442,7 +14443,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         "error"
       }
       if next_state == "error" {
-        (none, { ..model, contract_state: "error", contract_note: body })
+        (none, { ..model, contract_state: "error", contract_note: body, })
       } else {
         (
           load_contract(emit, "/contracts/" + model.contract_id),
@@ -14464,19 +14465,19 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputContractMilestoneNodeName(value) =>
-      (none, { ..model, contract_milestone_node_name: value })
+      (none, { ..model, contract_milestone_node_name: value, })
     InputContractMilestoneTriggerType(value) =>
-      (none, { ..model, contract_milestone_trigger_type: value })
+      (none, { ..model, contract_milestone_trigger_type: value, })
     InputContractMilestoneTriggerValue(value) =>
-      (none, { ..model, contract_milestone_trigger_value: value })
+      (none, { ..model, contract_milestone_trigger_value: value, })
     InputContractMilestonePlanDate(value) =>
-      (none, { ..model, contract_milestone_plan_date: value })
+      (none, { ..model, contract_milestone_plan_date: value, })
     InputContractMilestonePlanAmount(value) =>
-      (none, { ..model, contract_milestone_plan_amount: value })
+      (none, { ..model, contract_milestone_plan_amount: value, })
     InputContractMilestonePlanPct(value) =>
-      (none, { ..model, contract_milestone_plan_pct: value })
+      (none, { ..model, contract_milestone_plan_pct: value, })
     InputContractMilestoneNotes(value) =>
-      (none, { ..model, contract_milestone_notes: value })
+      (none, { ..model, contract_milestone_notes: value, })
     RequestContractMilestoneCreate =>
       if model.contract_id.is_empty() ||
         model.contract_milestone_node_name.trim().is_empty() {
@@ -14589,7 +14590,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           payment_apply_note: "请填写合同、金额与付款节点后提交候选",
         },
       )
-    ClosePaymentApplyForm => (none, { ..model, payment_apply_form_open: false })
+    ClosePaymentApplyForm =>
+      (none, { ..model, payment_apply_form_open: false, })
     InputPaymentApplyField(field, value) =>
       (
         none,
@@ -14803,7 +14805,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if next_state == "error" {
         (
           none,
-          { ..model, payment_apply_state: "error", payment_apply_note: body },
+          { ..model, payment_apply_state: "error", payment_apply_note: body, },
         )
       } else {
         (
@@ -14979,7 +14981,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           tender_award_provider_name: provider_name,
         },
       )
-    SelectTenderTab(tab) => (none, { ..model, tender_tab: tab })
+    SelectTenderTab(tab) => (none, { ..model, tender_tab: tab, })
     OpenTenderForm(kind) =>
       (
         none,
@@ -15018,7 +15020,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    CloseTenderForm => (none, { ..model, tender_form_open: "" })
+    CloseTenderForm => (none, { ..model, tender_form_open: "", })
     InputTenderField(field, value) =>
       (
         none,
@@ -15104,7 +15106,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           )
         }
       } else if model.tender_name.trim().is_empty() {
-        (none, { ..model, tender_note: "招标名称不能为空" })
+        (none, { ..model, tender_note: "招标名称不能为空", })
       } else {
         (
           issue_tender_command(emit, model, "create"),
@@ -15203,7 +15205,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         "error"
       }
       if next_state == "error" {
-        (none, { ..model, tender_state: "error", tender_note: body })
+        (none, { ..model, tender_state: "error", tender_note: body, })
       } else {
         (
           load_tenders(emit, model.tender_project_id),
@@ -15654,7 +15656,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         model.supplier_evaluation
       }
       if next_state == "error" {
-        (none, { ..model, supplier_state: "error", supplier_note: body })
+        (none, { ..model, supplier_state: "error", supplier_note: body, })
       } else {
         (
           load_suppliers(emit),
@@ -15837,7 +15839,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputSalesCustomerKeyword(value) =>
-      (none, { ..model, sales_customer_keyword: value })
+      (none, { ..model, sales_customer_keyword: value, })
     OpenSalesCustomerCreate =>
       (
         none,
@@ -15885,7 +15887,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     }
     CloseSalesCustomerForm =>
-      (none, { ..model, sales_customer_form_open: false })
+      (none, { ..model, sales_customer_form_open: false, })
     InputSalesCustomerField(field, value) =>
       (
         none,
@@ -16005,7 +16007,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectSalesSubscriptionState(state) =>
-      (none, { ..model, sales_subscription_state: state })
+      (none, { ..model, sales_subscription_state: state, })
     OpenSalesSubscriptionForm =>
       (
         none,
@@ -16032,7 +16034,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     CloseSalesSubscriptionForm =>
-      (none, { ..model, sales_subscription_form_open: false })
+      (none, { ..model, sales_subscription_form_open: false, })
     InputSalesSubscriptionField(field, value) => {
       let total = if field == "area" || field == "unit_price" {
         let area = if field == "area" {
@@ -16182,9 +16184,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectSalesContractState(state) =>
-      (none, { ..model, sales_contract_state: state })
+      (none, { ..model, sales_contract_state: state, })
     SelectSalesMortgageState(state) =>
-      (none, { ..model, sales_mortgage_filter_state: state })
+      (none, { ..model, sales_mortgage_filter_state: state, })
     SelectSalesRevenueProject(project_id) =>
       (
         load_sales_for(
@@ -16203,9 +16205,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     SelectSalesRevenueStatus(status) =>
-      (none, { ..model, sales_revenue_filter_status: status })
+      (none, { ..model, sales_revenue_filter_status: status, })
     InputSalesRevenueKeyword(keyword) =>
-      (none, { ..model, sales_revenue_keyword: keyword })
+      (none, { ..model, sales_revenue_keyword: keyword, })
     QuerySalesRevenue =>
       (
         load_sales_for(
@@ -16258,7 +16260,8 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
-    CloseSalesRevenueForm => (none, { ..model, sales_revenue_form_open: false })
+    CloseSalesRevenueForm =>
+      (none, { ..model, sales_revenue_form_open: false, })
     InputSalesRevenueField(field, value) =>
       (
         none,
@@ -16350,7 +16353,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     CloseSalesMortgageForm =>
-      (none, { ..model, sales_mortgage_form_open: false })
+      (none, { ..model, sales_mortgage_form_open: false, })
     InputSalesMortgageField(field, value) =>
       (
         none,
@@ -16511,7 +16514,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           sales_refund_form_date: "2026-07-16",
         },
       )
-    CloseSalesRefundForm => (none, { ..model, sales_refund_form_open: false })
+    CloseSalesRefundForm => (none, { ..model, sales_refund_form_open: false, })
     InputSalesRefundField(field, value) =>
       (
         none,
@@ -16816,7 +16819,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    CloseInvoiceForm => (none, { ..model, invoice_form_open: "" })
+    CloseInvoiceForm => (none, { ..model, invoice_form_open: "", })
     InputInvoiceField(field, value) =>
       (
         none,
@@ -16915,7 +16918,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           invoice_source_note: "正在读取项目发票与税务台账…",
         },
       )
-    SelectInvoiceTab(tab) => (none, { ..model, invoice_tab: tab })
+    SelectInvoiceTab(tab) => (none, { ..model, invoice_tab: tab, })
     SelectDeliveryProject(project_id) =>
       (
         @cmd.batch([load_delivery(emit, project_id), load_contracts(emit)]),
@@ -16934,7 +16937,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           delivery_source_note: "正在读取项目源进度/产值…",
         },
       )
-    SelectDeliveryTab(tab) => (none, { ..model, delivery_tab: tab })
+    SelectDeliveryTab(tab) => (none, { ..model, delivery_tab: tab, })
     DeliverySourceProgressLoaded(body) => {
       let rows = delivery_source_progress_from_body(body)
       (
@@ -17047,7 +17050,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           reports_note: "核心报表读模型不可用 · 使用已审核快照",
         },
       )
-    SelectReportTab(tab) => (none, { ..model, report_tab: tab })
+    SelectReportTab(tab) => (none, { ..model, report_tab: tab, })
     ReportPreferencesLoaded(body) =>
       (
         none,
@@ -17128,11 +17131,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           report_share_note: "分享表单已打开 · 仅允许五类核心报表",
         },
       )
-    CloseReportShare => (none, { ..model, report_share_dialog: false })
+    CloseReportShare => (none, { ..model, report_share_dialog: false, })
     InputReportShareTitle(value) =>
-      (none, { ..model, report_share_title: value })
+      (none, { ..model, report_share_title: value, })
     SelectReportShareDays(value) =>
-      (none, { ..model, report_share_days: value })
+      (none, { ..model, report_share_days: value, })
     CreateReportShare =>
       (
         issue_report_share_create(emit, model),
@@ -17163,7 +17166,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     }
     ReportShareCreateFailed(note) =>
-      (none, { ..model, report_share_note: note })
+      (none, { ..model, report_share_note: note, })
     OpenReportShareList =>
       (
         load_report_shares(emit),
@@ -17173,7 +17176,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           report_share_note: "正在加载本人创建的分享链接…",
         },
       )
-    CloseReportShareList => (none, { ..model, report_share_list_open: false })
+    CloseReportShareList => (none, { ..model, report_share_list_open: false, })
     ReportSharesLoaded(body) =>
       (
         none,
@@ -17213,7 +17216,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     ReportShareRevokeFailed(note) =>
-      (none, { ..model, report_share_note: note })
+      (none, { ..model, report_share_note: note, })
     ShareMetaLoaded(body) => {
       let parsed = @json.parse(body) catch { _ => Json::null() }
       match parsed {
@@ -17274,7 +17277,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     ShareLoadFailed(note) =>
-      (none, { ..model, share_loaded: false, share_note: note })
+      (none, { ..model, share_loaded: false, share_note: note, })
     DashboardOverviewLoaded(body) => {
       let (loaded, values) = dashboard_overview_from_body(body)
       if loaded {
@@ -17669,15 +17672,15 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputInvestmentIndexEditValue(value) =>
-      (none, { ..model, investment_index_edit_value: value })
+      (none, { ..model, investment_index_edit_value: value, })
     InputInvestmentIndexEditRemark(value) =>
-      (none, { ..model, investment_index_edit_remark: value })
+      (none, { ..model, investment_index_edit_remark: value, })
     InputInvestmentVersionName(value) =>
-      (none, { ..model, investment_new_version_name: value })
+      (none, { ..model, investment_new_version_name: value, })
     InputInvestmentVersionCopyFrom(value) =>
-      (none, { ..model, investment_new_version_copy_from: value })
+      (none, { ..model, investment_new_version_copy_from: value, })
     InputInvestmentVersionRemark(value) =>
-      (none, { ..model, investment_new_version_remark: value })
+      (none, { ..model, investment_new_version_remark: value, })
     ToggleInvestmentVersionActivate =>
       (
         none,
@@ -17687,19 +17690,19 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputInvestmentIndexDimension(value) =>
-      (none, { ..model, investment_new_index_dimension: value })
+      (none, { ..model, investment_new_index_dimension: value, })
     InputInvestmentIndexFullCode(value) =>
-      (none, { ..model, investment_new_index_full_code: value })
+      (none, { ..model, investment_new_index_full_code: value, })
     InputInvestmentIndexName(value) =>
-      (none, { ..model, investment_new_index_name: value })
+      (none, { ..model, investment_new_index_name: value, })
     InputInvestmentIndexParentCode(value) =>
-      (none, { ..model, investment_new_index_parent_code: value })
+      (none, { ..model, investment_new_index_parent_code: value, })
     InputInvestmentIndexUnit(value) =>
-      (none, { ..model, investment_new_index_unit: value })
+      (none, { ..model, investment_new_index_unit: value, })
     InputInvestmentIndexValue(value) =>
-      (none, { ..model, investment_new_index_value: value })
+      (none, { ..model, investment_new_index_value: value, })
     InputInvestmentIndexRemark(value) =>
-      (none, { ..model, investment_new_index_remark: value })
+      (none, { ..model, investment_new_index_remark: value, })
     InvestmentImportsLoaded(body) => {
       let (loaded, rows, note) = investment_import_rows_from_body(body)
       (
@@ -17965,17 +17968,20 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputInvestmentExcelVersionName(value) =>
-      (none, { ..model, investment_excel_version_name: value })
+      (none, { ..model, investment_excel_version_name: value, })
     ToggleInvestmentExcelActivate =>
       (
         none,
-        { ..model, investment_excel_activate: !model.investment_excel_activate },
+        {
+          ..model,
+          investment_excel_activate: !model.investment_excel_activate,
+        },
       )
     RequestInvestmentExcelUpload =>
       if model.investment_excel_file_name.trim().is_empty() {
         (
           none,
-          { ..model, investment_upload_note: "请先选择 .xlsx 工作簿" },
+          { ..model, investment_upload_note: "请先选择 .xlsx 工作簿", },
         )
       } else {
         (
@@ -18134,7 +18140,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestInvestmentVersionCreate =>
       if model.investment_new_version_name.trim().is_empty() {
-        (none, { ..model, investment_command_note: "请先填写版本名称" })
+        (
+          none,
+          { ..model, investment_command_note: "请先填写版本名称", },
+        )
       } else {
         (
           issue_investment_command(emit, model, "version_create"),
@@ -18312,12 +18321,12 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if cost_id.trim().is_empty() {
         (
           none,
-          { ..model, dynamic_cost_remark_note: "成本科目缺少 costGuid" },
+          { ..model, dynamic_cost_remark_note: "成本科目缺少 costGuid", },
         )
       } else {
         (
           load_dynamic_cost_remarks(emit, cost_id),
-          { ..model, dynamic_cost_remark_note: "正在读取科目备注…" },
+          { ..model, dynamic_cost_remark_note: "正在读取科目备注…", },
         )
       }
     DynamicCostRemarksLoaded(body) => {
@@ -18401,25 +18410,25 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputDynamicCostCreateCode(value) =>
-      (none, { ..model, dynamic_cost_create_code: value })
+      (none, { ..model, dynamic_cost_create_code: value, })
     InputDynamicCostCreateName(value) =>
-      (none, { ..model, dynamic_cost_create_name: value })
+      (none, { ..model, dynamic_cost_create_name: value, })
     InputDynamicCostCreateLevel(value) =>
-      (none, { ..model, dynamic_cost_create_level: value })
+      (none, { ..model, dynamic_cost_create_level: value, })
     InputDynamicCostCreateParent(value) =>
-      (none, { ..model, dynamic_cost_create_parent: value })
+      (none, { ..model, dynamic_cost_create_parent: value, })
     InputDynamicCostCreateTarget(value) =>
-      (none, { ..model, dynamic_cost_create_target: value })
+      (none, { ..model, dynamic_cost_create_target: value, })
     InputDynamicCostCreateContractChange(value) =>
-      (none, { ..model, dynamic_cost_create_contract_change: value })
+      (none, { ..model, dynamic_cost_create_contract_change: value, })
     InputDynamicCostCreateInTransit(value) =>
-      (none, { ..model, dynamic_cost_create_in_transit: value })
+      (none, { ..model, dynamic_cost_create_in_transit: value, })
     InputDynamicCostCreateBudget(value) =>
-      (none, { ..model, dynamic_cost_create_budget: value })
+      (none, { ..model, dynamic_cost_create_budget: value, })
     InputDynamicCostCreateEstimateChange(value) =>
-      (none, { ..model, dynamic_cost_create_estimate_change: value })
+      (none, { ..model, dynamic_cost_create_estimate_change: value, })
     InputDynamicCostCreateRemarks(value) =>
-      (none, { ..model, dynamic_cost_create_remarks: value })
+      (none, { ..model, dynamic_cost_create_remarks: value, })
     RequestDynamicCostCreate =>
       if model.dynamic_cost_create_code.trim().is_empty() ||
         model.dynamic_cost_create_name.trim().is_empty() {
@@ -18638,7 +18647,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    CloseCbsForm => (none, { ..model, cbs_form_open: "" })
+    CloseCbsForm => (none, { ..model, cbs_form_open: "", })
     InputCbsField(field, value) =>
       (
         none,
@@ -18699,7 +18708,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (
         issue_cbs_command(
           emit,
-          { ..model, cbs_plan_version: version },
+          { ..model, cbs_plan_version: version, },
           "version_freeze",
         ),
         {
@@ -18714,7 +18723,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (
         issue_cbs_command(
           emit,
-          { ..model, cbs_plan_version: version },
+          { ..model, cbs_plan_version: version, },
           "version_activate",
         ),
         {
@@ -18806,7 +18815,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
-    CloseCbsApprovalForm => (none, { ..model, cbs_approval_form_open: false })
+    CloseCbsApprovalForm => (none, { ..model, cbs_approval_form_open: false, })
     InputCbsApprovalField(field, value) =>
       (
         none,
@@ -18850,10 +18859,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       (
         issue_cbs_approval(
           emit,
-          { ..model, cbs_approval_edit_id: rule_guid },
+          { ..model, cbs_approval_edit_id: rule_guid, },
           "delete",
         ),
-        { ..model, cbs_command_note: "正在提交审批规则删除候选…" },
+        {
+          ..model,
+          cbs_command_note: "正在提交审批规则删除候选…",
+        },
       )
     CbsApprovalLoaded(body) => {
       let (loaded, rows) = cbs_approval_from_body(body)
@@ -18953,7 +18965,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
-    CbsR0LoadFailed => (none, { ..model, cbs_r0_rows: [], cbs_r0_count: "0" })
+    CbsR0LoadFailed => (none, { ..model, cbs_r0_rows: [], cbs_r0_count: "0", })
     InputCbsR0L3(ref_id, value) =>
       (
         none,
@@ -18961,7 +18973,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           ..model,
           cbs_r0_rows: model.cbs_r0_rows.map(row => {
             if row.ref_id == ref_id {
-              { ..row, selected_l3: value }
+              { ..row, selected_l3: value, }
             } else {
               row
             }
@@ -18979,7 +18991,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         Some(row) if row.selected_l3 != "" =>
           (
             issue_cbs_r0_resolve(emit, model, row),
-            { ..model, cbs_command_note: "正在提交 R0 CBS 归类候选…" },
+            {
+              ..model,
+              cbs_command_note: "正在提交 R0 CBS 归类候选…",
+            },
           )
         _ =>
           (
@@ -19043,7 +19058,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
-    FundGapLoadFailed => (none, { ..model, fund_gap_series_count: "0" })
+    FundGapLoadFailed => (none, { ..model, fund_gap_series_count: "0", })
     FundDispatchLoaded(body) => {
       let (loaded, rows, missing) = fund_dispatch_rows_from_body(body)
       (
@@ -19060,7 +19075,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     }
-    FundDispatchLoadFailed => (none, { ..model, fund_dispatch_count: "0" })
+    FundDispatchLoadFailed => (none, { ..model, fund_dispatch_count: "0", })
     SelectFundProject(project_id) =>
       (
         load_fund_for(emit, project_id),
@@ -19074,7 +19089,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           fund_note: "正在读取项目资金计划…",
         },
       )
-    SelectFundTab(tab) => (none, { ..model, fund_tab: tab })
+    SelectFundTab(tab) => (none, { ..model, fund_tab: tab, })
     OpenFundForm(form) =>
       (
         none,
@@ -19088,7 +19103,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    CloseFundForm => (none, { ..model, fund_form_open: "" })
+    CloseFundForm => (none, { ..model, fund_form_open: "", })
     InputFundField(field, value) =>
       (
         none,
@@ -19195,7 +19210,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if plan_id.is_empty() {
         (none, model)
       } else {
-        let selected = { ..model, fund_plan_id: plan_id }
+        let selected = { ..model, fund_plan_id: plan_id, }
         (
           issue_fund_command(emit, selected, "delete_plan"),
           {
@@ -19209,7 +19224,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if dispatch_id.is_empty() {
         (none, model)
       } else {
-        let selected = { ..model, fund_dispatch_id: dispatch_id }
+        let selected = { ..model, fund_dispatch_id: dispatch_id, }
         (
           issue_fund_command(emit, selected, "approve_dispatch"),
           {
@@ -19315,7 +19330,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if next_state == "error" {
         (
           none,
-          { ..model, fund_command_state: "error", fund_command_note: body },
+          { ..model, fund_command_state: "error", fund_command_note: body, },
         )
       } else {
         (
@@ -19389,9 +19404,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     WarningRulesLoaded(body) => {
       let (loaded, count) = warning_rules_count_from_body(body)
-      (none, { ..model, warning_rule_count: if loaded { count } else { "0" } })
+      (none, { ..model, warning_rule_count: if loaded { count } else { "0" }, })
     }
-    WarningRulesLoadFailed => (none, { ..model, warning_rule_count: "0" })
+    WarningRulesLoadFailed => (none, { ..model, warning_rule_count: "0", })
     ResolveWarning =>
       if model.warning_action_guid == "" ||
         model.warning_action_state == "pending" {
@@ -19704,11 +19719,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     RequestAttachmentUpload =>
       if model.attachment_file_name.trim().is_empty() {
-        (none, { ..model, attachment_note: "请先选择文件" })
+        (none, { ..model, attachment_note: "请先选择文件", })
       } else {
         (
           issue_attachment_upload(emit, model),
-          { ..model, attachment_note: "正在检查附件上传边界…" },
+          { ..model, attachment_note: "正在检查附件上传边界…", },
         )
       }
     AttachmentCommandFinished(body) =>
@@ -19921,9 +19936,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           marketing_note: "正在读取项目营销数据…",
         },
       )
-    SelectMarketingTab(tab) => (none, { ..model, marketing_tab: tab })
-    OpenMarketingForm(form) => (none, { ..model, marketing_form_open: form })
-    CloseMarketingForm => (none, { ..model, marketing_form_open: "" })
+    SelectMarketingTab(tab) => (none, { ..model, marketing_tab: tab, })
+    OpenMarketingForm(form) => (none, { ..model, marketing_form_open: form, })
+    CloseMarketingForm => (none, { ..model, marketing_form_open: "", })
     InputMarketingField(field, value) =>
       (
         none,
@@ -20051,7 +20066,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         (
           issue_marketing_campaign_delete(emit, campaign_id),
-          { ..model, marketing_note: "正在作废本地营销活动命令…" },
+          {
+            ..model,
+            marketing_note: "正在作废本地营销活动命令…",
+          },
         )
       }
     OpenMarketingEffect(placement_id) => {
@@ -20085,7 +20103,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     }
     CloseMarketingEffect =>
-      (none, { ..model, marketing_effect_form_open: false })
+      (none, { ..model, marketing_effect_form_open: false, })
     InputMarketingEffect(field, value) =>
       (
         none,
@@ -20263,13 +20281,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         (
           mark_inbox_read(emit, message_guid),
-          { ..model, inbox_note: "正在写入单条已读命令…" },
+          { ..model, inbox_note: "正在写入单条已读命令…", },
         )
       }
     MarkInboxReadAll =>
       (
         mark_inbox_read_all(emit),
-        { ..model, inbox_note: "正在写入全部已读命令…" },
+        { ..model, inbox_note: "正在写入全部已读命令…", },
       )
     InboxCommandFinished(body) =>
       (
@@ -20446,7 +20464,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     ToggleNotifyEnabled =>
-      (none, { ..model, notify_form_enabled: !model.notify_form_enabled })
+      (none, { ..model, notify_form_enabled: !model.notify_form_enabled, })
     ProfileSubscriptionsLoaded(body) =>
       (
         none,
@@ -20470,7 +20488,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     CreateNotifySubscription =>
       (
         issue_notify_subscription_create(emit, model),
-        { ..model, notify_note: "正在写入本地通知订阅命令…" },
+        { ..model, notify_note: "正在写入本地通知订阅命令…", },
       )
     NotifyCommandFinished(body) =>
       (
@@ -20515,7 +20533,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     SaveNotifyConfig =>
       (
         issue_notify_config_save(emit, model),
-        { ..model, notify_note: "正在写入本地通知配置命令…" },
+        { ..model, notify_note: "正在写入本地通知配置命令…", },
       )
     NotifyConfigCommandFinished(body) =>
       (
@@ -20568,7 +20586,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     DispatchNotifyDigest =>
       (
         issue_notify_digest_dispatch(emit),
-        { ..model, notify_note: "正在检查通知摘要派发边界…" },
+        { ..model, notify_note: "正在检查通知摘要派发边界…", },
       )
     NotifyDigestDispatchFinished(body) =>
       (
@@ -20815,7 +20833,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     SaveOcrConfig =>
       (
         issue_ocr_config_save(emit),
-        { ..model, ocr_command_note: "正在写入 OCR 配置候选…" },
+        { ..model, ocr_command_note: "正在写入 OCR 配置候选…", },
       )
     OcrConfigCommandFinished(body) =>
       (
@@ -21026,7 +21044,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     ExportAiStats =>
       (
         issue_ai_stats_export(emit, model),
-        { ..model, ai_stats_export_note: "正在生成 XLSX 报表…" },
+        { ..model, ai_stats_export_note: "正在生成 XLSX 报表…", },
       )
     AiStatsExportFinished(blob) =>
       (
@@ -21200,9 +21218,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         },
       )
     InputAiHubIntakeDescription(value) =>
-      (none, { ..model, ai_hub_intake_description: value })
+      (none, { ..model, ai_hub_intake_description: value, })
     InputAiHubIntakeBizHint(value) =>
-      (none, { ..model, ai_hub_intake_biz_hint: value })
+      (none, { ..model, ai_hub_intake_biz_hint: value, })
     AiHubFileSelected(value) =>
       (
         none,
@@ -21218,9 +21236,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    InputAiHubQueryText(value) => (none, { ..model, ai_hub_query_text: value })
+    InputAiHubQueryText(value) => (none, { ..model, ai_hub_query_text: value, })
     InputAiHubCommandText(value) =>
-      (none, { ..model, ai_hub_command_text: value })
+      (none, { ..model, ai_hub_command_text: value, })
     RunAiHubCommand(command_type) =>
       if command_type == "intake" &&
         model.ai_hub_intake_description.trim().is_empty() &&
@@ -21234,7 +21252,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         )
       } else if (command_type == "query" || command_type == "query-session") &&
         model.ai_hub_query_text.trim().is_empty() {
-        (none, { ..model, ai_hub_command_note: "请先输入查询问题" })
+        (none, { ..model, ai_hub_command_note: "请先输入查询问题", })
       } else {
         (
           issue_ai_hub_command(emit, model, command_type),
@@ -21326,7 +21344,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     }
     ToggleWebhookEnabled =>
-      (none, { ..model, webhook_edit_enabled: !model.webhook_edit_enabled })
+      (none, { ..model, webhook_edit_enabled: !model.webhook_edit_enabled, })
     InputWebhookField(field, value) =>
       (
         none,
@@ -21613,11 +21631,11 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       )
     UpdateProfile =>
       if model.profile_edit_name.trim().is_empty() {
-        (none, { ..model, profile_command_note: "姓名不能为空" })
+        (none, { ..model, profile_command_note: "姓名不能为空", })
       } else {
         (
           issue_profile_update(emit, model),
-          { ..model, profile_command_note: "正在保存个人资料…" },
+          { ..model, profile_command_note: "正在保存个人资料…", },
         )
       }
     ChangePassword =>
@@ -21631,7 +21649,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       } else if model.profile_password_new != model.profile_password_confirm {
-        (none, { ..model, profile_command_note: "两次新密码不一致" })
+        (none, { ..model, profile_command_note: "两次新密码不一致", })
       } else {
         (
           issue_password_change(emit, model),
@@ -21789,7 +21807,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           users_form_is_super_user: false,
         },
       )
-    CloseUserForm => (none, { ..model, users_form_open: false })
+    CloseUserForm => (none, { ..model, users_form_open: false, })
     InputUserFormField(field, value) =>
       (
         none,
@@ -21825,13 +21843,13 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     ToggleUserFormSuper =>
       (
         none,
-        { ..model, users_form_is_super_user: !model.users_form_is_super_user },
+        { ..model, users_form_is_super_user: !model.users_form_is_super_user, },
       )
     SaveUserForm =>
       if model.users_form_user_code.trim().is_empty() {
-        (none, { ..model, users_note: "用户编码不能为空" })
+        (none, { ..model, users_note: "用户编码不能为空", })
       } else if model.users_form_emp_name.trim().is_empty() {
-        (none, { ..model, users_note: "员工姓名不能为空" })
+        (none, { ..model, users_note: "员工姓名不能为空", })
       } else {
         (
           issue_rbac_user_create(emit, model),
@@ -21957,7 +21975,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     RbacUserToggleFailed =>
       (
         none,
-        { ..model, users_note: "用户启停服务不可用或被网关拒绝" },
+        {
+          ..model,
+          users_note: "用户启停服务不可用或被网关拒绝",
+        },
       )
     ResetAdminUserPassword =>
       (
@@ -21986,7 +22007,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
     RbacUserResetFailed =>
       (
         none,
-        { ..model, users_note: "密码重置服务不可用或被网关拒绝" },
+        {
+          ..model,
+          users_note: "密码重置服务不可用或被网关拒绝",
+        },
       )
     DeleteLocalRole =>
       (
@@ -22390,7 +22414,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       } else {
         none
       }
-      (command, { ..model, workflow_task_tab: tab })
+      (command, { ..model, workflow_task_tab: tab, })
     }
     WorkflowObservationLoadFailed =>
       (
@@ -22680,7 +22704,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       } else {
-        (none, { ..model, import_note: "请先选择并解析 CSV 文件" })
+        (none, { ..model, import_note: "请先选择并解析 CSV 文件", })
       }
     CommitImportBatch =>
       if model.import_state == "dry_run_ok" && model.import_rows_json != "[]" {
@@ -22693,7 +22717,10 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       } else {
-        (none, { ..model, import_note: "请先完成通过的试运行校验" })
+        (
+          none,
+          { ..model, import_note: "请先完成通过的试运行校验", },
+        )
       }
     ImportCommandFinished(biz_type, body) => {
       let is_dry_run = body.contains("\"mode\":\"dryRun\"")
@@ -22854,7 +22881,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if model.loan_id == "" || model.loan_state != "Approved" {
         (none, model)
       } else if loan_decimal(model.loan_offset_amount) <= 0.0 {
-        (none, { ..model, loan_command_note: "冲账金额必须大于 0" })
+        (none, { ..model, loan_command_note: "冲账金额必须大于 0", })
       } else {
         (
           issue_loan_command(emit, model, "offset"),
@@ -22924,7 +22951,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
         "error"
       }
       if next_state == "error" {
-        (none, { ..model, loan_state: "error", loan_command_note: body })
+        (none, { ..model, loan_state: "error", loan_command_note: body, })
       } else {
         let next_page = if body.contains("\"command_type\":\"create\"") {
           "/loans/" + loan_command_id(body, model.loan_id)
@@ -22956,7 +22983,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if model.plan_task_id != "" || model.plan_task_state == "pending" {
         (none, model)
       } else if model.plan_create_task_name.trim().is_empty() {
-        (none, { ..model, plan_task_command_note: "任务名称不能为空" })
+        (none, { ..model, plan_task_command_note: "任务名称不能为空", })
       } else if model.plan_create_begin_date.trim().is_empty() ||
         model.plan_create_end_date.trim().is_empty() {
         (
@@ -23013,7 +23040,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       if next_state == "error" {
         (
           none,
-          { ..model, plan_task_state: "error", plan_task_command_note: body },
+          { ..model, plan_task_state: "error", plan_task_command_note: body, },
         )
       } else {
         (
@@ -23114,7 +23141,7 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         },
       )
-    CloseDeliveryForm => (none, { ..model, delivery_form_open: "" })
+    CloseDeliveryForm => (none, { ..model, delivery_form_open: "", })
     SelectDeliveryContract(contract_id) =>
       (
         none,
@@ -23341,9 +23368,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
       }
     ReportTaskProgress =>
       if model.plan_report_task_id.trim().is_empty() {
-        (none, { ..model, delivery_command_note: "请先选择任务" })
+        (none, { ..model, delivery_command_note: "请先选择任务", })
       } else if model.plan_report_progress.trim().is_empty() {
-        (none, { ..model, delivery_command_note: "汇报进度不能为空" })
+        (none, { ..model, delivery_command_note: "汇报进度不能为空", })
       } else {
         (
           issue_delivery_command(emit, model, "report_task"),
@@ -23780,9 +23807,9 @@ fn update(emit : @rabbita.Emit[Msg], msg : Msg, model : Model) -> (Cmd, Model) {
           },
         )
       } else if body.contains("\"error\"") {
-        (none, { ..model, expense_state: "命令失败", expense_note: body })
+        (none, { ..model, expense_state: "命令失败", expense_note: body, })
       } else {
-        (none, { ..model, expense_state: "命令完成", expense_note: body })
+        (none, { ..model, expense_state: "命令完成", expense_note: body, })
       }
     ExpenseCommandFailed =>
       (
@@ -24804,7 +24831,7 @@ fn import_preview_table(model : Model) -> @html.Html {
 }
 
 ///|
-fn import_step_class(active_step : Int, step : Int) -> String {
+fn import_step_class(active_step : Int32, step : Int32) -> String {
   if step < active_step {
     "erp-import-step is-done"
   } else if step == active_step {
@@ -31358,7 +31385,7 @@ fn cbs_view(
     },
     div <| [
       cbs_project_switcher(emit, model),
-      cbs_tabs(emit, { ..model, cbs_tab: tab }),
+      cbs_tabs(emit, { ..model, cbs_tab: tab, }),
       div(class="erp-source-note", model.cbs_command_note),
       cbs_version_form_view(emit, model),
       cbs_dict_form_view(emit, model),

@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror WarningPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> WarningPlanError {
@@ -87,7 +88,7 @@ fn string_array(
 }
 
 ///|
-fn power10(digits : Int) -> Int64 {
+fn power10(digits : Int32) -> Int64 {
   let mut result : Int64 = 1
   for _ in 0..<digits {
     result *= 10
@@ -241,7 +242,7 @@ fn run(
     WarningPlanError::InvalidInput(_) => {}
     WarningPlanError::Io(_) => {}
   }
-  let by_id : Map[String, Json] = {}
+  let by_id : Map[String, Json] = Map([])
   for row in rows {
     let row_obj = object(row, "cb_cost row")
     let source_id = required_field(row_obj, "cost_guid")
@@ -259,7 +260,7 @@ fn run(
       raise fail("source row is outside project scope: " + source_id)
     }
   }
-  let positive : Map[String, Int64] = {}
+  let positive : Map[String, Int64] = Map([])
   for row in rows {
     let row_obj = object(row, "cb_cost row")
     if text(field(row_obj, "proj_guid")) != project_id {
@@ -349,19 +350,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: warning_plan <export> <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     WarningPlanError::InvalidInput(message) => {
       println("warning plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     WarningPlanError::Io(_) => {
       println("warning plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

@@ -1,22 +1,25 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum AssetState {
   Proposed
   Capitalized
   Active
   Impaired
   Disposed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct AssetEvent {
   from : AssetState
   to : AssetState
   actor_id : String
   capability : String
   detail : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct Asset {
   asset_id : String
   principal_id : String
@@ -24,22 +27,24 @@ pub(all) struct Asset {
   description : String
   acquisition_cost : @finance.Money
   residual_value : @finance.Money
-  useful_life_months : Int
+  useful_life_months : Int32
   accumulated_depreciation : Int64
   state : AssetState
   events : Array[AssetEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct DepreciationEntry {
   asset_id : String
   period_id : String
   amount : @finance.Money
   remaining_book_value_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
 /// A reviewed disposal basis. Positive gain/loss is a gain; negative is a loss.
+#derive(Debug, Eq)
 pub(all) struct DisposalEntry {
   asset_id : String
   proceeds : @finance.Money
@@ -47,9 +52,10 @@ pub(all) struct DisposalEntry {
   accumulated_depreciation_minor : Int64
   carrying_value_minor : Int64
   gain_loss_minor : Int64
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror AssetError {
   EmptyIdentifier
   InvalidAmount
@@ -67,7 +73,7 @@ pub(all) suberror AssetError {
   AccountingEvent(@accounting.AccountingEventError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Asset::new(
@@ -77,7 +83,7 @@ pub fn Asset::new(
   description~ : String,
   acquisition_cost~ : @finance.Money,
   residual_value~ : @finance.Money,
-  useful_life_months~ : Int,
+  useful_life_months~ : Int32,
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> Asset raise AssetError {
@@ -165,8 +171,8 @@ pub fn Asset::transition(
     error => raise AssetError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability, detail: "state" })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, detail: "state", })
+  { ..self, state: to, events, }
 }
 
 ///|

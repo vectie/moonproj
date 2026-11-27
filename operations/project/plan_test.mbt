@@ -12,8 +12,8 @@ fn plan_grant(capability : String) -> @foundation.AuthorityGrant {
 }
 
 ///|
-fn plan_project() -> Project raise ProjectError {
-  Project::new(
+fn plan_project() -> @project.Project raise @project.ProjectError {
+  @project.Project::new(
     project_id="p-001",
     principal_id="co-001",
     code="P-001",
@@ -25,7 +25,7 @@ fn plan_project() -> Project raise ProjectError {
 
 ///|
 test "project plan enforces task dependencies" {
-  let plan = ProjectPlan::new(plan_project())
+  let plan = @project.ProjectPlan::new(plan_project())
     .add_task(
       task_id="task-001",
       name="Foundation",
@@ -49,7 +49,7 @@ test "project plan enforces task dependencies" {
       grant=plan_grant("project:task:start"),
     )
   catch {
-    PlanError::MissingDependency => ()
+    @project.PlanError::MissingDependency => ()
     _ => fail("wrong plan error")
   } noraise {
     _ => fail("expected plan error")
@@ -71,12 +71,12 @@ test "project plan enforces task dependencies" {
       actor_id="alice",
       grant=plan_grant("project:task:start"),
     )
-  assert_true(plan.tasks[1].state == TaskState::InProgress)
+  assert_true(plan.tasks[1].state == @project.TaskState::InProgress)
 }
 
 ///|
 test "project plan rejects progress outside the bounded range" {
-  let plan = ProjectPlan::new(plan_project())
+  let plan = @project.ProjectPlan::new(plan_project())
     .add_task(
       task_id="task-003",
       name="Planning",
@@ -98,7 +98,7 @@ test "project plan rejects progress outside the bounded range" {
       grant=plan_grant("project:task:progress"),
     )
   catch {
-    PlanError::InvalidProgress => ()
+    @project.PlanError::InvalidProgress => ()
     _ => fail("wrong plan error")
   } noraise {
     _ => fail("expected plan error")

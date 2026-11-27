@@ -1,8 +1,9 @@
 ///|
+#derive(Debug, Eq)
 pub(all) suberror PolicyAlertBridgeError {
   AlertNotReviewed
   Notification(@notification.NotificationError)
-} derive(Debug, Eq)
+}
 
 ///|
 fn severity_label(severity : @policy.PolicyAlertSeverity) -> String {

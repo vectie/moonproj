@@ -7,10 +7,11 @@
 /// Shell is responsible only for selecting this binary and its environment.
 
 ///|
+#derive(Debug)
 suberror GatewayError {
   InvalidInput(String)
   Upstream(String)
-} derive(Debug)
+}
 
 ///|
 const SESSION_COOKIE = "moonproj_session"
@@ -1664,7 +1665,8 @@ async fn handle(
     return
   }
   if path.has_prefix("/api/") {
-    let mut actor = match cookie_value(header(request, "Cookie"), SESSION_COOKIE) {
+    let mut actor = match
+      cookie_value(header(request, "Cookie"), SESSION_COOKIE) {
       Some(cookie) => sessions.get(cookie)
       None => None
     }
@@ -2171,7 +2173,7 @@ async fn handle(
     return
   }
   if request.meth is @http.Get || request.meth is @http.Head {
-    let static_headers : Map[String, String] = {}
+    let static_headers : Map[String, String] = Map([])
     match desktop_actor {
       Some(actor) if path == "/" || path == "/index.html" => {
         let authenticated = match
@@ -2256,11 +2258,11 @@ async fn main {
     println(
       "service, actor-signing, and session secret environment variables are required",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   if !valid_identifier(actor_id) {
     println("gateway actor id contains unsupported characters")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let trusted_identity_secret = match
     option(args, "--trusted-identity-secret-env") {
@@ -2268,7 +2270,7 @@ async fn main {
       let value = required_env(name)
       if value.is_empty() {
         println("trusted identity secret environment variable is not set")
-        @sys.exit(2)
+        @env.exit(2)
       }
       Some(value)
     }
@@ -2279,14 +2281,14 @@ async fn main {
   if trusted_identity_secret is None &&
     (dev_user.is_empty() || dev_password.is_empty()) {
     println("development session credentials are not set")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let host = option(args, "--host").unwrap_or(
     @env.get_env_var("COMPANY_GATEWAY_HOST").unwrap_or("127.0.0.1"),
   )
   if host == "0.0.0.0" || host == "::" || host == "[::]" {
     println("gateway must bind privately")
-    @sys.exit(2)
+    @env.exit(2)
   }
   let port = option(args, "--port").unwrap_or(
     @env.get_env_var("COMPANY_GATEWAY_PORT").unwrap_or("4173"),
@@ -2339,11 +2341,11 @@ async fn main {
     Some(value) if !value.is_empty() => {
       if !valid_identifier(value) {
         println("desktop actor contains unsupported characters")
-        @sys.exit(2)
+        @env.exit(2)
       }
       if host != "127.0.0.1" && host != "localhost" && host != "::1" {
         println("desktop session bootstrap requires a loopback gateway")
-        @sys.exit(2)
+        @env.exit(2)
       }
       Some(value)
     }
@@ -2352,20 +2354,20 @@ async fn main {
   let address = @socket.Addr::parse(host + ":" + port) catch {
     _ => {
       println("invalid gateway listen address")
-      @sys.exit(2)
+      @env.exit(2)
       @socket.Addr::parse("127.0.0.1:4173")
     }
   }
   let server = @http.Server(address, reuse_addr=true) catch {
     _ => {
       println("cannot start native company gateway")
-      @sys.exit(1)
+      @env.exit(1)
       @http.Server(@socket.Addr::parse("127.0.0.1:4173"), reuse_addr=true) catch {
         _ => panic()
       }
     }
   }
-  let sessions : Map[String, String] = {}
+  let sessions : Map[String, String] = Map([])
   let sequence = Ref(0)
   let service_uri = "http://" + service_host + ":" + service_port
   println("company MoonBit gateway listening on http://" + host + ":" + port)

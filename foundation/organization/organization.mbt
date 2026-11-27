@@ -1,20 +1,23 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum OrganizationKind {
   Group
   Company
   Department
   BusinessUnit
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum OrganizationState {
   Draft
   Active
   Suspended
   Closed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct OrganizationUnit {
   unit_id : String
   principal_id : String
@@ -24,14 +27,16 @@ pub(all) struct OrganizationUnit {
   name : String
   kind : OrganizationKind
   state : OrganizationState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct OrganizationRegistry {
   units : Array[OrganizationUnit]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror OrganizationError {
   EmptyIdentifier
   SelfParent
@@ -39,7 +44,7 @@ pub(all) suberror OrganizationError {
   DuplicateUnit
   InvalidState
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn OrganizationUnit::new(
@@ -88,7 +93,7 @@ pub fn OrganizationUnit::new(
 
 ///|
 pub fn OrganizationRegistry::empty() -> OrganizationRegistry {
-  { units: [] }
+  { units: [], }
 }
 
 ///|
@@ -140,7 +145,7 @@ pub fn OrganizationUnit::activate(
   ) catch {
     error => raise OrganizationError::NotAuthorized(error)
   }
-  { ..self, state: OrganizationState::Active }
+  { ..self, state: OrganizationState::Active, }
 }
 
 ///|
@@ -162,5 +167,5 @@ pub fn OrganizationUnit::suspend(
   ) catch {
     error => raise OrganizationError::NotAuthorized(error)
   }
-  { ..self, state: OrganizationState::Suspended }
+  { ..self, state: OrganizationState::Suspended, }
 }

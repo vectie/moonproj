@@ -1,9 +1,10 @@
 ///|
+#derive(Debug)
 pub(all) suberror AccessPromotionError {
   InvalidInput
   Io(@fs.IOError)
   Access(@access.AccessError)
-} derive(Debug)
+}
 
 ///|
 fn read_json(path : String) -> Json raise AccessPromotionError {
@@ -264,23 +265,23 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: access_import <plan.json> <receipt.json>")
-    @sys.exit(2)
+    @env.exit(2)
   } else {
     run(args[1], args[2]) catch {
       AccessPromotionError::InvalidInput => {
         println("access import failed: invalid or unreviewed input")
-        @sys.exit(1)
+        @env.exit(1)
       }
       AccessPromotionError::Io(_) => {
         println("access import failed: filesystem error")
-        @sys.exit(1)
+        @env.exit(1)
       }
       AccessPromotionError::Access(_) => {
         println("access import failed: authority or segregation validation")
-        @sys.exit(1)
+        @env.exit(1)
       }
     }
   }

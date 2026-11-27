@@ -63,7 +63,7 @@ pub fn RecordStore::from_snapshot(
     Some(Array(value)) => value
     _ => raise StoreError::InvalidSnapshot
   }
-  let mut store = RecordStore::new({ version, checksum })
+  let mut store = RecordStore::new({ version, checksum, })
   for row in rows {
     let row = match row {
       Object(value) => value

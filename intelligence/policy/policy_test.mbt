@@ -1,6 +1,6 @@
 ///|
-fn policy_document(version : String, body : String) -> PolicyDocument {
-  PolicyDocument::new(
+fn policy_document(version : String, body : String) -> @policy.PolicyDocument {
+  @policy.PolicyDocument::new(
     document_id="changping-plan",
     title="昌平发展规划发布材料",
     issuer="北京市昌平区人民政府",
@@ -23,10 +23,10 @@ test "policy engine detects stronger wording and builds explainable opportunitie
   let current = policy_document(
     "v2", "统筹布局“3+N算力中心体系”，建设“全市超级算力节点”。擦亮“昌相伴”品牌。建设好“千帆音乐公园”。",
   )
-  let analysis = analyze_policy(
+  let analysis = @policy.analyze_policy(
     Some(previous),
     current,
-    changping_development_signal_rules(),
+    @policy.changping_development_signal_rules(),
   )
   assert_true(
     analysis.changes.any(change => {
@@ -74,7 +74,7 @@ test "policy engine detects stronger wording and builds explainable opportunitie
 
 ///|
 test "quoted-term discovery works before the vocabulary is configured" {
-  let terms = discover_policy_terms(
+  let terms = @policy.discover_policy_terms(
     "建设“昌慧达”和「未来大学科技园」，并形成\"3+N\"体系。",
   )
   assert_eq(terms, ["昌慧达", "未来大学科技园", "3+N"])
@@ -85,10 +85,10 @@ test "initial analysis separates B2B and B2G hypotheses" {
   let current = policy_document(
     "v1", "先进能源产业收入目标达到4500亿元，迭代升级“回天大脑”。",
   )
-  let analysis = analyze_policy(
+  let analysis = @policy.analyze_policy(
     None,
     current,
-    changping_development_signal_rules(),
+    @policy.changping_development_signal_rules(),
   )
   assert_true(
     analysis.opportunities.any(opportunity => opportunity.lane == B2B),

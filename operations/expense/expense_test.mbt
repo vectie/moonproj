@@ -17,7 +17,7 @@ fn expense_grant(
 ///|
 test "expense allocates and offsets an employee advance" {
   let amount = @finance.Money::new(minor=30000, currency="CNY")
-  let expense = ExpenseClaim::new(
+  let expense = @expense.ExpenseClaim::new(
     expense_id="expense-001",
     principal_id="co-001",
     employee_id="alice",
@@ -38,12 +38,12 @@ test "expense allocates and offsets an employee advance" {
     grant=expense_grant("expense:create", "employee:alice"),
   )
   let submitted = expense.transition(
-    ExpenseState::Submitted,
+    @expense.ExpenseState::Submitted,
     actor_id="alice",
     grant=expense_grant("expense:submit", "employee:alice"),
   )
   let approved = submitted.transition(
-    ExpenseState::Approved,
+    @expense.ExpenseState::Approved,
     actor_id="alice",
     grant=expense_grant("expense:approve", "employee:alice"),
   )
@@ -69,7 +69,7 @@ test "expense allocates and offsets an employee advance" {
 ///|
 test "expense rejects allocation mismatch" {
   try
-    ExpenseClaim::new(
+    @expense.ExpenseClaim::new(
       expense_id="expense-002",
       principal_id="co-001",
       employee_id="alice",
@@ -85,7 +85,7 @@ test "expense rejects allocation mismatch" {
       grant=expense_grant("expense:create", "employee:alice"),
     )
   catch {
-    ExpenseError::AllocationTotalMismatch => ()
+    @expense.ExpenseError::AllocationTotalMismatch => ()
     _ => fail("wrong expense error")
   } noraise {
     _ => fail("expected expense error")
@@ -95,7 +95,7 @@ test "expense rejects allocation mismatch" {
 ///|
 test "expense offset and recognition persist allocation evidence" {
   let amount = @finance.Money::new(minor=30000, currency="CNY")
-  let expense = ExpenseClaim::new(
+  let expense = @expense.ExpenseClaim::new(
       expense_id="expense-projection",
       principal_id="co-001",
       employee_id="alice",
@@ -111,12 +111,12 @@ test "expense offset and recognition persist allocation evidence" {
       grant=expense_grant("expense:create", "employee:alice"),
     )
     .transition(
-      ExpenseState::Submitted,
+      @expense.ExpenseState::Submitted,
       actor_id="alice",
       grant=expense_grant("expense:submit", "employee:alice"),
     )
     .transition(
-      ExpenseState::Approved,
+      @expense.ExpenseState::Approved,
       actor_id="alice",
       grant=expense_grant("expense:approve", "employee:alice"),
     )
@@ -149,7 +149,7 @@ test "expense offset and recognition persist allocation evidence" {
 
 ///|
 test "approved expense creates a source accounting event" {
-  let expense = ExpenseClaim::new(
+  let expense = @expense.ExpenseClaim::new(
       expense_id="expense-accounting",
       principal_id="co-001",
       employee_id="alice",
@@ -165,12 +165,12 @@ test "approved expense creates a source accounting event" {
       grant=expense_grant("expense:create", "employee:alice"),
     )
     .transition(
-      ExpenseState::Submitted,
+      @expense.ExpenseState::Submitted,
       actor_id="alice",
       grant=expense_grant("expense:submit", "employee:alice"),
     )
     .transition(
-      ExpenseState::Approved,
+      @expense.ExpenseState::Approved,
       actor_id="alice",
       grant=expense_grant("expense:approve", "employee:alice"),
     )

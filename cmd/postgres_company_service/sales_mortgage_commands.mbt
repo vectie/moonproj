@@ -176,7 +176,7 @@ fn sales_mortgage_transition_request(
 ///|
 async fn latest_sales_mortgage_payload(
   mortgage_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'mortgage' AND aggregate_id = " +
     @postgres.sql_literal(mortgage_id) +
@@ -212,7 +212,7 @@ async fn sales_mortgage_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if command_type != "create" &&
     command_type != "approve" &&
     command_type != "release" {

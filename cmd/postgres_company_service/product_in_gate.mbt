@@ -35,7 +35,7 @@ fn product_in_gate_command_spec(
 fn product_in_gate_text(
   fields : Map[String, Json],
   key : String,
-  max_length : Int,
+  max_length : Int32,
 ) -> String raise CompanyServiceError {
   let value = engineering_required_text(fields, key, "product in-gate")
     .trim()
@@ -187,7 +187,7 @@ fn product_in_gate_projection(
   product : String,
   normalized : Json,
   owner : String,
-  revision : Int,
+  revision : Int32,
   event_id : String,
 ) -> Json {
   @product_in_gate_projection.persisted(
@@ -208,7 +208,7 @@ fn product_in_gate_unknown_projection(product : String) -> Json {
 ///|
 async fn latest_product_in_gate_projection(
   product : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = 'product_in_gate' AND aggregate_id = " +
     @postgres.sql_literal(product) +
@@ -228,7 +228,7 @@ async fn latest_product_in_gate_projection(
 ///|
 async fn product_in_gate_response(
   product : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(product) {
     raise reject(422, "invalid product in-gate identifier")
   }
@@ -258,7 +258,7 @@ async fn mark_product_in_gate(
   body : Json,
   actor : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(product) || !valid_identifier(actor) {
     raise reject(422, "invalid product in-gate identity")
   }

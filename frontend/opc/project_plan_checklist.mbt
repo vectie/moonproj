@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct PlanChecklistState {
   text : String
   owner : String
@@ -7,9 +8,10 @@ struct PlanChecklistState {
   base : @plan_workbench.Draft?
   preview : @plan_workbench.ChecklistImport?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanChecklistMsg {
   Text(String)
   Owner(String)
@@ -18,7 +20,7 @@ enum PlanChecklistMsg {
   Preview
   Apply
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_checklist_initial() -> PlanChecklistState {

@@ -1,7 +1,8 @@
 ///|
+#derive(Debug, Eq)
 pub suberror SourceContextError {
   InvalidSourceContext(String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn field(value : Json, key : String) -> Json {

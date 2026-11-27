@@ -1,34 +1,39 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum CashAccountState {
   Open
   Suspended
   Closed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum CashDirection {
   Inflow
   Outflow
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum CashMovementState {
   Requested
   Approved
   Released
   Reconciled
   Rejected
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CashEvent {
   from : CashMovementState
   to : CashMovementState
   actor_id : String
   capability : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CashAccount {
   account_id : String
   principal_id : String
@@ -38,9 +43,10 @@ pub(all) struct CashAccount {
   balance : @finance.Money
   state : CashAccountState
   applied_movement_ids : Array[String]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct CashMovement {
   movement_id : String
   account_id : String
@@ -51,9 +57,10 @@ pub(all) struct CashMovement {
   direction : CashDirection
   state : CashMovementState
   events : Array[CashEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror TreasuryError {
   EmptyIdentifier
   InvalidAmount
@@ -66,7 +73,7 @@ pub(all) suberror TreasuryError {
   Projection(@store.ProjectionError)
   NotAuthorized(@foundation.AuthorityError)
   Money(@finance.MoneyError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn CashAccount::open(
@@ -184,7 +191,7 @@ pub fn CashMovement::approve(
     actor_id,
     capability: "treasury:approve",
   })
-  { ..self, state: CashMovementState::Approved, events }
+  { ..self, state: CashMovementState::Approved, events, }
 }
 
 ///|
@@ -244,8 +251,8 @@ pub fn CashAccount::release(
   let applied = self.applied_movement_ids.copy()
   applied.push(movement.movement_id)
   (
-    { ..self, balance, applied_movement_ids: applied },
-    { ..movement, state: CashMovementState::Released, events: movement_events },
+    { ..self, balance, applied_movement_ids: applied, },
+    { ..movement, state: CashMovementState::Released, events: movement_events, },
   )
 }
 
@@ -275,5 +282,5 @@ pub fn CashMovement::reconcile(
     actor_id,
     capability: "treasury:reconcile",
   })
-  { ..self, state: CashMovementState::Reconciled, events }
+  { ..self, state: CashMovementState::Reconciled, events, }
 }

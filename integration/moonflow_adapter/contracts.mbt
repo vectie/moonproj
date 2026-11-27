@@ -9,7 +9,7 @@ pub fn protocol() -> String {
 }
 
 ///|
-pub fn capability_json(healthy? : Bool = false) -> Json {
+pub fn capability_json(healthy~ : Bool = false) -> Json {
   {
     "adapter_id": adapter_id(),
     "product_id": "moonproj",
@@ -28,6 +28,7 @@ pub fn capability_json(healthy? : Bool = false) -> Json {
 }
 
 ///|
+#derive(Debug, Eq, ToJson)
 struct FlowRequest {
   request_id : String
   run_id : String
@@ -45,9 +46,9 @@ struct FlowRequest {
   required_claim : String
   input_digest : String
   input_artifacts : Array[String]
-  timeout_ms : Int
+  timeout_ms : Int32
   created_at : String
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 fn json_object(value : Json, label : String) -> Map[String, Json] raise {
@@ -66,7 +67,7 @@ fn json_string_field(fields : Map[String, Json], name : String) -> String raise 
 }
 
 ///|
-fn json_int_field(fields : Map[String, Json], name : String) -> Int raise {
+fn json_int_field(fields : Map[String, Json], name : String) -> Int32 raise {
   match fields.get(name) {
     Some(Number(value, ..)) if value == value.trunc() => value.to_int()
     _ => fail("MoonProj adapter requires integer \{name}")
@@ -117,7 +118,7 @@ fn canonical_utc_timestamp(value : String) -> Bool {
     value[19] != 'Z' {
     return false
   }
-  try @time.PlainDateTime::from_str(value[0:19]) catch {
+  try (@string.FromStr::from_str(value[0:19]) : @time.PlainDateTime) catch {
     _ => false
   } noraise {
     _ => true

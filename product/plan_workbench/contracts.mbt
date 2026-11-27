@@ -1,11 +1,13 @@
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Owner {
   id : String
   name : String
   role : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Task {
   id : String
   name : String
@@ -13,9 +15,10 @@ pub(all) struct Task {
   milestone : String
   cost : String
   dependencies : Array[String]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Milestone {
   id : String
   name : String
@@ -23,9 +26,10 @@ pub(all) struct Milestone {
   date : String
   criteria : String
   evidence : String
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Risk {
   id : String
   summary : String
@@ -33,9 +37,10 @@ pub(all) struct Risk {
   owner : String
   mitigation : String
   tasks : Array[String]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq, ToJson, FromJson)
 pub(all) struct Draft {
   key : String
   project_id : String
@@ -48,12 +53,13 @@ pub(all) struct Draft {
   tasks : Array[Task]
   milestones : Array[Milestone]
   risks : Array[Risk]
-} derive(Debug, Eq, ToJson, FromJson)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror InputError {
   Invalid(String)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn minor(value : String, field : String) -> Int64 raise InputError {

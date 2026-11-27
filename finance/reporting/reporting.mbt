@@ -1,19 +1,22 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum ConsolidatedReportState {
   Reconciled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ReportSection {
   section_id : String
   expected : @finance.Money
   actual : @finance.Money
   balanced : Bool
-} derive(Debug, Eq)
+}
 
 ///|
 /// A non-posting, source-snapshot-bound control-total report. It combines
 /// already reconciled subreports without becoming a ledger or cash command.
+#derive(Debug, Eq)
 pub(all) struct ConsolidatedReport {
   report_id : String
   period_id : String
@@ -25,12 +28,13 @@ pub(all) struct ConsolidatedReport {
   expected_total : @finance.Money
   actual_total : @finance.Money
   difference_minor : Int64
-  accounting_link_count : Int
-  reconciled_link_count : Int
+  accounting_link_count : Int32
+  reconciled_link_count : Int32
   state : ConsolidatedReportState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror ReportingError {
   EmptyIdentifier
   NoMappingVersions
@@ -44,7 +48,7 @@ pub(all) suberror ReportingError {
   NotAuthorized(@foundation.AuthorityError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn ConsolidatedReport::new(
@@ -55,8 +59,8 @@ pub fn ConsolidatedReport::new(
   source_snapshot_id~ : String,
   mapping_versions~ : Array[String],
   reports~ : Array[@reconciliation.ReconciliationReport],
-  accounting_link_count~ : Int,
-  reconciled_link_count~ : Int,
+  accounting_link_count~ : Int32,
+  reconciled_link_count~ : Int32,
   actor_id~ : String,
   grant~ : @foundation.AuthorityGrant,
 ) -> ConsolidatedReport raise ReportingError {

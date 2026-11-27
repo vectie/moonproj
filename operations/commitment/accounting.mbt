@@ -1,9 +1,10 @@
 ///|
+#derive(Debug, Eq)
 pub(all) suberror CommitmentAccountingError {
   InvalidState
   Journal(@finance.LedgerError)
   AccountingEvent(@accounting.AccountingEventError)
-} derive(Debug, Eq)
+}
 
 ///|
 /// Recognize a performed commitment as expense/inventory and payable. Payment

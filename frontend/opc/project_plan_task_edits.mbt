@@ -1,17 +1,19 @@
 ///|
+#derive(Debug, Eq)
 struct PlanTaskEdits {
   base : @plan_workbench.Draft
   source : String
   tsv : Bool
   preview : @plan_workbench.TaskTableUpdate
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanTaskEditMsg {
   Preview
   Apply
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_task_edits_update(

@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct PlanConsolidationState {
   selected : Array[String]
   retained : String
@@ -6,9 +7,10 @@ struct PlanConsolidationState {
   source : @plan_workbench.Draft?
   preview : @plan_workbench.Draft?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanConsolidationMsg {
   Toggle(String)
   Retain(String)
@@ -16,7 +18,7 @@ enum PlanConsolidationMsg {
   Preview
   Apply
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_consolidation_initial() -> PlanConsolidationState {

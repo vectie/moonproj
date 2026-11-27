@@ -1,15 +1,12 @@
 import {
   "vectie/moonproj/operations/task_evidence",
   "vectie/moonproj/integration/company_flow",
-  "moonbitlang/async",
-  "moonbitlang/async/fs",
   "moonbitlang/async/http",
   "moonbitlang/async/io",
   "moonbitlang/async/socket",
   "moonbitlang/core/env",
   "moonbitlang/core/json",
   "moonbitlang/core/encoding/utf8" @encoding/utf8,
-  "moonbitlang/x/sys",
   "moonbitlang/x/crypto",
   "vectie/moonproj/persistence/postgres",
   "vectie/moonproj/service/product_in_gate_projection",
@@ -18,3 +15,8 @@ import {
 supported_targets = "native"
 
 pkgtype(kind: "executable")
+
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+} for "wbtest"

@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror SqliteRehearsalError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct Record {
@@ -16,7 +17,7 @@ struct Record {
 struct ExistingRow {
   record_type : String
   record_id : String
-  schema_version : Int
+  schema_version : Int32
   payload : String
   source_id : String
 }
@@ -67,7 +68,7 @@ fn text(value : Json) -> String {
 }
 
 ///|
-fn integer(value : Json, default : Int) -> Int {
+fn integer(value : Json, default : Int32) -> Int32 {
   match value {
     Number(number, ..) if number == number.trunc() => number.to_int()
     String(value) => parse_int(value, default)
@@ -76,7 +77,7 @@ fn integer(value : Json, default : Int) -> Int {
 }
 
 ///|
-fn parse_int(value : String, default : Int) -> Int {
+fn parse_int(value : String, default : Int32) -> Int32 {
   let source = value.trim().to_owned()
   if source.is_empty() {
     return default
@@ -192,7 +193,7 @@ fn load_records(
     error => raise SqliteRehearsalError::Io(error)
   }
   let records : Array[Record] = []
-  let seen : Map[String, Bool] = {}
+  let seen : Map[String, Bool] = Map([])
   let mut line_number = 0
   for line_view in content.split("\n") {
     let line = line_view.to_owned()
@@ -231,7 +232,7 @@ fn load_records(
       }
       seen.set(source_id, true)
       reject_secrets(payload, "payload")
-      records.push({ record_type, record_id, source_id, payload })
+      records.push({ record_type, record_id, source_id, payload, })
     }
   }
   let tables = match manifest.get("tables") {
@@ -282,7 +283,7 @@ fn decode_hex(value : String) -> String raise SqliteRehearsalError {
     raise fail("invalid SQLite hexadecimal field")
   }
   let bytes : FixedArray[Byte] = FixedArray::make(value.length() / 2, 0)
-  fn digit(char : Char) -> Int? {
+  fn digit(char : Char) -> Int32? {
     if char >= '0' && char <= '9' {
       Some(char.to_int() - '0'.to_int())
     } else if char >= 'a' && char <= 'f' {
@@ -391,8 +392,8 @@ fn write_plan(
   let (source_hash, _, records) = load_records(stage)
   let before = parse_rows(before_path)
   let baseline_hash = hash_rows(before)
-  let existing : Map[String, ExistingRow] = {}
-  let sources : Map[String, Bool] = {}
+  let existing : Map[String, ExistingRow] = Map([])
+  let sources : Map[String, Bool] = Map([])
   for row in before {
     existing.set(row.record_type + "\u{1f}" + row.record_id, row)
     sources.set(row.source_id, true)
@@ -525,10 +526,10 @@ fn report(
   work_dir : String,
   after_path : String,
   integrity : String,
-  schema_version : Int,
-  record_count : Int,
-  unique_sources : Int,
-  receipt_count : Int,
+  schema_version : Int32,
+  record_count : Int32,
+  unique_sources : Int32,
+  receipt_count : Int32,
   receipt_inserted : Bool,
   database : String,
   output : String,
@@ -610,15 +611,15 @@ fn run(args : Array[String]) -> Unit raise SqliteRehearsalError {
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   run(args) catch {
     SqliteRehearsalError::InvalidInput(message) => {
       println("company SQLite rehearsal failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     SqliteRehearsalError::Io(_) => {
       println("company SQLite rehearsal failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

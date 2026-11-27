@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror PaymentPromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> PaymentPromotionPlanError {
@@ -94,7 +95,7 @@ fn integer(value : Json, default : Int64) -> Int64 {
 }
 
 ///|
-fn power10(digits : Int) -> Int64 {
+fn power10(digits : Int32) -> Int64 {
   let mut value : Int64 = 1
   for _ in 0..<digits {
     value *= 10
@@ -289,7 +290,7 @@ fn run(
     _ => raise fail("contract/payment exports must be arrays")
   }
   let items : Array[Json] = []
-  let contract_info : Map[String, Map[String, Json]] = {}
+  let contract_info : Map[String, Map[String, Json]] = Map([])
   for contract in contracts {
     let contract_id = text(field(contract, "contract_guid"))
     let bu_id = text(field(contract, "bu_guid"))
@@ -399,7 +400,7 @@ fn run(
       }),
     )
   }
-  let plans_by_contract : Map[String, Array[Json]] = {}
+  let plans_by_contract : Map[String, Array[Json]] = Map([])
   for row in payment_plans {
     let id = text(field(row, "contract_guid"))
     let rows = plans_by_contract.get(id).unwrap_or([])
@@ -676,19 +677,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: payment_promotion_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     PaymentPromotionPlanError::InvalidInput(message) => {
       println("payment promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     PaymentPromotionPlanError::Io(_) => {
       println("payment promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

@@ -17,7 +17,7 @@ fn nonempty_unique(values : Array[String]) -> Bool {
 fn ProfessionalServiceShadow::work_index(
   self : ProfessionalServiceShadow,
   work_id : String,
-) -> Int? {
+) -> Int32? {
   for index, item in self.work {
     if item.work_id == work_id {
       return Some(index)
@@ -128,7 +128,7 @@ pub fn ProfessionalServiceShadow::add_work(
     output_evidence: [],
     findings: "",
   })
-  { ..self, revision: self.revision + 1, work }
+  { ..self, revision: self.revision + 1, work, }
 }
 
 ///|
@@ -182,8 +182,8 @@ pub fn ProfessionalServiceShadow::release(
       raise ReviewIndependenceRequired
     }
   }
-  let work = self.work.map(item => { ..item, state: Released })
-  let released = { ..self, stage: Ready, revision: self.revision + 1, work }
+  let work = self.work.map(item => { ..item, state: Released, })
+  let released = { ..self, stage: Ready, revision: self.revision + 1, work, }
   released.assert_shadow_only()
   released
 }
@@ -248,13 +248,13 @@ pub fn ProfessionalServiceShadow::request_work(
   }
   request.validate()
   let work = self.work.copy()
-  work[index] = { ..item, request_id, attempt_id }
+  work[index] = { ..item, request_id, attempt_id, }
   let stage = if item.role is IndependentReviewer {
     WaitingForReview
   } else {
     InExecution
   }
-  (request, { ..self, stage, revision: self.revision + 1, work })
+  (request, { ..self, stage, revision: self.revision + 1, work, })
 }
 
 ///|
@@ -270,7 +270,7 @@ pub fn ProfessionalServiceShadow::record_result(
     !result.proposed_commands.is_empty() {
     raise Invalid("shadow workflow records only well-formed successful results")
   }
-  let mut match_index : Int? = None
+  let mut match_index : Int32? = None
   for index, item in self.work {
     if item.request_id == result.request_id &&
       item.attempt_id == result.attempt_id {
@@ -312,7 +312,7 @@ pub fn ProfessionalServiceShadow::record_result(
   } else {
     InExecution
   }
-  { ..self, stage, revision: self.revision + 1, work, activities }
+  { ..self, stage, revision: self.revision + 1, work, activities, }
 }
 
 ///|

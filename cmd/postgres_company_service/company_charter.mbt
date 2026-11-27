@@ -14,7 +14,7 @@ fn charter_require_string(
   obj : Json,
   field : String,
   label : String,
-  max_len : Int,
+  max_len : Int32,
   allow_empty : Bool,
 ) -> String raise CompanyServiceError {
   let raw = match json_field(obj, field) {
@@ -41,7 +41,7 @@ fn charter_optional_string(
   obj : Json,
   field : String,
   label : String,
-  max_len : Int,
+  max_len : Int32,
   default_value : String,
 ) -> String raise CompanyServiceError {
   match json_field(obj, field) {
@@ -92,9 +92,9 @@ fn charter_require_int(
   obj : Json,
   field : String,
   label : String,
-  min_val : Int?,
-  max_val : Int?,
-) -> Int raise CompanyServiceError {
+  min_val : Int32?,
+  max_val : Int32?,
+) -> Int32 raise CompanyServiceError {
   let number = match json_field(obj, field) {
     Some(Number(n, ..)) => n
     _ => raise reject(422, label + " must be an integer")
@@ -121,8 +121,8 @@ fn charter_optional_int(
   obj : Json,
   field : String,
   label : String,
-  min_val : Int?,
-) -> Int? raise CompanyServiceError {
+  min_val : Int32?,
+) -> Int32? raise CompanyServiceError {
   match json_field(obj, field) {
     None | Some(Null) => None
     Some(Number(n, ..)) => {
@@ -162,8 +162,8 @@ fn charter_optional_string_array(
   obj : Json,
   field : String,
   label : String,
-  max_items : Int,
-  max_item_len : Int,
+  max_items : Int32,
+  max_item_len : Int32,
 ) -> Array[Json] raise CompanyServiceError {
   let items = match json_field(obj, field) {
     None | Some(Null) => return []
@@ -617,7 +617,7 @@ async fn company_charter_upsert_command(
   body : Json,
   actor_id : String,
   key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let request = company_charter_upsert_request(body, actor_id, key)
   let response = try {
     let output = run_sql(company_charter_upsert_sql(request, key))

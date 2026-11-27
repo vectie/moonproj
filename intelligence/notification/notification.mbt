@@ -1,11 +1,13 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum NotificationChannel {
   InApp
   Email
   Webhook
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum NotificationState {
   Draft
   Queued
@@ -13,21 +15,23 @@ pub(all) enum NotificationState {
   Delivered
   Failed
   Suppressed
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct NotificationEvent {
   from : NotificationState
   to : NotificationState
   actor_id : String
   capability : String
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// A company-owned notification outbox item. Queueing and delivery confirmation
 /// are separate authority-bearing events; this aggregate never sends a network
 /// request or mutates workflow approval state.
+#derive(Debug, Eq)
 pub(all) struct Notification {
   notification_id : String
   principal_id : String
@@ -43,19 +47,21 @@ pub(all) struct Notification {
   failure_reason : String
   state : NotificationState
   events : Array[NotificationEvent]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Source-bound notification evidence. It preserves the source request and
 /// mapping identity without treating source messages as delivered mail.
+#derive(Debug, Eq)
 pub(all) struct NotificationEvidence {
   notification : Notification
   source_snapshot_id : String
   mapping_version : String
   evidence_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror NotificationError {
   EmptyIdentifier
   InvalidChannelContent
@@ -65,7 +71,7 @@ pub(all) suberror NotificationError {
   NotAuthorized(@foundation.AuthorityError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn Notification::new(
@@ -169,8 +175,8 @@ fn Notification::notification_transition(
     error => raise NotificationError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id, capability, note })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, capability, note, })
+  { ..self, state: to, events, }
 }
 
 ///|
@@ -240,7 +246,7 @@ pub fn Notification::fail(
     actor_id,
     grant,
   )
-  { ..next, failure_reason: reason }
+  { ..next, failure_reason: reason, }
 }
 
 ///|
@@ -270,5 +276,5 @@ pub fn Notification::bind_evidence(
     evidence_id.trim() == "" {
     raise NotificationError::EmptyIdentifier
   }
-  { notification: self, source_snapshot_id, mapping_version, evidence_id }
+  { notification: self, source_snapshot_id, mapping_version, evidence_id, }
 }

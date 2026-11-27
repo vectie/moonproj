@@ -1,5 +1,6 @@
 ///|
 /// A single immutable line imported from a bank statement.
+#derive(Debug, Eq)
 pub(all) struct BankStatementLine {
   line_id : String
   account_id : String
@@ -9,30 +10,34 @@ pub(all) struct BankStatementLine {
   booked_at : String
   amount : @finance.Money
   direction : CashDirection
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct StatementMatch {
   line_id : String
   movement_id : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// A reviewed line-to-journal identity link; it does not post the journal.
+#derive(Debug, Eq)
 pub(all) struct StatementLedgerMatch {
   line_id : String
   event_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) enum BankStatementState {
   Imported
   Reconciled
   LedgerReconciled
   Rejected
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct BankStatement {
   statement_id : String
   account_id : String
@@ -45,9 +50,10 @@ pub(all) struct BankStatement {
   matches : Array[StatementMatch]
   ledger_matches : Array[StatementLedgerMatch]
   state : BankStatementState
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror StatementError {
   EmptyIdentifier
   InvalidAmount
@@ -71,7 +77,7 @@ pub(all) suberror StatementError {
   Money(@finance.MoneyError)
   ProjectionIdentity
   Projection(@store.ProjectionError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn BankStatement::from_statement(
@@ -384,5 +390,5 @@ pub fn BankStatement::reconcile(
   ) catch {
     error => raise StatementError::NotAuthorized(error)
   }
-  { ..self, matches: matches.copy(), state: BankStatementState::Reconciled }
+  { ..self, matches: matches.copy(), state: BankStatementState::Reconciled, }
 }

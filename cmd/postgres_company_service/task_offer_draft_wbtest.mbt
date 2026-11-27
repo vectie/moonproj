@@ -12,9 +12,9 @@ fn offer_service_fixture() -> Json {
 
 ///|
 fn offer_service_authority(
-  actor? : String = "actor",
-  scope? : String = "project:P",
-  capability? : String = "project:task:update",
+  actor~ : String = "actor",
+  scope~ : String = "project:P",
+  capability~ : String = "project:task:update",
 ) -> Json {
   {
     "active": true,

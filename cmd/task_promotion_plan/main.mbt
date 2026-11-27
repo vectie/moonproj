@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror TaskPromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct TaskRow {
@@ -231,7 +232,7 @@ fn task_row(
     "status": field(value, "status"),
     "sort_order": number(sort_order),
   })
-  TaskRow::{ json: candidate, task_id, parent_id, sort_order }
+  TaskRow::{ json: candidate, task_id, parent_id, sort_order, }
 }
 
 ///|
@@ -316,7 +317,7 @@ fn run(
     if rows.is_empty() {
       reasons.push("missing_tasks")
     }
-    let seen : Map[String, Bool] = {}
+    let seen : Map[String, Bool] = Map([])
     for row in rows {
       if row.task_id.is_empty() || seen.get(row.task_id) is Some(_) {
         reasons.push("duplicate_task_id:" + row.task_id)
@@ -414,19 +415,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println("usage: task_promotion_plan <export> <mapping> <output>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2], args[3]) catch {
     TaskPromotionPlanError::InvalidInput(message) => {
       println("task promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     TaskPromotionPlanError::Io(_) => {
       println("task promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

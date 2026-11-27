@@ -6,7 +6,10 @@ test "actual continued MoonFind current changed removed exports retain full type
       fail("continued producer rejected: " + kind)
     }
     assert_eq(ToJson::to_json(brief), @json.parse(encoded))
-    assert_eq(@research_handoff.decode(ToJson::to_json(brief).stringify()), Ok(brief))
+    assert_eq(
+      @research_handoff.decode(ToJson::to_json(brief).stringify()),
+      Ok(brief),
+    )
     assert_eq(brief.worksheet.chosen_option_id, "option-1")
     assert_eq(brief.worksheet.reasoning, "Learn before committing")
     assert_eq(brief.worksheet.next_action, "Interview three buyers")

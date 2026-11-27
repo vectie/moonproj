@@ -1,9 +1,10 @@
 ///|
 /// Compile a reviewed employee advance/expense/offset cohort map.
+#derive(Debug)
 pub(all) suberror ExpenseAdvanceCohortPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ExpenseAdvanceCohortPlanError {
@@ -318,19 +319,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: expense_advance_cohort_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     ExpenseAdvanceCohortPlanError::InvalidInput(message) => {
       println("expense/advance cohort plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     ExpenseAdvanceCohortPlanError::Io(_) => {
       println("expense/advance cohort plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

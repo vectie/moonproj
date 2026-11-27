@@ -8,7 +8,7 @@ fn guidance_keys(value : Json, keys : Array[String]) -> Bool {
 }
 
 ///|
-fn guidance_text(value : Json, key : String, limit : Int) -> Bool {
+fn guidance_text(value : Json, key : String, limit : Int32) -> Bool {
   match field(value, key) {
     String(value) => !value.is_blank() && value.length() <= limit
     _ => false

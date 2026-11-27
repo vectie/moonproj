@@ -10,9 +10,9 @@ fn continuation_test_field(value : Json, name : String, field : Json) -> Json {
 
 ///|
 fn continuation_test_fixture(
-  root? : String = "/tmp/continuation-test",
-  original_status? : String = "runtime-completed",
-  status? : String = "runtime-completed",
+  root~ : String = "/tmp/continuation-test",
+  original_status~ : String = "runtime-completed",
+  status~ : String = "runtime-completed",
 ) -> (Json, Json, Json, Json, Json, Json, Bytes) {
   let original : Json = {
     "run_id": "R",
@@ -383,7 +383,11 @@ test "candidate lineage rejects wrong run workspace session receipt and selected
   for
     changed in [
       continuation_test_field(claims, "session_id", Json::string("other")),
-      continuation_test_field(claims, "book_root", Json::string("/another/book")),
+      continuation_test_field(
+        claims,
+        "book_root",
+        Json::string("/another/book"),
+      ),
     ] {
     try native_continuation_claim(original, changed, "C1") catch {
       NativeContinuationError::Rejected(status, _) => assert_eq(status, 409)
@@ -431,7 +435,7 @@ async test "candidate listing is read-only and exact requested identity wins ove
   let (task, claims, events, service, snapshot, c1, input) = continuation_test_fixture()
   let original = native_field(task, "execution")
   let reads : Array[String] = []
-  let read = async fn(path : String) -> Json {
+  let read : async (String) -> Json = path => {
     reads.push(path)
     if path.contains("runtime-claim?") {
       claims
@@ -441,7 +445,7 @@ async test "candidate listing is read-only and exact requested identity wins ove
       service
     }
   }
-  let inspect = async fn(command : Json, c0 : Json) -> Json {
+  let inspect : async (Json, Json) -> Json = (command, c0) => {
     assert_eq(command, c1)
     native_continuation_validate_snapshot(
       original, command, c0, snapshot, input,

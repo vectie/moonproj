@@ -197,7 +197,9 @@ test "inventory preparation requires a real project and preserves canonical task
   assert_eq(ready.dispatch_task_id, selected.dispatch_task_id)
   assert_eq(ready.dispatch_task_title, selected.dispatch_task_title)
   assert_false(
-    ToJson::to_json(draft.product_snapshot).stringify().contains("work_inventory"),
+    ToJson::to_json(draft.product_snapshot)
+    .stringify()
+    .contains("work_inventory"),
   )
   let again = products_test_update(
     ready,

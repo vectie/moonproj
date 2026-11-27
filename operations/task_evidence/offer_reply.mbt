@@ -1,7 +1,8 @@
 ///|
+#derive(Debug, Eq)
 pub suberror OfferReplyError {
   InvalidOfferReply(String)
-} derive(Debug, Eq)
+}
 
 ///|
 fn offer_reply_keys() -> Array[String] {
@@ -15,7 +16,7 @@ fn offer_reply_keys() -> Array[String] {
 fn reply_optional_text(
   value : Json,
   key : String,
-  limit : Int,
+  limit : Int32,
 ) -> Json raise OfferReplyError {
   offer_optional_text(value, key, limit) catch {
     InvalidOfferDraft(message) => raise InvalidOfferReply(message)

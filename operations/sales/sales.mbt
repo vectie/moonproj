@@ -1,20 +1,23 @@
 ///|
+#derive(Debug, Eq)
 pub(all) enum SalesState {
   Draft
   Reserved
   Signed
   Fulfilled
   Cancelled
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct SalesEvent {
   from : SalesState
   to : SalesState
   actor_id : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct SalesAgreement {
   agreement_id : String
   principal_id : String
@@ -23,15 +26,16 @@ pub(all) struct SalesAgreement {
   amount : @finance.Money
   state : SalesState
   events : Array[SalesEvent]
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) suberror SalesError {
   EmptyIdentifier
   InvalidTransition
   Receivable(@receivable.ReceivableError)
   NotAuthorized(@foundation.AuthorityError)
-} derive(Debug, Eq)
+}
 
 ///|
 pub fn SalesAgreement::new(
@@ -113,8 +117,8 @@ pub fn SalesAgreement::transition(
     error => raise SalesError::NotAuthorized(error)
   }
   let events = self.events.copy()
-  events.push({ from: self.state, to, actor_id })
-  { ..self, state: to, events }
+  events.push({ from: self.state, to, actor_id, })
+  { ..self, state: to, events, }
 }
 
 ///|

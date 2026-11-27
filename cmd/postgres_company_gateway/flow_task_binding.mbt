@@ -52,12 +52,12 @@ async fn flow_gateway_handle(
   task : String,
   action : String,
   report_key : String,
-  method : @http.RequestMethod,
+  http_method : @http.RequestMethod,
   body : Json,
 ) -> ProxyResult {
   let prefix = "/api/company/plan/tasks/" + task
   if action == "flow-snapshot" {
-    if method != @http.Get {
+    if http_method != @http.Get {
       return native_json_result(405, {
         "error": "use GET to capture the current snapshot",
       })
@@ -69,7 +69,7 @@ async fn flow_gateway_handle(
       Json::null(),
     )
   }
-  if method != @http.Post {
+  if http_method != @http.Post {
     return native_json_result(405, {
       "error": "use POST for this explicit Flow operation",
     })
@@ -206,7 +206,7 @@ async fn flow_gateway_report_result(
   )
   let fields = match cached {
     Object(fields) => fields.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   fields["state"] = Json::string("reported")
   fields["next_action"] = Json::string("inspect_report")

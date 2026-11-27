@@ -133,6 +133,6 @@ pub fn verify_inbound(
       replay_checked: true,
       company_authority_granted: false,
     },
-    { message_ids, nonces },
+    { message_ids, nonces, },
   )
 }

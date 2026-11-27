@@ -1,9 +1,8 @@
 import {
+  "moonbitlang/core/env",
   "moonbitlang/core/encoding/utf8" @encoding/utf8,
   "moonbitlang/core/json",
-  "moonbitlang/async",
   "vectie/moonproj/persistence/postgres",
-  "moonbitlang/x/sys",
 }
 
 supported_targets = "native"

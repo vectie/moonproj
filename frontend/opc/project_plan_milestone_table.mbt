@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct PlanMilestoneTableState {
   text : String
   tsv : Bool
@@ -7,9 +8,10 @@ struct PlanMilestoneTableState {
   preview : @plan_workbench.MilestoneTableUpdate?
   import_preview : @plan_workbench.MilestoneTableImport?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanMilestoneTableMsg {
   Text(String)
   Format(Bool)
@@ -18,7 +20,7 @@ enum PlanMilestoneTableMsg {
   Apply
   Close
   Export
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_milestone_table_initial() -> PlanMilestoneTableState {

@@ -1,31 +1,33 @@
 ///|
+#derive(Debug, Eq)
 pub(all) struct ExecutionActivityRow {
   attempt_id : String
   request_id : String
   work_item_id : String
   phase : @agent_port.ExecutionPhase
-  revision : Int
-  attempt_number : Int
-  crash_streak : Int
-  interrupted_streak : Int
-  artifact_count : Int
+  revision : Int32
+  attempt_number : Int32
+  crash_streak : Int32
+  interrupted_streak : Int32
+  artifact_count : Int32
   cost_minor : Int64
   needs_attention : Bool
   last_reason : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 pub(all) struct ExecutionActivityProjection {
-  total : Int
-  active : Int
-  waiting : Int
-  review : Int
-  succeeded : Int
-  quarantined : Int
+  total : Int32
+  active : Int32
+  waiting : Int32
+  review : Int32
+  succeeded : Int32
+  quarantined : Int32
   total_cost_minor : Int64
   rows : Array[ExecutionActivityRow]
   inbox : AttentionInbox
-} derive(Debug, Eq)
+}
 
 ///|
 fn attempt_needs_attention(attempt : @agent_port.ExecutionAttempt) -> Bool {

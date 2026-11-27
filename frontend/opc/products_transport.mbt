@@ -1,14 +1,14 @@
 ///|
 // Rabbita's generic HTTP helper does not expose status codes. These read-only
 // requests preserve HTTP status so auth, missing evidence and offline differ.
-fn products_read(url : String, receive : (Int, String) -> Cmd) -> Cmd {
+fn products_read(url : String, receive : (Int32, String) -> Cmd) -> Cmd {
   @cmd.custom_cmd(fn(scheduler) {
     products_fetch(url, (status, body) => scheduler.add(receive(status, body)))
   })
 }
 
 ///|
-extern "js" fn products_fetch(url : String, receive : (Int, String) -> Unit) =
+extern "js" fn products_fetch(url : String, receive : (Int32, String) -> Unit) =
   #| (url, receive) => {
   #|   fetch(url, {method: "GET", credentials: "same-origin", headers: {Accept: "application/json"}})
   #|     .then(async response => receive(response.status, await response.text()))
@@ -16,7 +16,7 @@ extern "js" fn products_fetch(url : String, receive : (Int, String) -> Unit) =
   #| }
 
 ///|
-fn products_load_catalog(emit : @rabbita.Emit[Msg], request : Int) -> Cmd {
+fn products_load_catalog(emit : @rabbita.Emit[Msg], request : Int32) -> Cmd {
   products_read("/api/moonsuite/products", (status, body) => {
     emit(ProductsAction(CatalogRead(request, status, body)))
   })
@@ -27,7 +27,7 @@ fn products_load_detail(
   emit : @rabbita.Emit[Msg],
   kind : String,
   id : String,
-  selection : Int,
+  selection : Int32,
 ) -> Cmd {
   if !products_id_valid(id) {
     return none

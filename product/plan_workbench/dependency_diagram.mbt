@@ -28,7 +28,7 @@ fn diagram_xml(value : String) -> String raise InputError {
 ///|
 // Conservative display-cell wrapping keeps Unicode scalars intact. No text is
 // truncated; explicit authored line breaks are retained.
-fn diagram_lines(value : String, width : Int) -> Array[String] {
+fn diagram_lines(value : String, width : Int32) -> Array[String] {
   let rows : Array[String] = []
   let normalized = value
     .replace_all(old="\r\n", new="\n")
@@ -54,9 +54,9 @@ fn diagram_lines(value : String, width : Int) -> Array[String] {
 ///|
 priv struct DiagramNode {
   task : Task
-  x : Int
-  y : Int
-  height : Int
+  x : Int32
+  y : Int32
+  height : Int32
   lines : Array[String]
   relation : String
   fill : String
@@ -65,8 +65,8 @@ priv struct DiagramNode {
 ///|
 fn diagram_text(
   out : StringBuilder,
-  x : Int,
-  y : Int,
+  x : Int32,
+  y : Int32,
   text : String,
 ) -> Unit raise InputError {
   let text = diagram_xml(text)

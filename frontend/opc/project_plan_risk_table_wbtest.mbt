@@ -124,7 +124,10 @@ test "risk register UI previews adds updates persists exports and sends only exp
   )
   ignore(plan_test_file("risk-register-preview.html", html))
   ignore(
-    plan_test_file("risk-register-after.json", ToJson::to_json(d).stringify(indent=2)),
+    plan_test_file(
+      "risk-register-after.json",
+      ToJson::to_json(d).stringify(indent=2),
+    ),
   )
   ignore(plan_test_file("risk-register-output.csv", csv))
   let (_, switched) = plan_update(_ => none, Choose("company-second"), edited)

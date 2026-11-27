@@ -13,7 +13,7 @@ fn investment_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "investment proposal requires local analysis and approval" {
-  let mandate = InvestmentMandate::new(
+  let mandate = @domain.InvestmentMandate::new(
     mandate_id="mandate-001",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -56,7 +56,7 @@ test "investment proposal requires local analysis and approval" {
     actor_id="alice",
     grant=investment_grant("investment:execute"),
   )
-  assert_true(executed.state == ProposalState::Executed)
+  assert_true(executed.state == @domain.ProposalState::Executed)
   assert_eq(position.cost_basis.minor, 300000L)
   let journal = position.to_acquisition_journal(
     investment_account="1501",
@@ -75,7 +75,7 @@ test "investment proposal requires local analysis and approval" {
 
 ///|
 test "investment mandate blocks an oversized proposal" {
-  let mandate = InvestmentMandate::new(
+  let mandate = @domain.InvestmentMandate::new(
     mandate_id="mandate-002",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -98,7 +98,7 @@ test "investment mandate blocks an oversized proposal" {
       grant=investment_grant("investment:proposal:create"),
     )
   catch {
-    InvestmentError::MandateLimitExceeded => ()
+    @domain.InvestmentError::MandateLimitExceeded => ()
     _ => fail("wrong investment error")
   } noraise {
     _ => fail("expected investment error")
@@ -107,7 +107,7 @@ test "investment mandate blocks an oversized proposal" {
 
 ///|
 test "investment proposal rejects analysis for another instrument" {
-  let mandate = InvestmentMandate::new(
+  let mandate = @domain.InvestmentMandate::new(
     mandate_id="mandate-003",
     principal_id="co-001",
     project_scope="project:p-001",
@@ -138,7 +138,7 @@ test "investment proposal rejects analysis for another instrument" {
       grant=investment_grant("investment:proposal:analyze"),
     )
   catch {
-    InvestmentError::AnalysisMismatch => ()
+    @domain.InvestmentError::AnalysisMismatch => ()
     _ => fail("wrong investment error")
   } noraise {
     _ => fail("expected investment error")
@@ -155,7 +155,7 @@ test "investment mandate proposal and position preserve Moonfish evidence" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let mandate = InvestmentMandate::new(
+  let mandate = @domain.InvestmentMandate::new(
     mandate_id="mandate-projection",
     principal_id="co-001",
     project_scope="project:p-001",

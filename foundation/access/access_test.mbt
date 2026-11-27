@@ -32,9 +32,9 @@ fn delegation_admin_grant(
 
 ///|
 test "role assignment issues a bounded authority grant" {
-  let role = Role::new(role_id="approver", name="Approver")
+  let role = @access.Role::new(role_id="approver", name="Approver")
   let role = role.add_permission(
-    Permission::new(
+    @access.Permission::new(
       capability="commitment:approve",
       scope="project:p-001",
       max_amount_minor=500_000L,
@@ -42,7 +42,7 @@ test "role assignment issues a bounded authority grant" {
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:edit", "role:approver"),
   )
-  let directory = AccessDirectory::empty()
+  let directory = @access.AccessDirectory::empty()
   let directory = directory.add_role(
     role,
     actor_id="admin-001",
@@ -89,9 +89,9 @@ test "role assignment issues a bounded authority grant" {
 
 ///|
 test "role assignment rejects wrong requester and scope permission" {
-  let role = Role::new(role_id="reader", name="Reader")
+  let role = @access.Role::new(role_id="reader", name="Reader")
   let role = role.add_permission(
-    Permission::new(
+    @access.Permission::new(
       capability="report:read",
       scope="organization:bu-001",
       max_amount_minor=0L,
@@ -99,7 +99,7 @@ test "role assignment rejects wrong requester and scope permission" {
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:edit", "role:reader"),
   )
-  let directory = AccessDirectory::empty().add_role(
+  let directory = @access.AccessDirectory::empty().add_role(
     role,
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:create", "role:reader"),
@@ -131,7 +131,7 @@ test "role assignment rejects wrong requester and scope permission" {
       amount_minor=0L,
     )
   catch {
-    AccessError::WrongRequester => ()
+    @access.AccessError::WrongRequester => ()
     _ => fail("wrong access error")
   } noraise {
     _ => fail("expected requester rejection")
@@ -144,7 +144,7 @@ test "role assignment rejects wrong requester and scope permission" {
       amount_minor=0L,
     )
   catch {
-    AccessError::PermissionDenied => ()
+    @access.AccessError::PermissionDenied => ()
     _ => fail("wrong access error")
   } noraise {
     _ => fail("expected capability rejection")
@@ -153,9 +153,9 @@ test "role assignment rejects wrong requester and scope permission" {
 
 ///|
 test "revoking an assignment prevents future grants" {
-  let role = Role::new(role_id="operator", name="Operator")
+  let role = @access.Role::new(role_id="operator", name="Operator")
   let role = role.add_permission(
-    Permission::new(
+    @access.Permission::new(
       capability="task:update",
       scope="project:p-002",
       max_amount_minor=0L,
@@ -163,7 +163,7 @@ test "revoking an assignment prevents future grants" {
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:edit", "role:operator"),
   )
-  let directory = AccessDirectory::empty().add_role(
+  let directory = @access.AccessDirectory::empty().add_role(
     role,
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:create", "role:operator"),
@@ -194,7 +194,7 @@ test "revoking an assignment prevents future grants" {
       amount_minor=0L,
     )
   catch {
-    AccessError::InactiveAssignment => ()
+    @access.AccessError::InactiveAssignment => ()
     _ => fail("wrong access error")
   } noraise {
     _ => fail("expected inactive assignment")
@@ -203,8 +203,8 @@ test "revoking an assignment prevents future grants" {
 
 ///|
 test "separation rule blocks incompatible role assignments at one scope" {
-  let preparer = Role::new(role_id="preparer", name="Preparer").add_permission(
-    Permission::new(
+  let preparer = @access.Role::new(role_id="preparer", name="Preparer").add_permission(
+    @access.Permission::new(
       capability="expense:submit",
       scope="project:p-003",
       max_amount_minor=100000L,
@@ -212,8 +212,8 @@ test "separation rule blocks incompatible role assignments at one scope" {
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:edit", "role:preparer"),
   )
-  let approver = Role::new(role_id="approver-sod", name="Approver").add_permission(
-    Permission::new(
+  let approver = @access.Role::new(role_id="approver-sod", name="Approver").add_permission(
+    @access.Permission::new(
       capability="expense:approve",
       scope="project:p-003",
       max_amount_minor=100000L,
@@ -221,7 +221,7 @@ test "separation rule blocks incompatible role assignments at one scope" {
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:edit", "role:approver-sod"),
   )
-  let directory = AccessDirectory::empty()
+  let directory = @access.AccessDirectory::empty()
     .add_role(
       preparer,
       actor_id="admin-001",
@@ -270,7 +270,7 @@ test "separation rule blocks incompatible role assignments at one scope" {
       grant=access_admin_grant("rbac:assignment:create", "project:p-003"),
     )
   catch {
-    AccessError::SegregationViolation => ()
+    @access.AccessError::SegregationViolation => ()
     _ => fail("wrong separation-of-duties error")
   } noraise {
     _ => fail("expected separation-of-duties rejection")
@@ -279,8 +279,8 @@ test "separation rule blocks incompatible role assignments at one scope" {
 
 ///|
 test "adding a separation rule rejects an existing conflict" {
-  let preparer = Role::new(role_id="preparer-late", name="Preparer").add_permission(
-    Permission::new(
+  let preparer = @access.Role::new(role_id="preparer-late", name="Preparer").add_permission(
+    @access.Permission::new(
       capability="expense:submit",
       scope="project:p-004",
       max_amount_minor=100000L,
@@ -288,8 +288,8 @@ test "adding a separation rule rejects an existing conflict" {
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:edit", "role:preparer-late"),
   )
-  let approver = Role::new(role_id="approver-late", name="Approver").add_permission(
-    Permission::new(
+  let approver = @access.Role::new(role_id="approver-late", name="Approver").add_permission(
+    @access.Permission::new(
       capability="expense:approve",
       scope="project:p-004",
       max_amount_minor=100000L,
@@ -297,7 +297,7 @@ test "adding a separation rule rejects an existing conflict" {
     actor_id="admin-001",
     grant=access_admin_grant("rbac:role:edit", "role:approver-late"),
   )
-  let existing = AccessDirectory::empty()
+  let existing = @access.AccessDirectory::empty()
     .add_role(
       preparer,
       actor_id="admin-001",
@@ -346,7 +346,7 @@ test "adding a separation rule rejects an existing conflict" {
       grant=access_admin_grant("rbac:sod:rule:create", "project:p-004"),
     )
   catch {
-    AccessError::SegregationViolation => ()
+    @access.AccessError::SegregationViolation => ()
     _ => fail("wrong late separation error")
   } noraise {
     _ => fail("expected late separation rejection")
@@ -355,7 +355,7 @@ test "adding a separation rule rejects an existing conflict" {
 
 ///|
 test "effective-dated delegation issues bounded grants and expires" {
-  let directory = AccessDirectory::empty().add_delegation(
+  let directory = @access.AccessDirectory::empty().add_delegation(
     {
       delegation_id: "delegation-001",
       principal_id: "co-001",
@@ -379,7 +379,7 @@ test "effective-dated delegation issues bounded grants and expires" {
       amount_minor=100000L,
     )
   catch {
-    AccessError::DelegationNotYetEffective => ()
+    @access.AccessError::DelegationNotYetEffective => ()
     _ => fail("wrong delegation time error")
   } noraise {
     _ => fail("expected not-yet-effective delegation")
@@ -407,7 +407,7 @@ test "effective-dated delegation issues bounded grants and expires" {
       amount_minor=1L,
     )
   catch {
-    AccessError::DelegationExpired => ()
+    @access.AccessError::DelegationExpired => ()
     _ => fail("wrong delegation expiry error")
   } noraise {
     _ => fail("expected expired delegation")
@@ -416,7 +416,7 @@ test "effective-dated delegation issues bounded grants and expires" {
 
 ///|
 test "revoking delegation prevents future grants" {
-  let directory = AccessDirectory::empty().add_delegation(
+  let directory = @access.AccessDirectory::empty().add_delegation(
     {
       delegation_id: "delegation-revoke-001",
       principal_id: "co-001",
@@ -449,7 +449,7 @@ test "revoking delegation prevents future grants" {
       amount_minor=0L,
     )
   catch {
-    AccessError::InactiveDelegation => ()
+    @access.AccessError::InactiveDelegation => ()
     _ => fail("wrong revoked delegation error")
   } noraise {
     _ => fail("expected revoked delegation")

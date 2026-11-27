@@ -32,7 +32,7 @@ fn policy_review_rejection_status(
   kind : String,
   id : String,
   body : Json,
-) -> Int {
+) -> Int32 {
   try normalize_policy_review(kind, id, body) catch {
     CompanyServiceError::CommandRejected(status, _) => status
     CompanyServiceError::InvalidInput(_) => 500

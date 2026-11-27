@@ -40,7 +40,7 @@ async fn budget_projection_payloads(
 async fn budget_latest_projection(
   aggregate_type : String,
   aggregate_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
     @postgres.sql_literal(aggregate_type) +
@@ -95,7 +95,7 @@ async fn budget_local_source_rows(
 
 ///|
 fn budget_copy_fields(payload : Json) -> Map[String, Json] {
-  let result : Map[String, Json] = {}
+  let result : Map[String, Json] = Map([])
   match payload {
     Object(values) => values.each((key, value) => result.set(key, value))
     _ => ()
@@ -205,7 +205,7 @@ async fn budget_actor(
 ///|
 fn budget_normalize_detail(
   value : Json,
-  ordinal : Int,
+  ordinal : Int32,
   expense_id : String,
 ) -> Json raise CompanyServiceError {
   let summary = budget_required_text(value, "summary", "")
@@ -226,7 +226,7 @@ fn budget_normalize_detail(
 ///|
 fn budget_normalize_split(
   value : Json,
-  ordinal : Int,
+  ordinal : Int32,
   expense_id : String,
 ) -> Json raise CompanyServiceError {
   let user_guid = budget_identifier(value, "userGuid", "user_guid")
@@ -328,7 +328,7 @@ async fn budget_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(idempotency_key) {
     raise reject(422, "Idempotency-Key contains unsupported characters")
   }

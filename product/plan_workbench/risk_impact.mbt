@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq, ToJson)
 pub(all) struct RiskImpact {
   direct_tasks : Array[String]
   downstream_tasks : Array[String]
@@ -6,7 +7,7 @@ pub(all) struct RiskImpact {
   invalid_tasks : Int32
   owners : Array[CostBucket]
   milestones : Array[CostBucket]
-} derive(Debug, Eq, ToJson)
+}
 
 ///|
 /// Trace one risk's authored task links through a valid dependency graph.

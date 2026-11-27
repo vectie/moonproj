@@ -58,7 +58,7 @@ async fn workbench_handle(
   workspace : String,
   project_id : String,
   key : String,
-  method : @http.RequestMethod,
+  http_method : @http.RequestMethod,
   body : Json,
 ) -> ProxyResult {
   // Re-read the exact company project through the existing signed service on every operation.
@@ -76,7 +76,7 @@ async fn workbench_handle(
   if native_text(project, "project_id") != project_id {
     raise fail("Company service returned another project")
   }
-  if method == @http.Post && key.is_empty() {
+  if http_method == @http.Post && key.is_empty() {
     let _ : @plan_workbench.Draft = @json.from_json(body) catch {
       _ =>
         raise fail(
@@ -95,12 +95,12 @@ async fn workbench_handle(
         body,
       ),
     )
-  } else if method == @http.Get && key.is_empty() {
+  } else if http_method == @http.Get && key.is_empty() {
     native_json_result(
       200,
       @moonflow_adapter.list_workbench(workspace, bridge.actor, project_id),
     )
-  } else if method == @http.Get {
+  } else if http_method == @http.Get {
     native_json_result(
       200,
       @moonflow_adapter.read_workbench(workspace, bridge.actor, project_id, key),

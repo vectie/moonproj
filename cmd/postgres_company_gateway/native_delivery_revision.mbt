@@ -288,7 +288,7 @@ async fn native_revise_delivery(
   moonclaw_uri : String,
   task_id : String,
   body : Json,
-  resume : Bool,
+  is_resume : Bool,
 ) -> ProxyResult raise GatewayError {
   let (detail, task) = native_continuation_detail(bridge, task_id)
   if detail.status != 200 {
@@ -305,7 +305,7 @@ async fn native_revise_delivery(
   }
   let previous = native_field(execution, "revision_request")
   let key = native_text(body, "idempotency_key")
-  let request = if resume &&
+  let request = if is_resume &&
     native_text(execution, "control_state") == "revising" {
     previous
   } else if native_text(previous, "key") == key {
@@ -316,7 +316,7 @@ async fn native_revise_delivery(
         "error": "Recover the existing delivery revision before requesting another one",
       })
     }
-    let instruction = if resume {
+    let instruction = if is_resume {
       "Continue this delivery from its retained work. Reuse completed contributions, finish the unfinished work and produce the integrated artifact. Do not repeat already successful operations."
     } else {
       native_text(body, "instruction").trim().to_owned()

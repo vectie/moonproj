@@ -1,9 +1,10 @@
 ///|
 /// Compile the reviewed commitment/milestone/settlement cohort map.
+#derive(Debug)
 pub(all) suberror ContractMilestonePlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 fn fail(message : String) -> ContractMilestonePlanError {
@@ -287,19 +288,19 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 3 {
     println("usage: contract_milestone_plan <mapping.json> <output.json>")
-    @sys.exit(2)
+    @env.exit(2)
   }
   run(args[1], args[2]) catch {
     ContractMilestonePlanError::InvalidInput(message) => {
       println("contract milestone plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     ContractMilestonePlanError::Io(_) => {
       println("contract milestone plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

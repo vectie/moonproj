@@ -3,7 +3,7 @@
 fn plan_task_execution_public(task : Json) -> Json {
   match json_field(task, "execution") {
     Some(Object(fields)) => {
-      let public_fields : Map[String, Json] = {}
+      let public_fields : Map[String, Json] = Map([])
       for
         key in [
           "run_id", "task_id", "session_id", "command_id", "state", "summary", "error",
@@ -95,7 +95,7 @@ fn plan_task_execution_merge(
   }
   let fields = match current {
     Object(values) => values.copy()
-    _ => Map::new()
+    _ => Map([])
   }
   for
     key in [
@@ -428,7 +428,7 @@ fn plan_task_applied_command(
 fn plan_task_product_context_public(execution : Json) -> Json {
   match json_field(execution, "product_context") {
     Some(Object(context)) => {
-      let summary : Map[String, Json] = {}
+      let summary : Map[String, Json] = Map([])
       for
         key in [
           "schema", "product_id", "product_name", "coverage", "issues", "context_path",

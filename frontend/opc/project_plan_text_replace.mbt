@@ -1,4 +1,5 @@
 ///|
+#derive(Debug, Eq)
 struct PlanTextReplaceState {
   query : String
   replacement : String
@@ -6,9 +7,10 @@ struct PlanTextReplaceState {
   base : @plan_workbench.Draft?
   preview : @plan_workbench.PlanTextReplacement?
   note : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 enum PlanTextReplaceMsg {
   Query(String)
   Replacement(String)
@@ -16,7 +18,7 @@ enum PlanTextReplaceMsg {
   Preview
   Apply
   Close
-} derive(Debug, Eq)
+}
 
 ///|
 fn plan_text_replace_initial() -> PlanTextReplaceState {

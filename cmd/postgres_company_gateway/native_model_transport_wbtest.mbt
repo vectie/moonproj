@@ -16,7 +16,7 @@ fn native_hosted_route() -> Json {
 fn native_transport_fixture(
   text : String,
   status~ : Int32 = 503,
-  method~ : @http.RequestMethod = @http.Get,
+  http_method~ : @http.RequestMethod = @http.Get,
   path~ : String = "/v1/moongate-route",
   body~ : String = "",
   instance~ : String = "fixture-instance",
@@ -27,7 +27,7 @@ fn native_transport_fixture(
       instance_id: "fixture-instance",
       auth_token: "fixture-token-never-real",
     },
-    method,
+    http_method,
     path,
     body,
     status,
@@ -70,8 +70,8 @@ test "hosted route exception is limited to exact read-only endpoint and status" 
       _ => assert_true(false, msg="another endpoint must remain rejected")
     }
   }
-  for method in [@http.Post, @http.Put, @http.Delete, @http.Patch] {
-    try native_transport_fixture(text, method~) catch {
+  for http_method in [@http.Post, @http.Put, @http.Delete, @http.Patch] {
+    try native_transport_fixture(text, http_method~) catch {
       _ => ()
     } noraise {
       _ => assert_true(false, msg="another method must remain rejected")

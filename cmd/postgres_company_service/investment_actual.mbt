@@ -9,7 +9,7 @@
 
 ///|
 fn investment_actual_default_mappings() -> Map[String, String] {
-  let values : Map[String, String] = {}
+  let values : Map[String, String] = Map([])
   values.set("progress.global", "0.30")
   values.set("progress.R10", "0.95")
   values.set("progress.R12", "0.50")
@@ -54,7 +54,7 @@ async fn investment_actual_mappings(
   if matching.is_empty() {
     investment_actual_default_mappings()
   } else {
-    let values : Map[String, String] = {}
+    let values : Map[String, String] = Map([])
     for row in matching {
       let key = report_text(row.payload, "param_key", "")
       if !key.is_empty() {
@@ -119,7 +119,7 @@ async fn investment_actual_plan_values(
   if selected_import.is_empty() {
     return None
   }
-  let values : Map[String, Double] = {}
+  let values : Map[String, Double] = Map([])
   for index in 4..<=33 {
     values.set("R" + index.to_string(), 0.0)
   }
@@ -157,7 +157,7 @@ fn investment_actual_child(
   source : String,
   drilldown : String?,
 ) -> Json {
-  let fields : Map[String, Json] = {}
+  let fields : Map[String, Json] = Map([])
   fields.set("subject", Json::string(subject))
   fields.set("amount", Json::number(amount))
   fields.set("kind", Json::string(kind))
@@ -202,7 +202,7 @@ fn investment_actual_project(
 ///|
 async fn investment_actual_response_native(
   project_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(project_id) {
     raise reject(422, "invalid project_id")
   }
@@ -211,8 +211,8 @@ async fn investment_actual_response_native(
     "tzsy_profit_table", "tzsy_plan_line", "tzsy_subject_mapping", "sale_revenue",
     "cb_htfk_apply", "cb_contract", "vcb_expense", "vcb_loan_simple",
   ]
-  let rows : Map[String, Array[SourceRow]] = {}
-  let coverage : Map[String, Int] = {}
+  let rows : Map[String, Array[SourceRow]] = Map([])
+  let coverage : Map[String, Int32] = Map([])
   for table in tables {
     let values = raw_source_rows(table, 10000)
     rows.set(table, values)
@@ -267,8 +267,8 @@ async fn investment_actual_response_native(
     mappings, "threshold.loan", 100.0,
   )
   let bu_guid = report_text(project, "bu_guid", "")
-  let values : Map[String, Json] = {}
-  let children : Map[String, Json] = {}
+  let values : Map[String, Json] = Map([])
+  let children : Map[String, Json] = Map([])
   let plan_value = fn(key : String) -> Double { plan.get_or_default(key, 0.0) }
 
   let sales = rows.get_or_default("sale_revenue", [])
@@ -960,11 +960,11 @@ async fn investment_actual_response_native(
       "tip": Json::string("cb_contract.contract_amount"),
     }),
   })
-  let values_json : Map[String, Json] = {}
+  let values_json : Map[String, Json] = Map([])
   for key, value in values {
     values_json.set(key, value)
   }
-  let children_json : Map[String, Json] = {}
+  let children_json : Map[String, Json] = Map([])
   for key, value in children {
     children_json.set(key, value)
   }

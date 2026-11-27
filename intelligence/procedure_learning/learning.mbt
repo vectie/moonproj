@@ -91,7 +91,7 @@ pub fn ProcedureCandidate::propose(
   if self.authority_expansion_requested || self.auto_activation_allowed {
     raise AuthorityExpansionForbidden
   }
-  { ..self, state: Proposed, revision: self.revision + 1 }
+  { ..self, state: Proposed, revision: self.revision + 1, }
 }
 
 ///|
@@ -101,7 +101,7 @@ pub fn ProcedureCandidate::start_review(
   if self.state != Proposed {
     raise InvalidState(self.state)
   }
-  { ..self, state: UnderReview, revision: self.revision + 1 }
+  { ..self, state: UnderReview, revision: self.revision + 1, }
 }
 
 ///|
@@ -116,7 +116,7 @@ pub fn ProcedureCandidate::record_validation(
   }
   let validation_receipts = self.validation_receipts.copy()
   validation_receipts.push(receipt)
-  { ..self, validation_receipts, revision: self.revision + 1 }
+  { ..self, validation_receipts, revision: self.revision + 1, }
 }
 
 ///|
@@ -149,7 +149,7 @@ pub fn ProcedureCandidate::review(
   let reviews = self.reviews.copy()
   reviews.push(review)
   let state = if review.decision is Reject { Rejected } else { UnderReview }
-  { ..self, state, reviews, revision: self.revision + 1 }
+  { ..self, state, reviews, revision: self.revision + 1, }
 }
 
 ///|
@@ -171,7 +171,7 @@ pub fn ProcedureCandidate::approve(
   if self.validation_receipts.is_empty() {
     raise ValidationRequired
   }
-  { ..self, state: Approved, revision: self.revision + 1 }
+  { ..self, state: Approved, revision: self.revision + 1, }
 }
 
 ///|
@@ -225,5 +225,5 @@ pub fn ProcedureLibrary::adopt(
     activated_count: 0,
     authority_expansion_allowed: false,
   })
-  { revision: self.revision + 1, procedures }
+  { revision: self.revision + 1, procedures, }
 }

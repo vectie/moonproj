@@ -1,6 +1,7 @@
 ///|
 // A read-only view of the selected task's last successful readback. Stages are
 // causal, never a chronology inferred from missing or incomparable timestamps.
+#derive(Debug, Eq)
 struct DispatchJourneyRecord {
   label : String
   actor : String
@@ -10,9 +11,10 @@ struct DispatchJourneyRecord {
   audit_state : String
   reference : String
   detail : String
-} derive(Debug, Eq)
+}
 
 ///|
+#derive(Debug, Eq)
 struct DispatchJourneyStage {
   id : String
   title : String
@@ -22,7 +24,7 @@ struct DispatchJourneyStage {
   anchor : String
   link_label : String
   records : Array[DispatchJourneyRecord]
-} derive(Debug, Eq)
+}
 
 ///|
 fn dispatch_journey_known(value : String) -> String {
@@ -56,8 +58,8 @@ fn dispatch_journey_receipts(model : Model, action : String) -> Array[Json] {
 fn dispatch_journey_record(
   row : Json,
   label : String,
-  detail? : String = "",
-  reference? : String = "",
+  detail~ : String = "",
+  reference~ : String = "",
 ) -> DispatchJourneyRecord {
   {
     label,
@@ -110,7 +112,7 @@ fn dispatch_journey_source(model : Model, source : Json) -> String {
 fn dispatch_journey_offer_current(
   row : Json,
   offer : Json,
-  revision : Int,
+  revision : Int32,
 ) -> Bool {
   guard revision > 0 &&
     dispatch_offer_revision(row) == revision &&

@@ -13,7 +13,7 @@ fn treasury_grant(capability : String) -> @foundation.AuthorityGrant {
 
 ///|
 test "cash account controls a released inflow and outflow" {
-  let account = CashAccount::open(
+  let account = @treasury.CashAccount::open(
     account_id="bank-001",
     principal_id="co-001",
     project_scope="company:co-001",
@@ -23,12 +23,12 @@ test "cash account controls a released inflow and outflow" {
     actor_id="alice",
     grant=treasury_grant("treasury:account:create"),
   )
-  let incoming = CashMovement::request(
+  let incoming = @treasury.CashMovement::request(
     account,
     movement_id="cash-in-001",
     reference_id="settlement-in-001",
     amount=@finance.Money::new(minor=20000, currency="CNY"),
-    direction=CashDirection::Inflow,
+    direction=@treasury.CashDirection::Inflow,
     actor_id="alice",
     grant=treasury_grant("treasury:request"),
   ).approve(actor_id="alice", grant=treasury_grant("treasury:approve"))
@@ -38,12 +38,12 @@ test "cash account controls a released inflow and outflow" {
     grant=treasury_grant("treasury:release"),
   )
   assert_eq(account.balance.minor, 120000L)
-  let outgoing = CashMovement::request(
+  let outgoing = @treasury.CashMovement::request(
     account,
     movement_id="cash-out-001",
     reference_id="settlement-out-001",
     amount=@finance.Money::new(minor=50000, currency="CNY"),
-    direction=CashDirection::Outflow,
+    direction=@treasury.CashDirection::Outflow,
     actor_id="alice",
     grant=treasury_grant("treasury:request"),
   ).approve(actor_id="alice", grant=treasury_grant("treasury:approve"))
@@ -57,13 +57,13 @@ test "cash account controls a released inflow and outflow" {
     grant=treasury_grant("treasury:reconcile"),
   )
   assert_eq(account.balance.minor, 70000L)
-  assert_true(reconciled.state == CashMovementState::Reconciled)
+  assert_true(reconciled.state == @treasury.CashMovementState::Reconciled)
   assert_eq(incoming.events.length(), 2)
 }
 
 ///|
 test "cash account blocks an overdrawn release" {
-  let account = CashAccount::open(
+  let account = @treasury.CashAccount::open(
     account_id="bank-002",
     principal_id="co-001",
     project_scope="company:co-001",
@@ -73,12 +73,12 @@ test "cash account blocks an overdrawn release" {
     actor_id="alice",
     grant=treasury_grant("treasury:account:create"),
   )
-  let movement = CashMovement::request(
+  let movement = @treasury.CashMovement::request(
     account,
     movement_id="cash-out-002",
     reference_id="settlement-out-002",
     amount=@finance.Money::new(minor=101, currency="CNY"),
-    direction=CashDirection::Outflow,
+    direction=@treasury.CashDirection::Outflow,
     actor_id="alice",
     grant=treasury_grant("treasury:request"),
   ).approve(actor_id="alice", grant=treasury_grant("treasury:approve"))
@@ -89,7 +89,7 @@ test "cash account blocks an overdrawn release" {
       grant=treasury_grant("treasury:release"),
     )
   catch {
-    TreasuryError::InsufficientBalance => ()
+    @treasury.TreasuryError::InsufficientBalance => ()
     _ => fail("wrong treasury error")
   } noraise {
     _ => fail("expected treasury error")
@@ -106,7 +106,7 @@ test "cash account and released movement persist treasury evidence" {
     description="Create foundation tables",
   )
   let store = @store.RecordStore::new(schema).migrate(migration)
-  let account = CashAccount::open(
+  let account = @treasury.CashAccount::open(
     account_id="bank-projection",
     principal_id="co-001",
     project_scope="company:co-001",
@@ -116,12 +116,12 @@ test "cash account and released movement persist treasury evidence" {
     actor_id="alice",
     grant=treasury_grant("treasury:account:create"),
   )
-  let movement = CashMovement::request(
+  let movement = @treasury.CashMovement::request(
     account,
     movement_id="cash-projection",
     reference_id="settlement-projection",
     amount=@finance.Money::new(minor=20000, currency="CNY"),
-    direction=CashDirection::Inflow,
+    direction=@treasury.CashDirection::Inflow,
     actor_id="alice",
     grant=treasury_grant("treasury:request"),
   ).approve(actor_id="alice", grant=treasury_grant("treasury:approve"))

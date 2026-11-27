@@ -177,7 +177,10 @@ test "template authoring round trip retains blanks invalid dates costs and order
   assert_eq(imported.milestones[0].date, "date not set")
   assert_eq(imported.limit, "not yet estimated")
   assert_true(
-    (try Ok(@plan_workbench.request(imported, "alex", {}, "s", "d")) catch { e => Err(e) }) is Err(_),
+    (Ok(@plan_workbench.request(imported, "alex", {}, "s", "d")) catch {
+      e => Err(e)
+    })
+    is Err(_),
   )
 }
 
@@ -200,7 +203,10 @@ test "invalid template structure and unsupported fields do not silently lose con
         new="\"status\":\"approved\",\"format\":",
       ),
     ] {
-    assert_true((try Ok(@plan_workbench.read_template(source)) catch { e => Err(e) }) is Err(_))
+    assert_true(
+      (Ok(@plan_workbench.read_template(source)) catch { e => Err(e) })
+      is Err(_),
+    )
   }
   for
     changed in [
@@ -212,41 +218,55 @@ test "invalid template structure and unsupported fields do not silently lose con
       { ..t, owners: [], },
     ] {
     assert_true(
-      (try Ok(@plan_workbench.read_template(ToJson::to_json(changed).stringify())) catch { e => Err(e) })
+      (Ok(@plan_workbench.read_template(ToJson::to_json(changed).stringify())) catch {
+        e => Err(e)
+      })
       is Err(_),
     )
   }
   assert_true(
-    (try Ok(@plan_workbench.apply_template(
-      t,
-      table_draft(),
-      "alex",
-      "missing",
-      "Morgan",
-      "fresh",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.apply_template(
+        t,
+        table_draft(),
+        "alex",
+        "missing",
+        "Morgan",
+        "fresh",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_true(
-    (try Ok(@plan_workbench.apply_template(
-      t,
-      table_draft(),
-      "alex",
-      "lead",
-      " ",
-      "fresh",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.apply_template(
+        t,
+        table_draft(),
+        "alex",
+        "lead",
+        " ",
+        "fresh",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   assert_true(
-    (try Ok(@plan_workbench.apply_template(
-      t,
-      table_draft(),
-      "other-actor",
-      "lead",
-      "Morgan",
-      "fresh",
-    )) catch { e => Err(e) })
+    (Ok(
+      @plan_workbench.apply_template(
+        t,
+        table_draft(),
+        "other-actor",
+        "lead",
+        "Morgan",
+        "fresh",
+      ),
+    ) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
 }
@@ -256,13 +276,20 @@ test "template row and text bounds are consistent for import and export" {
   let t = reusable_template()
   let too_many = { ..t, owners: Array::make(41, t.owners[0]), }
   assert_true(
-    (try Ok(@plan_workbench.read_template(ToJson::to_json(too_many).stringify())) catch { e => Err(e) })
+    (Ok(@plan_workbench.read_template(ToJson::to_json(too_many).stringify())) catch {
+      e => Err(e)
+    })
     is Err(_),
   )
   let huge = { ..t, notes: "x".repeat(1000001), }
   assert_true(
-    (try Ok(@plan_workbench.read_template(ToJson::to_json(huge).stringify())) catch { e => Err(e) }) is Err(_),
+    (Ok(@plan_workbench.read_template(ToJson::to_json(huge).stringify())) catch {
+      e => Err(e)
+    })
+    is Err(_),
   )
   let draft = { ..table_draft(), notes: "x".repeat(1000001), }
-  assert_true((try Ok(@plan_workbench.export_template(draft)) catch { e => Err(e) }) is Err(_))
+  assert_true(
+    (Ok(@plan_workbench.export_template(draft)) catch { e => Err(e) }) is Err(_),
+  )
 }

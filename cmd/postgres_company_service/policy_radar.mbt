@@ -134,7 +134,7 @@ fn normalize_policy_review(
 fn policy_review_projection(
   normalized : Json,
   actor : String,
-  revision : Int,
+  revision : Int32,
   event_id : String,
   audit_id : String,
 ) -> Json {
@@ -160,7 +160,7 @@ fn policy_review_projection(
 async fn latest_policy_review(
   aggregate_type : String,
   target_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') FROM company_aggregate_projection WHERE aggregate_type = " +
     @postgres.sql_literal(aggregate_type) +
@@ -180,7 +180,7 @@ async fn latest_policy_review(
 }
 
 ///|
-fn policy_review_state(review : (Json, Int)?) -> String {
+fn policy_review_state(review : (Json, Int32)?) -> String {
   match review {
     Some((payload, _)) => json_text(payload, "decision", "pending")
     None => "pending"
@@ -188,7 +188,7 @@ fn policy_review_state(review : (Json, Int)?) -> String {
 }
 
 ///|
-fn policy_review_audit(review : (Json, Int)?) -> String {
+fn policy_review_audit(review : (Json, Int32)?) -> String {
   match review {
     Some((payload, _)) => json_text(payload, "audit_id", "")
     None => ""
@@ -196,7 +196,7 @@ fn policy_review_audit(review : (Json, Int)?) -> String {
 }
 
 ///|
-fn policy_review_owner(review : (Json, Int)?) -> String {
+fn policy_review_owner(review : (Json, Int32)?) -> String {
   match review {
     Some((payload, _)) => json_text(payload, "reviewed_by", "")
     None => ""
@@ -204,7 +204,7 @@ fn policy_review_owner(review : (Json, Int)?) -> String {
 }
 
 ///|
-fn policy_reviewed_at(review : (Json, Int)?) -> String {
+fn policy_reviewed_at(review : (Json, Int32)?) -> String {
   match review {
     Some((payload, _)) => json_text(payload, "reviewed_at", "")
     None => ""
@@ -219,7 +219,7 @@ fn policy_source_item(
   format : String,
   cadence : String,
   url : String,
-  review : (Json, Int)?,
+  review : (Json, Int32)?,
 ) -> Json {
   Json::object({
     "source_id": Json::string(source_id),
@@ -244,7 +244,7 @@ fn policy_change_item(
   title : String,
   evidence : String,
   location : String,
-  review : (Json, Int)?,
+  review : (Json, Int32)?,
 ) -> Json {
   let state = policy_review_state(review)
   Json::object({
@@ -290,7 +290,7 @@ fn policy_opportunity_item(
 }
 
 ///|
-async fn policy_radar_response() -> (Int, Json) raise CompanyServiceError {
+async fn policy_radar_response() -> (Int32, Json) raise CompanyServiceError {
   let plan_source = latest_policy_review(
     "policy_source_review", "beijing-changping-15th-five-year-plan-2026",
   )
@@ -406,7 +406,7 @@ async fn persist_policy_review(
   body : Json,
   actor : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !valid_identifier(actor) || !valid_identifier(idempotency_key) {
     raise reject(422, "invalid policy review identity")
   }

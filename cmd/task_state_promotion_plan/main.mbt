@@ -1,8 +1,9 @@
 ///|
+#derive(Debug)
 pub(all) suberror TaskStatePromotionPlanError {
   InvalidInput(String)
   Io(@fs.IOError)
-} derive(Debug)
+}
 
 ///|
 struct TaskRow {
@@ -355,7 +356,7 @@ fn run(
       }
     })
     let candidate_rows : Array[Json] = rows.map(fn(row) { row.json })
-    let ids : Map[String, Bool] = {}
+    let ids : Map[String, Bool] = Map([])
     for row in rows {
       ids.set(row.task_id, true)
     }
@@ -400,8 +401,8 @@ fn run(
     )
 
     let state_reasons = clone_strings(project_reasons)
-    let completed : Map[String, Bool] = {}
-    let seen : Map[String, Bool] = {}
+    let completed : Map[String, Bool] = Map([])
+    let seen : Map[String, Bool] = Map([])
     for row in rows {
       if row.task_id.is_empty() || seen.get(row.task_id) is Some(_) {
         state_reasons.push("duplicate_or_missing_task:" + row.task_id)
@@ -525,12 +526,12 @@ fn run(
 
 ///|
 fn main {
-  let args = @sys.get_cli_args()
+  let args = @env.args()
   if args.length() < 4 {
     println(
       "usage: task_state_promotion_plan <export> <mapping> <output> [--project-id <id>]",
     )
-    @sys.exit(2)
+    @env.exit(2)
   }
   let mut filter : String? = None
   if args.length() >= 6 && args[4] == "--project-id" {
@@ -539,11 +540,11 @@ fn main {
   run(args[1], args[2], args[3], filter) catch {
     TaskStatePromotionPlanError::InvalidInput(message) => {
       println("task-state promotion plan failed: " + message)
-      @sys.exit(1)
+      @env.exit(1)
     }
     TaskStatePromotionPlanError::Io(_) => {
       println("task-state promotion plan failed: filesystem error")
-      @sys.exit(1)
+      @env.exit(1)
     }
   }
 }

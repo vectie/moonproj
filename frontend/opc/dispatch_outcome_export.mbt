@@ -140,7 +140,8 @@ fn dispatch_outcome_submission_matches(
       "provenance_ref": identity + "-handoff.json#/" + key + "_snapshot",
     }
   })
-  if dispatch_json_field(submission, "evidence_refs") != Json::array(expected_refs) {
+  if dispatch_json_field(submission, "evidence_refs") !=
+    Json::array(expected_refs) {
     return false
   }
   let capability = dispatch_json_field(draft, "capability")
@@ -179,7 +180,7 @@ fn dispatch_outcome_digest_shape(value : String) -> Bool {
     return false
   }
   for character in value[7:] {
-    if !(character is ('0'..='9' | 'a'..='f')) {
+    if !(character is ('0'..<='9' | 'a'..<='f')) {
       return false
     }
   }

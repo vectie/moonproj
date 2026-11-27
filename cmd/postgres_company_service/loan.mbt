@@ -13,7 +13,7 @@ fn loan_integer(
   value : Json,
   key : String,
   required : Bool,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   let number = match json_field(value, key) {
     Some(Number(value, ..)) => value
     Some(String(text)) => parse_number(text.trim().to_owned())
@@ -35,7 +35,7 @@ fn loan_amount_minor(
   body : Json,
   key : String,
   required : Bool,
-) -> Int raise CompanyServiceError {
+) -> Int32 raise CompanyServiceError {
   match json_field(body, key) {
     Some(_) => loan_integer(body, key, required)
     None if key == "amount_minor" =>
@@ -135,7 +135,7 @@ fn loan_authority(
   principal_id : String,
   employee_id : String,
   capability : String,
-  amount_minor : Int,
+  amount_minor : Int32,
 ) -> Json raise CompanyServiceError {
   let grant = match json_field(body, "authority") {
     Some(Object(_)) => json_field(body, "authority").unwrap()
@@ -174,7 +174,7 @@ fn loan_authority(
 ///|
 async fn loan_projection_latest(
   loan_id : String,
-) -> (Json, Int)? raise CompanyServiceError {
+) -> (Json, Int32)? raise CompanyServiceError {
   let output = run_sql(
     "SELECT revision::text, encode(convert_to(payload::text, 'UTF8'), 'hex') " +
     "FROM company_aggregate_projection WHERE aggregate_type = 'employee_advance' AND aggregate_id = " +
@@ -540,7 +540,7 @@ async fn loan_read_response(
 ///|
 async fn loan_detail_response(
   loan_id : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   let items = loan_read_items(Some(loan_id), None)
   if items.is_empty() {
     return (404, Json::object({ "error": Json::string("loan not found") }))
@@ -724,7 +724,7 @@ async fn loan_command_request(
     return (id, base_request, false, "Approved", "Approved", Some(current))
   }
   if command_type == "update" {
-    let changes : Map[String, Json] = {}
+    let changes : Map[String, Json] = Map([])
     if json_field(body, "subject") is Some(_) {
       changes.set(
         "subject",
@@ -802,7 +802,7 @@ async fn loan_command(
   body : Json,
   actor_id : String,
   idempotency_key : String,
-) -> (Int, Json) raise CompanyServiceError {
+) -> (Int32, Json) raise CompanyServiceError {
   if !["create", "submit", "offset", "sync_from_workflow", "update", "void"].contains(
       command_type,
     ) {

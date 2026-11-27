@@ -31,7 +31,7 @@ fn plan_ai_suggest_response(body : Json) -> Json raise CompanyServiceError {
     "项目经理", "投资经理", "设计经理", "工程经理", "工程经理",
     "项目经理", "运营经理",
   ]
-  let offsets : Array[Int] = [0, 30, 90, 180, 270, 330, 365]
+  let offsets : Array[Int32] = [0, 30, 90, 180, 270, 330, 365]
   let nodes : Array[Json] = []
   for index in 0..<names.length() {
     nodes.push(

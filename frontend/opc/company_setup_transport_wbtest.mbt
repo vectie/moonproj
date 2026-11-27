@@ -36,7 +36,7 @@ extern "js" fn setup_transport_events() -> String =
   #| () => globalThis.__setupTransport.events.join("|")
 
 ///|
-extern "js" fn setup_transport_request(index : Int) -> String =
+extern "js" fn setup_transport_request(index : Int32) -> String =
   #| index => JSON.stringify(globalThis.__setupTransport.requests[index] || null)
 
 ///|
